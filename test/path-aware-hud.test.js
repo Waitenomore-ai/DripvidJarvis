@@ -13,7 +13,6 @@ test('HUD derives API prefix from /jarvis path', () => {
   assert.match(source, /apiPath\(['"]\/api\/tools['"]\)/);
   assert.match(source, /apiPath\(['"]\/api\/confirmations['"]\)/);
   assert.match(source, /apiPath\(['"]\/api\/conversation['"]\)/);
-  assert.match(source, /apiPath\(['"]\/api\/confirm['"]\)/);
 });
 
 test('HUD never hard-codes localhost JARVIS address', () => {

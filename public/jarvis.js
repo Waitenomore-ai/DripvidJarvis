@@ -14,33 +14,6 @@ function apiPath(path) {
   return `${prefix}${path}`;
 }
 
-function setStatus(element, status) {
-  element.textContent =
-    String(status || 'unknown')
-      .toUpperCase();
-
-  element.classList.remove(
-    'online',
-    'degraded',
-    'offline'
-  );
-
-  element.classList.add(
-    status || 'offline'
-  );
-}
-
-function logActivity(message) {
-  const activity = $('activity');
-
-  const time =
-    new Date().toLocaleTimeString();
-
-  activity.textContent =
-    `[${time}] ${message}\n` +
-    activity.textContent;
-}
-
 async function api(
   url,
   options = {}
@@ -56,7 +29,9 @@ async function api(
     });
 
   const body =
-    await response.json();
+    await response
+      .json()
+      .catch(() => ({}));
 
   if (!response.ok) {
     throw new Error(
@@ -68,127 +43,328 @@ async function api(
   return body;
 }
 
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function setBadge(id, status) {
+  const element = $(id);
+
+  const normalized =
+    String(status || 'offline')
+      .toLowerCase();
+
+  element.classList.remove(
+    'online',
+    'degraded',
+    'offline'
+  );
+
+  element.classList.add(
+    normalized === 'online'
+      ? 'online'
+      : normalized === 'degraded' ||
+        normalized === 'auth-required'
+        ? 'degraded'
+        : 'offline'
+  );
+
+  element.textContent =
+    normalized.toUpperCase();
+}
+
+function setReactor(status) {
+  const reactor = $('reactor');
+
+  reactor.classList.remove(
+    'online',
+    'degraded',
+    'offline'
+  );
+
+  reactor.classList.add(
+    status || 'offline'
+  );
+}
+
+function addActivity(text) {
+  const root = $('activity');
+
+  const row =
+    document.createElement('div');
+
+  row.className = 'activity-item';
+
+  row.innerHTML =
+    `<span class="activity-time">
+      ${new Date().toLocaleTimeString()}
+     </span>
+     ${escapeHtml(text)}`;
+
+  root.prepend(row);
+
+  while (
+    root.children.length > 40
+  ) {
+    root.lastElementChild.remove();
+  }
+}
+
+function updateClock() {
+  const now = new Date();
+
+  $('clock').textContent =
+    now.toLocaleTimeString();
+
+  $('date').textContent =
+    now.toLocaleDateString(
+      undefined,
+      {
+        weekday: 'short',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      }
+    );
+
+  $('telemetry').textContent =
+    `Telemetry ${now
+      .toLocaleTimeString()}`;
+}
+
 async function refreshHealth() {
   try {
     const health =
-      await api(apiPath('/api/health'));
+      await api(
+        apiPath('/api/health')
+      );
 
-    setStatus(
-      $('status-jarvis'),
+    setBadge(
+      'jarvis-status',
       health.status
     );
 
-    setStatus(
-      $('status-dripvid'),
-      health.dependencies
-        .dripvid.status
+    const dependencies =
+      health.dependencies || {};
+
+    setBadge(
+      'dripvid-status',
+      dependencies.dripvid?.status
     );
 
-    setStatus(
-      $('status-mcp'),
-      health.dependencies
-        .mcp.status
+    setBadge(
+      'mcp-status',
+      dependencies.mcp?.status
     );
 
-    setStatus(
-      $('status-techai'),
-      health.dependencies
-        .techai.status
+    setBadge(
+      'techai-status',
+      dependencies.techai?.status
     );
 
-    const reactor =
-      $('reactor');
+    setReactor(health.status);
 
-    reactor.classList.remove(
-      'online',
-      'degraded',
-      'offline'
-    );
+    const overall =
+      $('overallHealth');
 
-    reactor.classList.add(
-      health.status
-    );
+    const detail =
+      $('healthDetail');
 
-    $('overall-status').textContent =
-      health.status.toUpperCase();
+    if (
+      health.status === 'online'
+    ) {
+      overall.textContent =
+        'All systems operational';
 
-    $('last-update').textContent =
-      `Telemetry ${new Date(
-        health.timestamp
-      ).toLocaleTimeString()}`;
+      detail.textContent =
+        'No issues detected';
+    } else {
+      overall.textContent =
+        'System operating in degraded mode';
+
+      detail.textContent =
+        'Check service cards for details';
+    }
   } catch (error) {
-    setStatus(
-      $('status-jarvis'),
+    setBadge(
+      'jarvis-status',
       'offline'
     );
 
-    $('overall-status').textContent =
-      'OFFLINE';
+    setReactor('offline');
 
-    logActivity(
+    $('overallHealth').textContent =
+      'JARVIS unavailable';
+
+    $('healthDetail').textContent =
+      error.message;
+
+    addActivity(
       `Health failure: ${error.message}`
     );
   }
 }
 
+let allTools = [];
+
 async function refreshTools() {
+  const root = $('toolList');
+
   try {
     const data =
-      await api(apiPath('/api/tools'));
+      await api(
+        apiPath('/api/tools')
+      );
 
-    const root = $('tools');
+    allTools =
+      Array.isArray(data)
+        ? data
+        : data.tools || [];
 
-    if (!data.tools.length) {
-      root.textContent =
-        'No tools available.';
-      return;
-    }
-
-    root.innerHTML =
-      data.tools
-        .map((tool) => `
-          <div class="tool">
-            <strong>${escapeHtml(
-              tool.name
-            )}</strong>
-            <small>${escapeHtml(
-              tool.description || ''
-            )}</small>
-            ${
-              tool.mutating
-                ? '<div class="mutation">CONFIRMATION REQUIRED</div>'
-                : '<div>READ ONLY</div>'
-            }
-          </div>
-        `)
-        .join('');
+    renderTools(allTools);
   } catch (error) {
-    $('tools').textContent =
+    root.textContent =
       'Tool discovery unavailable.';
 
-    logActivity(
+    addActivity(
       `Tools failure: ${error.message}`
     );
   }
 }
 
+function renderTools(tools) {
+  const root = $('toolList');
+
+  root.textContent = '';
+
+  if (!tools.length) {
+    root.textContent =
+      'No read-only tools available.';
+    return;
+  }
+
+  for (const tool of tools) {
+    const row =
+      document.createElement('div');
+
+    row.className = 'tool';
+
+    row.innerHTML = `
+      <div class="tool-icon">⌁</div>
+
+      <div class="tool-meta">
+        <div class="tool-name">
+          ${escapeHtml(tool.name || '')}
+        </div>
+
+        <div class="tool-desc">
+          ${escapeHtml(
+            tool.description ||
+            'Read-only diagnostic tool'
+          )}
+        </div>
+
+        <span class="tool-tag">
+          READ ONLY
+        </span>
+      </div>
+    `;
+
+    root.appendChild(row);
+  }
+}
+
+$('toolSearch').addEventListener(
+  'input',
+  (event) => {
+    const query =
+      event.target.value
+        .toLowerCase();
+
+    renderTools(
+      allTools.filter((tool) =>
+        `${tool.name} ${tool.description || ''}`
+          .toLowerCase()
+          .includes(query)
+      )
+    );
+  }
+);
+
+function refreshMetrics() {
+  $('cpu').textContent =
+    navigator.hardwareConcurrency
+      ? `${navigator.hardwareConcurrency} cores`
+      : '—';
+
+  $('memory').textContent =
+    navigator.deviceMemory
+      ? `${navigator.deviceMemory} GB`
+      : '—';
+
+  $('network').textContent =
+    navigator.onLine
+      ? 'Online'
+      : 'Offline';
+
+  if (
+    navigator.storage &&
+    navigator.storage.estimate
+  ) {
+    navigator.storage.estimate()
+      .then((estimate) => {
+        const usage = estimate.usage;
+        const quota = estimate.quota;
+
+        $('storage').textContent =
+          usage && quota &&
+          quota !==
+            Number.MAX_SAFE_INTEGER
+            ? `${(usage / 1024 ** 3)
+                .toFixed(1)} / ${(quota / 1024 ** 3)
+                .toFixed(0)} GB`
+            : '—';
+      })
+      .catch(() => {
+        $('storage').textContent = '—';
+      });
+  } else {
+    $('storage').textContent = '—';
+  }
+}
+
 function addMessage(role, text) {
-  const node =
+  const item =
     document.createElement('div');
 
-  node.className =
-    `message ${role}`;
+  item.className =
+    `message ${
+      role === 'user'
+        ? 'you'
+        : 'jarvis'
+    }`;
 
-  node.textContent =
-    `${role === 'user'
-      ? 'OPERATOR'
-      : 'JARVIS'} > ${text}`;
+  item.innerHTML = `
+    <strong>
+      ${role === 'user'
+        ? 'YOU'
+        : 'JARVIS'}
+    </strong>
+    <br><br>
+    ${escapeHtml(text)}
+  `;
 
-  $('conversation')
-    .appendChild(node);
+  const log = $('chatLog');
 
-  $('conversation').scrollTop =
-    $('conversation').scrollHeight;
+  log.appendChild(item);
+
+  log.scrollTop =
+    log.scrollHeight;
 }
 
 async function sendConversation(text) {
@@ -215,7 +391,7 @@ async function sendConversation(text) {
     response.message ||
     (
       response.degraded
-        ? 'Tech-AI unavailable.'
+        ? 'Artificial intelligence engine unavailable.'
         : 'Command processed.'
     );
 
@@ -224,16 +400,13 @@ async function sendConversation(text) {
     content: message
   });
 
-  addMessage(
-    'jarvis',
-    message
-  );
+  addMessage('jarvis', message);
 
   for (
     const result of
     response.toolResults || []
   ) {
-    logActivity(
+    addActivity(
       `${result.name || 'tool'}: ${
         result.ok
           ? 'completed'
@@ -245,6 +418,182 @@ async function sendConversation(text) {
   await refreshConfirmations();
 }
 
+async function sendMessage() {
+  const input =
+    $('message');
+
+  const text =
+    input.value.trim();
+
+  if (!text) {
+    return;
+  }
+
+  input.value = '';
+
+  addActivity(
+    'Request sent'
+  );
+
+  try {
+    await sendConversation(text);
+
+    addActivity(
+      'JARVIS request completed'
+    );
+  } catch (error) {
+    addMessage(
+      'jarvis',
+      'I cannot reach the AI service at the moment.'
+    );
+
+    addActivity(
+      `Request failed: ${error.message}`
+    );
+  }
+}
+
+function quick(text) {
+  $('message').value = text;
+
+  sendMessage();
+}
+
+$('sendButton').addEventListener(
+  'click',
+  sendMessage
+);
+
+$('message').addEventListener(
+  'keydown',
+  (event) => {
+    if (
+      event.key === 'Enter' &&
+      !event.shiftKey
+    ) {
+      event.preventDefault();
+
+      sendMessage();
+    }
+  }
+);
+
+for (
+  const button of
+  document.querySelectorAll(
+    '.quick-prompt, .quick-action'
+  )
+) {
+  button.addEventListener(
+    'click',
+    () => {
+      quick(
+        button.dataset.prompt || ''
+      );
+    }
+  );
+}
+
+const SpeechRecognition =
+  window.SpeechRecognition ||
+  window.webkitSpeechRecognition;
+
+const micButton =
+  $('micButton');
+
+const voiceStatus =
+  $('voiceStatus');
+
+const voiceSupported =
+  !!(navigator.mediaDevices &&
+     SpeechRecognition);
+
+let recognition = null;
+
+if (voiceSupported) {
+  voiceStatus.textContent =
+    'Microphone available';
+
+  recognition =
+    new SpeechRecognition();
+
+  recognition.lang =
+    navigator.language || 'en-GB';
+
+  recognition.continuous = false;
+  recognition.interimResults = true;
+
+  recognition.onstart = () => {
+    micButton.classList.add(
+      'listening'
+    );
+
+    voiceStatus.textContent =
+      'Listening...';
+  };
+
+  recognition.onresult = (event) => {
+    let transcript = '';
+
+    for (
+      let i = event.resultIndex;
+      i < event.results.length;
+      i++
+    ) {
+      transcript +=
+        event.results[i][0].transcript;
+    }
+
+    $('message').value = transcript;
+  };
+
+  recognition.onend = () => {
+    micButton.classList.remove(
+      'listening'
+    );
+
+    voiceStatus.textContent =
+      'Microphone detected';
+  };
+
+  recognition.onerror = (event) => {
+    micButton.classList.remove(
+      'listening'
+    );
+
+    voiceStatus.textContent =
+      event.error === 'not-allowed'
+        ? 'Microphone permission denied'
+        : 'Voice input unavailable';
+  };
+
+  micButton.addEventListener(
+    'click',
+    async () => {
+      try {
+        await navigator.mediaDevices
+          .getUserMedia({
+            audio: true
+          });
+
+        recognition.start();
+      } catch {
+        voiceStatus.textContent =
+          'Microphone permission denied';
+      }
+    }
+  );
+} else {
+  micButton.style.display = 'none';
+
+  $('composer').classList.add(
+    'no-voice'
+  );
+
+  voiceStatus.textContent =
+    'Voice input unsupported';
+}
+
 async function refreshConfirmations() {
   try {
     const data =
@@ -252,133 +601,34 @@ async function refreshConfirmations() {
         apiPath('/api/confirmations')
       );
 
-    const root =
-      $('confirmations');
-
-    if (!data.confirmations.length) {
-      root.textContent =
-        'No pending actions.';
-      return;
-    }
-
-    root.innerHTML = '';
-
     for (
       const confirmation of
-      data.confirmations
+      data.confirmations || []
     ) {
-      const item =
-        document.createElement('div');
-
-      item.className =
-        'confirmation';
-
-      const details =
-        document.createElement('div');
-
-      details.textContent =
-        `${confirmation.tool} expires ${new Date(
-          confirmation.expiresAt
-        ).toLocaleTimeString()}`;
-
-      const button =
-        document.createElement('button');
-
-      button.className =
-        'danger';
-
-      button.textContent =
-        'CONFIRM ACTION';
-
-      button.addEventListener(
-        'click',
-        async () => {
-          button.disabled = true;
-
-          try {
-            await api(
-              apiPath('/api/confirm'),
-              {
-                method: 'POST',
-                body: JSON.stringify({
-                  id:
-                    confirmation.id
-                })
-              }
-            );
-
-            logActivity(
-              `Confirmed ${confirmation.tool}`
-            );
-          } catch (error) {
-            logActivity(
-              `Confirmation failed: ${error.message}`
-            );
-          }
-
-          await refreshConfirmations();
-        }
+      addActivity(
+        `Pending confirmation: ${confirmation.tool}`
       );
-
-      item.append(
-        details,
-        button
-      );
-
-      root.appendChild(item);
     }
-  } catch (error) {
-    logActivity(
-      `Confirmation refresh failed: ${error.message}`
-    );
-  }
+  } catch {}
 }
 
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
-}
+updateClock();
 
-$('chat-form')
-  .addEventListener(
-    'submit',
-    async (event) => {
-      event.preventDefault();
+setInterval(
+  updateClock,
+  1000
+);
 
-      const input =
-        $('chat-input');
+refreshMetrics();
 
-      const text =
-        input.value.trim();
+setInterval(
+  refreshMetrics,
+  30000
+);
 
-      if (!text) {
-        return;
-      }
-
-      input.value = '';
-
-      try {
-        await sendConversation(
-          text
-        );
-      } catch (error) {
-        addMessage(
-          'jarvis',
-          `Error: ${error.message}`
-        );
-      }
-    }
-  );
-
-setInterval(() => {
-  $('clock').textContent =
-    new Date()
-      .toLocaleTimeString();
-}, 1000);
+refreshHealth();
+refreshTools();
+refreshConfirmations();
 
 setInterval(
   refreshHealth,
@@ -389,10 +639,3 @@ setInterval(
   refreshConfirmations,
   10000
 );
-
-$('clock').textContent =
-  new Date().toLocaleTimeString();
-
-refreshHealth();
-refreshTools();
-refreshConfirmations();
