@@ -166,37 +166,10 @@ function createJarvis({
   } = {}) {
     const availableTools = await tools();
 
-    let response;
-
-    try {
-      response = await techai.chat({
-        conversation:
-          Array.isArray(conversation)
-            ? conversation
-            : [],
-        tools: availableTools,
-        state:
-          state &&
-          typeof state === 'object'
-            ? state
-            : {},
-        options:
-          options &&
-          typeof options === 'object'
-            ? options
-            : {}
-      });
-    } catch (error) {
-      return {
-        message:
-          'Tech-AI is currently unavailable.',
-        toolResults: [],
-        confirmations: [],
-        degraded: true,
-        error:
-          error.message || String(error)
-      };
-    }
+    const messages =
+      Array.isArray(conversation)
+        ? conversation
+        : [];
 
     const toolByName = new Map(
       availableTools.map(
@@ -204,75 +177,220 @@ function createJarvis({
       )
     );
 
+    const requestTools =
+      availableTools.map((tool) => ({
+        name: tool.name,
+        description:
+          tool.description ||
+          tool.name,
+        parameters:
+          tool.inputSchema || {
+            type: 'object',
+            additionalProperties: true
+          }
+      }));
+
     const toolResults = [];
     const confirmations = [];
 
-    for (const call of response.toolCalls) {
-      if (!call ||
-          typeof call.name !== 'string') {
-        toolResults.push({
-          ok: false,
-          error: 'Malformed tool call'
-        });
-        continue;
-      }
+    let response = null;
 
-      const tool =
-        toolByName.get(call.name);
-
-      if (!tool) {
-        toolResults.push({
-          name: call.name,
-          ok: false,
-          error: 'Unknown tool'
-        });
-        continue;
-      }
-
-      const args =
-        call.arguments &&
-        typeof call.arguments === 'object'
-          ? call.arguments
-          : {};
-
-      if (tool.mutating) {
-        confirmations.push(
-          createConfirmation(
-            tool,
-            args
-          )
-        );
-        continue;
-      }
-
+    for (
+      let iteration = 0;
+      iteration < config.maxAgentIterations;
+      iteration++
+    ) {
       try {
-        const result =
-          await executeTool(
-            tool,
-            args
-          );
-
-        toolResults.push({
-          name: tool.name,
-          ok: true,
-          result
+        response = await techai.chat({
+          conversation: messages,
+          tools: requestTools,
+          state:
+            state &&
+            typeof state === 'object'
+              ? state
+              : {},
+          options:
+            options &&
+            typeof options === 'object'
+              ? options
+              : {}
         });
       } catch (error) {
-        toolResults.push({
-          name: tool.name,
-          ok: false,
+        return {
+          message:
+            'Tech-AI is currently unavailable.',
+          toolResults,
+          confirmations,
+          degraded: true,
           error:
-            error.message ||
-            String(error)
+            error.message || String(error)
+        };
+      }
+
+      const calls =
+        Array.isArray(response.toolCalls)
+          ? response.toolCalls
+          : [];
+
+      if (calls.length === 0) {
+        break;
+      }
+
+      const assistantToolCalls = [];
+      const toolMessages = [];
+
+      for (const call of calls) {
+        const callId =
+          call &&
+          typeof call.id === 'string'
+            ? call.id
+            : `call_${toolResults.length}`;
+
+        if (!call ||
+            typeof call.name !== 'string') {
+          toolResults.push({
+            ok: false,
+            error: 'Malformed tool call'
+          });
+
+          toolMessages.push({
+            role: 'tool',
+            tool_call_id: callId,
+            content: JSON.stringify({
+              ok: false,
+              error: 'Malformed tool call'
+            })
+          });
+          continue;
+        }
+
+        assistantToolCalls.push({
+          id: callId,
+          type: 'function',
+          function: {
+            name: call.name,
+            arguments:
+              call.arguments &&
+              typeof call.arguments ===
+                'object'
+                ? JSON.stringify(
+                    call.arguments
+                  )
+                : String(
+                    call.arguments || '{}'
+                  )
+          }
+        });
+
+        const tool =
+          toolByName.get(call.name);
+
+        if (!tool) {
+          toolResults.push({
+            name: call.name,
+            ok: false,
+            error: 'Unknown tool'
+          });
+
+          toolMessages.push({
+            role: 'tool',
+            tool_call_id: callId,
+            content: JSON.stringify({
+              ok: false,
+              error: 'Unknown tool'
+            })
+          });
+          continue;
+        }
+
+        const args =
+          call.arguments &&
+          typeof call.arguments === 'object'
+            ? call.arguments
+            : {};
+
+        if (tool.mutating) {
+          confirmations.push(
+            createConfirmation(
+              tool,
+              args
+            )
+          );
+
+          toolMessages.push({
+            role: 'tool',
+            tool_call_id: callId,
+            content: JSON.stringify({
+              ok: false,
+              error:
+                'Mutation blocked in first release'
+            })
+          });
+          continue;
+        }
+
+        try {
+          const result =
+            await executeTool(
+              tool,
+              args
+            );
+
+          toolResults.push({
+            name: tool.name,
+            ok: true,
+            result
+          });
+
+          toolMessages.push({
+            role: 'tool',
+            tool_call_id: callId,
+            content:
+              JSON.stringify(result)
+          });
+        } catch (error) {
+          toolResults.push({
+            name: tool.name,
+            ok: false,
+            error:
+              error.message ||
+              String(error)
+          });
+
+          toolMessages.push({
+            role: 'tool',
+            tool_call_id: callId,
+            content: JSON.stringify({
+              ok: false,
+              error:
+                error.message ||
+                String(error)
+            })
+          });
+        }
+      }
+
+      if (assistantToolCalls.length) {
+        messages.push({
+          role: 'assistant',
+          content:
+            response.message || '',
+          tool_calls:
+            assistantToolCalls
         });
       }
+
+      messages.push(...toolMessages);
     }
 
     return {
-      message: response.message,
+      message: response
+        ? response.message
+        : '',
       toolResults,
       confirmations,
       suggestedActions:
+        response &&
         response.suggestedActions,
       degraded: false
     };

@@ -68,6 +68,17 @@ function parseSse(text) {
         String(payload.text || '');
     }
 
+    if (type === 'tool_calls') {
+      const calls =
+        Array.isArray(payload.calls)
+          ? payload.calls
+          : [];
+
+      if (calls.length) {
+        output.toolCalls.push(...calls);
+      }
+    }
+
     if (type === 'done') {
       output.provider =
         payload.provider ||
@@ -150,26 +161,58 @@ function createTechAiAdapter({
 
     const requestBody = {
       messages:
-        conversation.map((message) => ({
-          role:
-            String(
-              message &&
-              message.role ||
-              'user'
-            ),
-          content:
-            String(
-              message &&
-              (
-                message.content ??
-                message.text ??
-                ''
+        conversation.map((message) => {
+          const output = {
+            role:
+              String(
+                message &&
+                message.role ||
+                'user'
+              ),
+            content:
+              String(
+                message &&
+                (
+                  message.content ??
+                  message.text ??
+                  ''
+                )
               )
-            )
-        })),
+          };
+
+          if (
+            Array.isArray(
+              message &&
+              message.tool_calls
+            ) &&
+            message.tool_calls.length
+          ) {
+            output.tool_calls =
+              message.tool_calls;
+          }
+
+          if (
+            message &&
+            typeof message.tool_call_id ===
+              'string'
+          ) {
+            output.tool_call_id =
+              message.tool_call_id;
+          }
+
+          return output;
+        }),
       allowFallback:
         options.allowFallback !== false
     };
+
+    if (
+      Array.isArray(payload.tools) &&
+      payload.tools.length
+    ) {
+      requestBody.tools =
+        payload.tools;
+    }
 
     if (options.mode) {
       requestBody.mode =
@@ -208,6 +251,7 @@ function createTechAiAdapter({
             ),
           signal:
             AbortSignal.timeout(
+              config.chatTimeoutMs ||
               config.requestTimeoutMs
             )
         }

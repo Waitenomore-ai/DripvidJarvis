@@ -13,9 +13,12 @@ function setup({
   techaiStatus = 'online',
   mcpTools = [],
   toolCalls = [],
+  rounds = 1,
+  maxAgentIterations = 3,
   now = () => 1000
 } = {}) {
   const calls = [];
+  const chats = [];
 
   const dripvid = {
     health: async () => ({
@@ -53,16 +56,28 @@ function setup({
       name: 'techai',
       status: techaiStatus
     }),
-    chat: async () => ({
-      message: 'Ready',
-      toolCalls,
-      needsConfirmation: false,
-      suggestedActions: []
-    })
+    chat: async (payload) => {
+      chats.push(payload);
+
+      return chats.length <= rounds
+        ? {
+            message: 'Ready',
+            toolCalls,
+            needsConfirmation: false,
+            suggestedActions: []
+          }
+        : {
+            message: 'Final answer',
+            toolCalls: [],
+            needsConfirmation: false,
+            suggestedActions: []
+          };
+    }
   };
 
   const config = {
-    confirmationTtlMs: 1000
+    confirmationTtlMs: 1000,
+    maxAgentIterations
   };
 
   return {
@@ -73,7 +88,8 @@ function setup({
       techai,
       now
     }),
-    calls
+    calls,
+    chats
   };
 }
 
@@ -225,4 +241,128 @@ test('unknown AI tool never executes', async () => {
   assert.equal(calls.length, 0);
   assert.equal(response.toolResults[0].ok, false);
   assert.equal(response.toolResults[0].error, 'Unknown tool');
+});
+
+test('agent loop feeds tool results back to the model', async () => {
+  const { jarvis, calls, chats } = setup({
+    toolCalls: [
+      {
+        name: 'dripvid.health',
+        arguments: {}
+      }
+    ]
+  });
+
+  const result = await jarvis.conversation({
+    conversation: [
+      { role: 'user', content: 'status?' }
+    ]
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(
+    result.toolResults[0].name,
+    'dripvid.health'
+  );
+  assert.equal(result.message, 'Final answer');
+
+  assert.ok(chats.length >= 2);
+
+  const roundTrip = chats[1].conversation;
+
+  assert.equal(
+    roundTrip[0].role,
+    'user'
+  );
+  assert.equal(
+    roundTrip[0].content,
+    'status?'
+  );
+
+  assert.equal(
+    roundTrip[1].role,
+    'assistant'
+  );
+  assert.equal(
+    roundTrip[1].tool_calls[0].type,
+    'function'
+  );
+  assert.equal(
+    roundTrip[1].tool_calls[0].function.name,
+    'dripvid.health'
+  );
+
+  assert.equal(
+    roundTrip[2].role,
+    'tool'
+  );
+  assert.equal(
+    roundTrip[2].tool_call_id,
+    roundTrip[1].tool_calls[0].id
+  );
+  assert.deepEqual(
+    JSON.parse(roundTrip[2].content),
+    { ok: true }
+  );
+});
+
+test('agent loop stops after max iterations', async () => {
+  const { jarvis, calls } = setup({
+    toolCalls: [
+      {
+        name: 'dripvid.health',
+        arguments: {}
+      }
+    ],
+    rounds: 10,
+    maxAgentIterations: 2
+  });
+
+  const result = await jarvis.conversation({
+    conversation: []
+  });
+
+  assert.equal(calls.length, 2);
+  assert.equal(result.toolResults.length, 2);
+  assert.equal(result.degraded, false);
+});
+
+test('agent loop tool failure is fed back without throwing', async () => {
+  const { jarvis, calls, chats } = setup({
+    mcpTools: [
+      {
+        name: 'mcp.server_info',
+        source: 'mcp',
+        description: 'Read server info',
+        mutating: false
+      }
+    ],
+    toolCalls: [
+      {
+        name: 'mcp.server_info',
+        arguments: {}
+      }
+    ]
+  });
+
+  const result = await jarvis.conversation({
+    conversation: []
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(
+    result.toolResults[0].name,
+    'mcp.server_info'
+  );
+  assert.equal(result.message, 'Final answer');
+
+  const toolMessage =
+    chats[1].conversation.find(
+      (message) => message.role === 'tool'
+    );
+
+  assert.deepEqual(
+    JSON.parse(toolMessage.content),
+    { executed: true }
+  );
 });

@@ -387,3 +387,289 @@ test(
     );
   }
 );
+
+test(
+  'Tech-AI chat omits tools when the tool list is empty',
+  async () => {
+    let requestBody = null;
+
+    const adapter = createTechAiAdapter({
+      config: {
+        techAiHealthUrl:
+          'http://127.0.0.1:3100/health',
+        techAiChatUrl:
+          'http://127.0.0.1:3100/chat',
+        requestTimeoutMs: 1000
+      },
+      fetchImpl: async (url, options) => {
+        requestBody =
+          JSON.parse(options.body);
+
+        return response(
+          200,
+          [
+            'event: done',
+            'data: {"provider":"openai","usage":null}',
+            ''
+          ].join('\n'),
+          {
+            'content-type':
+              'text/event-stream'
+          }
+        );
+      }
+    });
+
+    await adapter.chat({
+      conversation: [
+        {
+          role: 'user',
+          content: 'Hello'
+        }
+      ],
+      tools: []
+    });
+
+    assert.equal(
+      Object.hasOwn(
+        requestBody,
+        'tools'
+      ),
+      false
+    );
+  }
+);
+
+test(
+  'Tech-AI chat forwards tools as function schemas',
+  async () => {
+    let requestBody = null;
+
+    const adapter = createTechAiAdapter({
+      config: {
+        techAiHealthUrl:
+          'http://127.0.0.1:3100/health',
+        techAiChatUrl:
+          'http://127.0.0.1:3100/chat',
+        requestTimeoutMs: 1000
+      },
+      fetchImpl: async (url, options) => {
+        requestBody =
+          JSON.parse(options.body);
+
+        return response(
+          200,
+          [
+            'event: done',
+            'data: {"provider":"openai","usage":null}',
+            ''
+          ].join('\n'),
+          {
+            'content-type':
+              'text/event-stream'
+          }
+        );
+      }
+    });
+
+    await adapter.chat({
+      conversation: [
+        {
+          role: 'user',
+          content: 'Check the server'
+        }
+      ],
+      tools: [
+        {
+          name: 'mcp.server_info',
+          description:
+            'Read server info',
+          parameters: {
+            type: 'object'
+          }
+        }
+      ]
+    });
+
+    assert.deepEqual(
+      requestBody.tools,
+      [
+        {
+          name: 'mcp.server_info',
+          description:
+            'Read server info',
+          parameters: {
+            type: 'object'
+          }
+        }
+      ]
+    );
+  }
+);
+
+test(
+  'Tech-AI chat preserves assistant tool_calls and tool results',
+  async () => {
+    let requestBody = null;
+
+    const adapter = createTechAiAdapter({
+      config: {
+        techAiHealthUrl:
+          'http://127.0.0.1:3100/health',
+        techAiChatUrl:
+          'http://127.0.0.1:3100/chat',
+        requestTimeoutMs: 1000
+      },
+      fetchImpl: async (url, options) => {
+        requestBody =
+          JSON.parse(options.body);
+
+        return response(
+          200,
+          [
+            'event: done',
+            'data: {"provider":"openai","usage":null}',
+            ''
+          ].join('\n'),
+          {
+            'content-type':
+              'text/event-stream'
+          }
+        );
+      }
+    });
+
+    await adapter.chat({
+      conversation: [
+        {
+          role: 'user',
+          content: 'Check the server'
+        },
+        {
+          role: 'assistant',
+          content: '',
+          tool_calls: [
+            {
+              id: 'call_1',
+              type: 'function',
+              function: {
+                name: 'mcp.server_info',
+                arguments: '{}'
+              }
+            }
+          ]
+        },
+        {
+          role: 'tool',
+          tool_call_id: 'call_1',
+          content: '{"host":"bar"}'
+        }
+      ],
+      tools: [
+        {
+          name: 'mcp.server_info',
+          description:
+            'Read server info',
+          parameters: {
+            type: 'object'
+          }
+        }
+      ]
+    });
+
+    assert.deepEqual(
+      requestBody.messages[1],
+      {
+        role: 'assistant',
+        content: '',
+        tool_calls: [
+          {
+            id: 'call_1',
+            type: 'function',
+            function: {
+              name: 'mcp.server_info',
+              arguments: '{}'
+            }
+          }
+        ]
+      }
+    );
+
+    assert.deepEqual(
+      requestBody.messages[2],
+      {
+        role: 'tool',
+        content: '{"host":"bar"}',
+        tool_call_id: 'call_1'
+      }
+    );
+  }
+);
+
+test(
+  'Tech-AI chat parses the tool_calls SSE event',
+  async () => {
+    const adapter = createTechAiAdapter({
+      config: {
+        techAiHealthUrl:
+          'http://127.0.0.1:3100/health',
+        techAiChatUrl:
+          'http://127.0.0.1:3100/chat',
+        requestTimeoutMs: 1000
+      },
+      fetchImpl: async () =>
+        response(
+          200,
+          [
+            'event: token',
+            'data: {"text":"Checking"}',
+            '',
+            'event: tool_calls',
+            'data: {"calls":[{"id":"call_1","name":"mcp.server_info","arguments":{"depth":"brief"}}]}',
+            '',
+            'event: done',
+            'data: {"provider":"openai","usage":{"inputTokens":5,"outputTokens":1}}',
+            ''
+          ].join('\n'),
+          {
+            'content-type':
+              'text/event-stream'
+          }
+        )
+    });
+
+    const result = await adapter.chat({
+      conversation: [
+        {
+          role: 'user',
+          content: 'Check the server'
+        }
+      ],
+      tools: [
+        {
+          name: 'mcp.server_info',
+          description:
+            'Read server info'
+        }
+      ]
+    });
+
+    assert.equal(
+      result.message,
+      'Checking'
+    );
+
+    assert.deepEqual(
+      result.toolCalls,
+      [
+        {
+          id: 'call_1',
+          name: 'mcp.server_info',
+          arguments: {
+            depth: 'brief'
+          }
+        }
+      ]
+    );
+  }
+);

@@ -60,6 +60,18 @@ function loadConfig(env = process.env) {
         3000
       ),
 
+    chatTimeoutMs:
+      parsePositiveInteger(
+        env.JARVIS_CHAT_TIMEOUT_MS,
+        120000
+      ),
+
+    maxAgentIterations:
+      parsePositiveInteger(
+        env.JARVIS_MAX_AGENT_ITERATIONS,
+        5
+      ),
+
     confirmationTtlMs:
       parsePositiveInteger(
         env.JARVIS_CONFIRMATION_TTL_MS,
