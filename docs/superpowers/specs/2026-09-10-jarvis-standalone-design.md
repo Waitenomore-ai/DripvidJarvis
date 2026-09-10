@@ -139,3 +139,26 @@ After standalone JARVIS is stable, a later phase can integrate it into:
 using DripVid's existing administrator authentication.
 
 That integration is outside this milestone.
+
+## Integration Architecture Amendment — 2026-09-10
+
+Live server discovery established the actual dependency topology:
+
+- DripVid remains at http://127.0.0.1:3000.
+- DripVid protected endpoints returning HTTP 401 are reachable/auth-required, not offline.
+- MCP remains at http://127.0.0.1:8788/mcp and requires MCP_BEARER_TOKEN.
+- JARVIS receives the MCP credential only through JARVIS_MCP_BEARER environment configuration.
+- Tech-AI at http://127.0.0.1:3100 replaces standalone AI-HQ as the primary AI backend.
+- Tech-AI health endpoint is GET /health.
+- Tech-AI conversation endpoint is POST /chat and responds using server-sent events.
+- Tech-AI currently routes among OpenAI, Anthropic and Gemini.
+- No standalone AI-HQ service on port 9001 is required for this milestone.
+- Native HQ functionality remains part of the DripVid application architecture.
+
+Safety requirements remain unchanged:
+
+- JARVIS binds only to 127.0.0.1.
+- Read-only operations may execute directly.
+- Mutating operations require expiring single-use confirmation.
+- Secrets are never committed or printed.
+- This work does not deploy JARVIS, modify nginx, or restart production services.
