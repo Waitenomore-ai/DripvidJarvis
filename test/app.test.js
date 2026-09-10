@@ -60,6 +60,11 @@ test(
     );
 
     assert.equal(
+      config.elevenLabsVoiceId,
+      'wDsJlOXPqcvIUKdLXjDs'
+    );
+
+    assert.equal(
       config.brainPath,
       path.resolve(
         __dirname,

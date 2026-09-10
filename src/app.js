@@ -24,6 +24,10 @@ const {
 } = require('./adapters/router');
 
 const {
+  createElevenLabsAdapter
+} = require('./adapters/elevenlabs');
+
+const {
   createBrain
 } = require('./brain');
 
@@ -218,6 +222,12 @@ function createRuntime({
       now
     });
 
+  const tts =
+    createElevenLabsAdapter({
+      config,
+      fetchImpl
+    });
+
   const brain =
     createBrain({ config });
 
@@ -233,7 +243,8 @@ function createRuntime({
 
   return {
     config,
-    jarvis
+    jarvis,
+    tts
   };
 }
 
@@ -246,6 +257,11 @@ function createApp(options = {}) {
     options.jarvis ||
     runtime.jarvis;
 
+  const tts =
+    options.tts ||
+    runtime.tts ||
+    null;
+
   return http.createServer(
     async (req, res) => {
       try {
@@ -253,11 +269,17 @@ function createApp(options = {}) {
           req.method === 'GET' &&
           req.url === '/api/health'
         ) {
-          sendJson(
-            res,
-            200,
-            await jarvis.health()
-          );
+          const health =
+            await jarvis.health();
+
+          if (tts) {
+            health.dependencies = {
+              ...(health.dependencies || {}),
+              tts: await tts.health()
+            };
+          }
+
+          sendJson(res, 200, health);
           return;
         }
 
@@ -337,6 +359,57 @@ function createApp(options = {}) {
               {
                 error:
                   error.message
+              }
+            );
+          }
+
+          return;
+        }
+
+        if (
+          req.method === 'POST' &&
+          req.url === '/api/tts'
+        ) {
+          if (!tts) {
+            sendJson(
+              res,
+              501,
+              {
+                error:
+                  'Voice is not configured'
+              }
+            );
+            return;
+          }
+
+          const body =
+            await readJson(req);
+
+          try {
+            const audio =
+              await tts.speak(
+                body.text
+              );
+
+            res.statusCode = 200;
+            res.setHeader(
+              'content-type',
+              audio.contentType ||
+                'audio/mpeg'
+            );
+            res.setHeader(
+              'cache-control',
+              'no-store'
+            );
+            res.end(audio.audio);
+          } catch (error) {
+            sendJson(
+              res,
+              400,
+              {
+                error:
+                  error.message ||
+                  'Cannot synthesize speech'
               }
             );
           }

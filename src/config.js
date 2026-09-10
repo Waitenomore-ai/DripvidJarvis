@@ -70,6 +70,21 @@ function loadConfig(env = process.env) {
         600000
       ),
 
+    elevenLabsBaseUrl:
+      env.JARVIS_ELEVENLABS_BASE_URL ||
+      'https://api.elevenlabs.io/v1',
+
+    elevenLabsApiKey:
+      env.JARVIS_ELEVENLABS_API_KEY || '',
+
+    elevenLabsVoiceId:
+      env.JARVIS_ELEVENLABS_VOICE_ID ||
+      'wDsJlOXPqcvIUKdLXjDs',
+
+    elevenLabsModel:
+      env.JARVIS_ELEVENLABS_MODEL ||
+      'eleven_turbo_v2_5',
+
     brainPath:
       env.JARVIS_BRAIN_PATH ||
       path.resolve(

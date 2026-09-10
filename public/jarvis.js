@@ -184,6 +184,19 @@ async function refreshHealth() {
         ? `${dependencies.brain.memoryCount} memories`
         : '—';
 
+    const voiceStatus =
+      $('voice-status');
+
+    const voiceHealth =
+      dependencies.tts;
+
+    voiceStatus.textContent =
+      voiceHealth
+        ? `${voiceHealth.status}${voiceHealth.status === 'online' ? ` ${voiceHealth.voiceId}` : ''}`
+        : voiceSupported
+          ? 'browser'
+          : '—';
+
     setReactor(health.status);
 
     const overall =
@@ -530,33 +543,34 @@ const speechSupported =
   typeof window.SpeechSynthesisUtterance !==
     'undefined';
 
+const audioSupported =
+  typeof window.Audio === 'function';
+
 let voiceEnabled =
   localStorage.getItem(
     'jarvis-voice-output'
   ) === '1';
 
+let currentAudio = null;
+
 function stopSpeaking() {
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio = null;
+  }
+
   if (speechSupported) {
     window.speechSynthesis.cancel();
   }
 }
 
-function speakAnswer(text) {
-  if (!speechSupported || !voiceEnabled) {
+function browserSpeak(text) {
+  if (!speechSupported) {
     return;
   }
-
-  const content =
-    String(text || '').trim();
-
-  if (!content) {
-    return;
-  }
-
-  stopSpeaking();
 
   const utterance =
-    new SpeechSynthesisUtterance(content);
+    new SpeechSynthesisUtterance(text);
 
   utterance.lang =
     navigator.language || 'en-GB';
@@ -581,6 +595,73 @@ function speakAnswer(text) {
   }
 
   window.speechSynthesis.speak(utterance);
+}
+
+async function speakAnswer(text) {
+  const content =
+    String(text || '').trim();
+
+  if (!voiceEnabled || !content) {
+    return;
+  }
+
+  stopSpeaking();
+
+  if (audioSupported) {
+    try {
+      const response =
+        await fetch(
+          apiPath('/api/tts'),
+          {
+            method: 'POST',
+            headers: {
+              'content-type':
+                'application/json'
+            },
+            body:
+              JSON.stringify({
+                text: content
+              })
+          }
+        );
+
+      if (response.ok) {
+        const blob =
+          await response.blob();
+
+        const url =
+          URL.createObjectURL(blob);
+
+        currentAudio =
+          new Audio(url);
+
+        const cleanup = () => {
+          if (currentAudio) {
+            currentAudio.pause();
+            currentAudio = null;
+          }
+
+          URL.revokeObjectURL(url);
+        };
+
+        currentAudio.onended =
+          cleanup;
+
+        currentAudio.onerror =
+          cleanup;
+
+        await currentAudio
+          .play()
+          .catch(cleanup);
+
+        return;
+      }
+    } catch {
+      stopSpeaking();
+    }
+  }
+
+  browserSpeak(content);
 }
 
 const voiceButton =
