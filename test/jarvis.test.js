@@ -24,25 +24,16 @@ function setup({
     }),
     listTools: () => [
       {
-        name:
-          'dripvid.health',
+        name: 'dripvid.health',
         source: 'dripvid',
         description: 'Health',
         mutating: false
       }
     ],
-    callTool:
-      async (name, args) => {
-        calls.push({
-          source: 'dripvid',
-          name,
-          args
-        });
-
-        return {
-          ok: true
-        };
-      }
+    callTool: async (name, args) => {
+      calls.push({ source: 'dripvid', name, args });
+      return { ok: true };
+    }
   };
 
   const mcp = {
@@ -50,20 +41,11 @@ function setup({
       name: 'mcp',
       status: mcpStatus
     }),
-    listTools:
-      async () => mcpTools,
-    callTool:
-      async (name, args) => {
-        calls.push({
-          source: 'mcp',
-          name,
-          args
-        });
-
-        return {
-          executed: true
-        };
-      }
+    listTools: async () => mcpTools,
+    callTool: async (name, args) => {
+      calls.push({ source: 'mcp', name, args });
+      return { executed: true };
+    }
   };
 
   const techai = {
@@ -95,309 +77,152 @@ function setup({
   };
 }
 
-test(
-  'health reports online when all dependencies are online',
-  async () => {
-    const { jarvis } =
-      setup();
+test('health reports online when all dependencies are online', async () => {
+  const { jarvis } = setup();
+  const result = await jarvis.health();
+  assert.equal(result.status, 'online');
+});
 
-    const result =
-      await jarvis.health();
+test('health reports degraded when one dependency is offline', async () => {
+  const { jarvis } = setup({ mcpStatus: 'offline' });
+  const result = await jarvis.health();
+  assert.equal(result.status, 'degraded');
+});
 
-    assert.equal(
-      result.status,
-      'online'
-    );
-  }
-);
+test('health reports offline when every dependency is offline', async () => {
+  const { jarvis } = setup({
+    dripvidStatus: 'offline',
+    mcpStatus: 'offline',
+    techaiStatus: 'offline'
+  });
+  const result = await jarvis.health();
+  assert.equal(result.status, 'offline');
+});
 
-test(
-  'health reports degraded when one dependency is offline',
-  async () => {
-    const { jarvis } =
-      setup({
-        mcpStatus: 'offline'
-      });
-
-    const result =
-      await jarvis.health();
-
-    assert.equal(
-      result.status,
-      'degraded'
-    );
-  }
-);
-
-test(
-  'health reports offline when every dependency is offline',
-  async () => {
-    const { jarvis } =
-      setup({
-        dripvidStatus: 'offline',
-        mcpStatus: 'offline',
-        techaiStatus: 'offline'
-      });
-
-    const result =
-      await jarvis.health();
-
-    assert.equal(
-      result.status,
-      'offline'
-    );
-  }
-);
-
-test(
-  'tool discovery preserves DripVid tools when MCP fails',
-  async () => {
-    const base =
-      setup();
-
-    base.jarvis =
-      createJarvis({
-        config: {
-          confirmationTtlMs:
-            1000
-        },
-        dripvid: {
-          health:
-            async () => ({
-              status: 'online'
-            }),
-          listTools: () => [
-            {
-              name:
-                'dripvid.health',
-              source:
-                'dripvid',
-              mutating:
-                false
-            }
-          ],
-          callTool:
-            async () => ({})
-        },
-        mcp: {
-          health:
-            async () => ({
-              status: 'offline'
-            }),
-          listTools:
-            async () => {
-              throw new Error(
-                'offline'
-              );
-            },
-          callTool:
-            async () => ({})
-        },
-        techai: {
-          health:
-            async () => ({
-              status: 'online'
-            }),
-          chat:
-            async () => ({
-              message: '',
-              toolCalls: [],
-              suggestedActions: []
-            })
+test('tool discovery preserves DripVid tools when MCP fails', async () => {
+  const base = setup();
+  base.jarvis = createJarvis({
+    config: { confirmationTtlMs: 1000 },
+    dripvid: {
+      health: async () => ({ status: 'online' }),
+      listTools: () => [
+        {
+          name: 'dripvid.health',
+          source: 'dripvid',
+          mutating: false
         }
-      });
+      ],
+      callTool: async () => ({})
+    },
+    mcp: {
+      health: async () => ({ status: 'offline' }),
+      listTools: async () => {
+        throw new Error('offline');
+      },
+      callTool: async () => ({})
+    },
+    techai: {
+      health: async () => ({ status: 'online' }),
+      chat: async () => ({
+        message: '',
+        toolCalls: [],
+        suggestedActions: []
+      })
+    }
+  });
 
-    const tools =
-      await base.jarvis.tools();
+  const tools = await base.jarvis.tools();
+  assert.equal(tools.length, 1);
+  assert.equal(tools[0].name, 'dripvid.health');
+});
 
-    assert.equal(
-      tools.length,
-      1
-    );
+test('read-only tool executes immediately', async () => {
+  const { jarvis, calls } = setup({
+    toolCalls: [
+      {
+        name: 'dripvid.health',
+        arguments: {}
+      }
+    ]
+  });
 
-    assert.equal(
-      tools[0].name,
-      'dripvid.health'
-    );
-  }
-);
+  const result = await jarvis.conversation({ conversation: [] });
+  assert.equal(calls.length, 1);
+  assert.equal(result.confirmations.length, 0);
+  assert.equal(result.toolResults[0].ok, true);
+});
 
-test(
-  'read-only tool executes immediately',
-  async () => {
-    const { jarvis, calls } =
-      setup({
-        toolCalls: [
-          {
-            name:
-              'dripvid.health',
-            arguments: {}
-          }
-        ]
-      });
+test('mutating MCP tools are hidden from first-release discovery', async () => {
+  const { jarvis } = setup({
+    mcpTools: [
+      {
+        name: 'mcp.restart-service',
+        source: 'mcp',
+        description: 'Restart a service',
+        mutating: true
+      },
+      {
+        name: 'mcp.server_info',
+        source: 'mcp',
+        description: 'Read server info',
+        mutating: false
+      }
+    ]
+  });
 
-    const result =
-      await jarvis.conversation({
-        conversation: []
-      });
+  const tools = await jarvis.tools();
+  assert.deepEqual(
+    tools.map((tool) => tool.name),
+    ['dripvid.health', 'mcp.server_info']
+  );
+});
 
-    assert.equal(
-      calls.length,
-      1
-    );
+test('mutating MCP tool calls are blocked instead of queued for confirmation', async () => {
+  const mutatingTool = {
+    name: 'mcp.restart-service',
+    source: 'mcp',
+    description: 'Restart a service',
+    mutating: true
+  };
 
-    assert.equal(
-      result.confirmations.length,
-      0
-    );
+  const { jarvis, calls } = setup({
+    mcpTools: [mutatingTool],
+    toolCalls: [
+      {
+        name: mutatingTool.name,
+        arguments: { service: 'example' }
+      }
+    ]
+  });
 
-    assert.equal(
-      result.toolResults[0].ok,
-      true
-    );
-  }
-);
+  const result = await jarvis.conversation({ conversation: [] });
+  assert.equal(calls.length, 0);
+  assert.equal(result.confirmations.length, 0);
+  assert.equal(result.toolResults[0].ok, false);
+  assert.equal(result.toolResults[0].error, 'Unknown tool');
+});
 
-test(
-  'mutating MCP tool requires confirmation and runs once',
-  async () => {
-    const mutatingTool = {
-      name: 'mcp.restart-service',
-      source: 'mcp',
-      description:
-        'Restart a service',
-      mutating: true
-    };
+test('confirmation endpoint rejects an unknown confirmation id', async () => {
+  const { jarvis, calls } = setup();
+  await assert.rejects(
+    jarvis.confirm('not-a-real-confirmation'),
+    /invalid or already used/
+  );
+  assert.equal(calls.length, 0);
+});
 
-    const { jarvis, calls } =
-      setup({
-        mcpTools: [
-          mutatingTool
-        ],
-        toolCalls: [
-          {
-            name:
-              mutatingTool.name,
-            arguments: {
-              service:
-                'example'
-            }
-          }
-        ]
-      });
+test('unknown AI tool never executes', async () => {
+  const { jarvis, calls } = setup({
+    toolCalls: [
+      {
+        name: 'unknown.delete-everything',
+        arguments: {}
+      }
+    ]
+  });
 
-    const result =
-      await jarvis.conversation({
-        conversation: []
-      });
-
-    assert.equal(
-      calls.length,
-      0
-    );
-
-    assert.equal(
-      result.confirmations.length,
-      1
-    );
-
-    const id =
-      result.confirmations[0].id;
-
-    await jarvis.confirm(id);
-
-    assert.equal(
-      calls.length,
-      1
-    );
-
-    await assert.rejects(
-      jarvis.confirm(id),
-      /invalid or already used/
-    );
-  }
-);
-
-test(
-  'expired confirmation cannot execute',
-  async () => {
-    let clock = 1000;
-
-    const mutatingTool = {
-      name: 'mcp.change',
-      source: 'mcp',
-      mutating: true
-    };
-
-    const { jarvis, calls } =
-      setup({
-        now: () => clock,
-        mcpTools: [
-          mutatingTool
-        ],
-        toolCalls: [
-          {
-            name:
-              mutatingTool.name,
-            arguments: {}
-          }
-        ]
-      });
-
-    const response =
-      await jarvis.conversation({
-        conversation: []
-      });
-
-    const id =
-      response.confirmations[0].id;
-
-    clock = 5000;
-
-    await assert.rejects(
-      jarvis.confirm(id),
-      /expired/
-    );
-
-    assert.equal(
-      calls.length,
-      0
-    );
-  }
-);
-
-test(
-  'unknown AI tool never executes',
-  async () => {
-    const { jarvis, calls } =
-      setup({
-        toolCalls: [
-          {
-            name:
-              'unknown.delete-everything',
-            arguments: {}
-          }
-        ]
-      });
-
-    const response =
-      await jarvis.conversation({
-        conversation: []
-      });
-
-    assert.equal(
-      calls.length,
-      0
-    );
-
-    assert.equal(
-      response.toolResults[0].ok,
-      false
-    );
-
-    assert.equal(
-      response.toolResults[0].error,
-      'Unknown tool'
-    );
-  }
-);
+  const response = await jarvis.conversation({ conversation: [] });
+  assert.equal(calls.length, 0);
+  assert.equal(response.toolResults[0].ok, false);
+  assert.equal(response.toolResults[0].error, 'Unknown tool');
+});
