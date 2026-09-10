@@ -1,0 +1,29 @@
+[Unit]
+Description=DripVid JARVIS
+After=network.target
+
+[Service]
+Type=simple
+User=dripvid-jarvis
+Group=dripvid-jarvis
+WorkingDirectory=/opt/dripvid-jarvis
+EnvironmentFile=/etc/dripvid-jarvis.env
+ExecStart=/usr/bin/node /opt/dripvid-jarvis/src/app.js
+Restart=on-failure
+RestartSec=5
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+ReadWritePaths=/opt/dripvid-jarvis
+
+[Install]
+WantedBy=multi-user.target

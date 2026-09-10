@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  >
+  <title>DripVid JARVIS</title>
+  <link
+    rel="stylesheet"
+    href="/jarvis.css"
+  >
+</head>
+<body>
+  <div class="scanlines"></div>
+
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">
+          DRIPVID OPERATOR SYSTEM
+        </p>
+        <h1>J.A.R.V.I.S.</h1>
+      </div>
+
+      <div
+        id="clock"
+        class="clock"
+      >--:--:--</div>
+    </header>
+
+    <section class="grid">
+      <article
+        class="panel reactor-panel"
+      >
+        <h2>SYSTEM CORE</h2>
+
+        <div
+          id="reactor"
+          class="reactor offline"
+        >
+          <div class="reactor-inner">
+            <span id="overall-status">
+              OFFLINE
+            </span>
+          </div>
+        </div>
+
+        <p
+          id="last-update"
+          class="muted"
+        >
+          Awaiting telemetry
+        </p>
+      </article>
+
+      <article class="panel status-panel">
+        <h2>DEPENDENCIES</h2>
+
+        <div class="status-row">
+          <span>JARVIS</span>
+          <strong id="status-jarvis">
+            UNKNOWN
+          </strong>
+        </div>
+
+        <div class="status-row">
+          <span>DRIPVID</span>
+          <strong id="status-dripvid">
+            UNKNOWN
+          </strong>
+        </div>
+
+        <div class="status-row">
+          <span>MCP</span>
+          <strong id="status-mcp">
+            UNKNOWN
+          </strong>
+        </div>
+
+        <div class="status-row">
+          <span>AI-HQ</span>
+          <strong id="status-aihq">
+            UNKNOWN
+          </strong>
+        </div>
+      </article>
+
+      <article
+        class="panel console-panel"
+      >
+        <h2>CONVERSATION CONSOLE</h2>
+
+        <div
+          id="conversation"
+          class="conversation"
+        >
+          <div class="system-message">
+            JARVIS interface ready.
+          </div>
+        </div>
+
+        <form id="chat-form">
+          <textarea
+            id="chat-input"
+            rows="3"
+            placeholder="Enter command or request..."
+            required
+          ></textarea>
+
+          <button type="submit">
+            TRANSMIT
+          </button>
+        </form>
+      </article>
+
+      <article
+        class="panel tools-panel"
+      >
+        <h2>AVAILABLE TOOLS</h2>
+        <div id="tools">
+          Loading...
+        </div>
+      </article>
+
+      <article
+        class="panel activity-panel"
+      >
+        <h2>ACTIVITY</h2>
+        <div id="activity">
+          System initialized.
+        </div>
+      </article>
+
+      <article
+        class="panel confirmation-panel"
+      >
+        <h2>PENDING CONFIRMATIONS</h2>
+        <div id="confirmations">
+          No pending actions.
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script src="/jarvis.js"></script>
+</body>
+</html>

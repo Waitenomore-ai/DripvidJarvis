@@ -2,46 +2,124 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { spawnSync } = require('node:child_process');
+const fs = require('node:fs');
 const path = require('node:path');
 
-const ROOT = path.resolve(__dirname, '..');
+const {
+  loadConfig
+} = require('../src/config');
 
-test('config defaults bind JARVIS to localhost port 3342', () => {
-  const script = `
-    const { loadConfig } = require('./src/config');
-    const config = loadConfig({});
-    process.stdout.write(JSON.stringify(config));
-  `;
+const {
+  createApp
+} = require('../src/app');
 
-  const result = spawnSync(process.execPath, ['-e', script], {
-    cwd: ROOT,
-    encoding: 'utf8'
-  });
+test(
+  'config defaults bind JARVIS to localhost port 3342',
+  () => {
+    const config =
+      loadConfig({});
 
-  assert.equal(
-    result.status,
-    0,
-    `config module should load successfully:\n${result.stderr}`
-  );
+    assert.equal(
+      config.host,
+      '127.0.0.1'
+    );
 
-  const config = JSON.parse(result.stdout);
+    assert.equal(
+      config.port,
+      3342
+    );
 
-  assert.equal(config.host, '127.0.0.1');
-  assert.equal(config.port, 3342);
-  assert.equal(config.dripvidBaseUrl, 'http://127.0.0.1:3000');
-  assert.equal(config.mcpEndpoint, 'http://127.0.0.1:8788/mcp');
-  assert.equal(config.aihqBaseUrl, 'http://127.0.0.1:9001');
-  assert.equal(config.aihqChatUrl, 'http://127.0.0.1:9001/aihq/chat');
-});
+    assert.equal(
+      config.dripvidBaseUrl,
+      'http://127.0.0.1:3000'
+    );
 
-test('createApp returns an HTTP server without automatically listening', () => {
-  const { createApp } = require('../src/app');
+    assert.equal(
+      config.mcpEndpoint,
+      'http://127.0.0.1:8788/mcp'
+    );
 
-  const server = createApp();
+    assert.equal(
+      config.aihqBaseUrl,
+      'http://127.0.0.1:9001'
+    );
 
-  assert.equal(typeof server.listen, 'function');
-  assert.equal(server.listening, false);
+    assert.equal(
+      config.aihqChatUrl,
+      'http://127.0.0.1:9001/aihq/chat'
+    );
+  }
+);
 
-  server.close();
-});
+test(
+  'createApp returns a server without automatically listening',
+  () => {
+    const jarvis = {
+      health: async () => ({}),
+      tools: async () => [],
+      conversation:
+        async () => ({}),
+      confirm:
+        async () => ({}),
+      pendingConfirmations:
+        () => []
+    };
+
+    const server =
+      createApp({ jarvis });
+
+    assert.equal(
+      typeof server.listen,
+      'function'
+    );
+
+    assert.equal(
+      server.listening,
+      false
+    );
+
+    server.close();
+  }
+);
+
+test(
+  'HUD static files exist',
+  () => {
+    const root =
+      path.resolve(
+        __dirname,
+        '..',
+        'public'
+      );
+
+    assert.equal(
+      fs.existsSync(
+        path.join(
+          root,
+          'index.html'
+        )
+      ),
+      true
+    );
+
+    assert.equal(
+      fs.existsSync(
+        path.join(
+          root,
+          'jarvis.css'
+        )
+      ),
+      true
+    );
+
+    assert.equal(
+      fs.existsSync(
+        path.join(
+          root,
+          'jarvis.js'
+        )
+      ),
+      true
+    );
+  }
+);
