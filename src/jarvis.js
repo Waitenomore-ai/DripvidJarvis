@@ -70,7 +70,9 @@ function createJarvis({
       // Partial tool discovery is intentional.
     }
 
-    return discovered;
+    return discovered.filter(
+      (tool) => tool && tool.mutating === false
+    );
   }
 
   async function executeTool(tool, args = {}) {
