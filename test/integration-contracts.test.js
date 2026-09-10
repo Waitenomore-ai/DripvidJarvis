@@ -345,7 +345,7 @@ test(
 );
 
 test(
-  'MCP parses SSE tools/list responses',
+  'MCP parses SSE tools/list responses and classifies approved diagnostics read-only',
   async () => {
     const adapter = createMcpAdapter({
       config: {
@@ -383,7 +383,7 @@ test(
     );
     assert.equal(
       tools[0].mutating,
-      true
+      false
     );
   }
 );
