@@ -195,27 +195,47 @@ function createJarvis({
 
     let response = null;
 
+    const buildChatRequest = () => ({
+      conversation: messages,
+      tools: requestTools,
+      state:
+        state &&
+        typeof state === 'object'
+          ? state
+          : {},
+      options:
+        options &&
+        typeof options === 'object'
+          ? options
+          : {}
+    });
+
     for (
       let iteration = 0;
       iteration < config.maxAgentIterations;
       iteration++
     ) {
-      try {
-        response = await techai.chat({
-          conversation: messages,
-          tools: requestTools,
-          state:
-            state &&
-            typeof state === 'object'
-              ? state
-              : {},
-          options:
-            options &&
-            typeof options === 'object'
-              ? options
-              : {}
-        });
-      } catch (error) {
+      let chatError = null;
+
+      for (
+        let attempt = 0;
+        attempt < 2;
+        attempt++
+      ) {
+        try {
+          response =
+            await techai.chat(
+              buildChatRequest()
+            );
+
+          chatError = null;
+          break;
+        } catch (error) {
+          chatError = error;
+        }
+      }
+
+      if (chatError) {
         return {
           message:
             'Tech-AI is currently unavailable.',
@@ -223,7 +243,8 @@ function createJarvis({
           confirmations,
           degraded: true,
           error:
-            error.message || String(error)
+            chatError.message ||
+            String(chatError)
         };
       }
 

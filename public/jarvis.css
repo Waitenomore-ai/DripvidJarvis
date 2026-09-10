@@ -529,12 +529,13 @@ button {
 .chat-panel {
   display: flex;
   flex-direction: column;
-  min-height: 590px;
+  height: 620px;
+  min-height: 0;
 }
 
 .chat-log {
-  flex: 1;
-  min-height: 350px;
+  flex: 1 1 0;
+  min-height: 0;
   padding: 16px;
   overflow-y: auto;
 }
@@ -568,6 +569,7 @@ button {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .quick-prompts button {
@@ -590,6 +592,7 @@ button {
   border-radius: 10px;
   overflow: hidden;
   background: rgba(5, 12, 28, .95);
+  flex-shrink: 0;
 }
 
 .composer.no-voice {
@@ -598,7 +601,9 @@ button {
 
 .composer textarea {
   resize: none;
+  height: 70px;
   min-height: 70px;
+  overflow-y: auto;
   border: 0;
   outline: none;
   background: transparent;
@@ -884,7 +889,7 @@ button {
     grid-template-columns: 360px minmax(640px, 1fr) 390px;
   }
 
-  .chat-panel {
-    min-height: 640px;
+.chat-panel {
+    height: 680px;
   }
 }
