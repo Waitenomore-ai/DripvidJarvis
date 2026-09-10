@@ -5,6 +5,15 @@ const conversationHistory = [];
 const $ = (id) =>
   document.getElementById(id);
 
+function apiPath(path) {
+  const prefix =
+    window.location.pathname.startsWith('/jarvis')
+      ? '/jarvis'
+      : '';
+
+  return `${prefix}${path}`;
+}
+
 function setStatus(element, status) {
   element.textContent =
     String(status || 'unknown')
@@ -62,7 +71,7 @@ async function api(
 async function refreshHealth() {
   try {
     const health =
-      await api('/api/health');
+      await api(apiPath('/api/health'));
 
     setStatus(
       $('status-jarvis'),
@@ -125,7 +134,7 @@ async function refreshHealth() {
 async function refreshTools() {
   try {
     const data =
-      await api('/api/tools');
+      await api(apiPath('/api/tools'));
 
     const root = $('tools');
 
@@ -192,7 +201,7 @@ async function sendConversation(text) {
 
   const response =
     await api(
-      '/api/conversation',
+      apiPath('/api/conversation'),
       {
         method: 'POST',
         body: JSON.stringify({
@@ -240,7 +249,7 @@ async function refreshConfirmations() {
   try {
     const data =
       await api(
-        '/api/confirmations'
+        apiPath('/api/confirmations')
       );
 
     const root =
@@ -288,7 +297,7 @@ async function refreshConfirmations() {
 
           try {
             await api(
-              '/api/confirm',
+              apiPath('/api/confirm'),
               {
                 method: 'POST',
                 body: JSON.stringify({
