@@ -6,10 +6,16 @@ function createJarvis({
   config,
   dripvid,
   mcp,
-  aihq,
+  techai,
   now = () => Date.now()
 }) {
   const pending = new Map();
+
+  if (!techai) {
+    throw new TypeError(
+      'Tech-AI adapter is required'
+    );
+  }
 
   function aggregateStatus(statuses) {
     const onlineCount =
@@ -29,17 +35,17 @@ function createJarvis({
   }
 
   async function health() {
-    const [dripvidStatus, mcpStatus, aihqStatus] =
+    const [dripvidStatus, mcpStatus, techAiStatus] =
       await Promise.all([
         dripvid.health(),
         mcp.health(),
-        aihq.health()
+        techai.health()
       ]);
 
     const dependencies = {
       dripvid: dripvidStatus,
       mcp: mcpStatus,
-      aihq: aihqStatus
+      techai: techAiStatus
     };
 
     return {
@@ -161,7 +167,7 @@ function createJarvis({
     let response;
 
     try {
-      response = await aihq.chat({
+      response = await techai.chat({
         conversation:
           Array.isArray(conversation)
             ? conversation
@@ -181,7 +187,7 @@ function createJarvis({
     } catch (error) {
       return {
         message:
-          'AI-HQ is currently unavailable.',
+          'Tech-AI is currently unavailable.',
         toolResults: [],
         confirmations: [],
         degraded: true,

@@ -18,14 +18,14 @@ Default interface: http://127.0.0.1:3342/
 
 - DripVid: http://127.0.0.1:3000
 - MCP: http://127.0.0.1:8788/mcp
-- AI-HQ: http://127.0.0.1:9001
+- Tech-AI: http://127.0.0.1:3100
 
 ## Safety
 
 JARVIS remains bound to localhost during this milestone.
 Read-only operations may execute directly.
 Mutating operations require an expiring single-use confirmation.
-Unknown AI-HQ tool requests are rejected.
+Unknown AI tool requests are rejected.
 Secrets must only be supplied through environment variables.
 
 ## API

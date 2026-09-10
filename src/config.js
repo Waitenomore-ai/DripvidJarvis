@@ -25,9 +25,9 @@ function loadConfig(env = process.env) {
     env.JARVIS_DRIPVID_BASE_URL ||
     'http://127.0.0.1:3000';
 
-  const aihqBaseUrl =
-    env.JARVIS_AIHQ_BASE_URL ||
-    'http://127.0.0.1:9001';
+  const techAiBaseUrl =
+    env.JARVIS_TECHAI_BASE_URL ||
+    'http://127.0.0.1:3100';
 
   return Object.freeze({
     host: env.JARVIS_HOST || '127.0.0.1',
@@ -45,17 +45,14 @@ function loadConfig(env = process.env) {
     mcpBearer:
       env.JARVIS_MCP_BEARER || '',
 
-    aihqBaseUrl,
-    aihqHealthUrl:
-      env.JARVIS_AIHQ_HEALTH_URL ||
-      `${aihqBaseUrl}/health`,
+    techAiBaseUrl,
+    techAiHealthUrl:
+      env.JARVIS_TECHAI_HEALTH_URL ||
+      `${techAiBaseUrl}/health`,
 
-    aihqChatUrl:
-      env.JARVIS_AIHQ_CHAT_URL ||
-      `${aihqBaseUrl}/aihq/chat`,
-
-    aihqAuth:
-      env.JARVIS_AIHQ_AUTH || '',
+    techAiChatUrl:
+      env.JARVIS_TECHAI_CHAT_URL ||
+      `${techAiBaseUrl}/chat`,
 
     requestTimeoutMs:
       parsePositiveInteger(

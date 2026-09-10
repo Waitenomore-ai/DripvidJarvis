@@ -15,7 +15,9 @@ function createMcpAdapter({
 
   function headers() {
     const output = {
-      'content-type': 'application/json'
+      'content-type': 'application/json',
+      accept:
+        'application/json, text/event-stream'
     };
 
     if (config.mcpBearer) {
@@ -24,6 +26,30 @@ function createMcpAdapter({
     }
 
     return output;
+  }
+
+  function parseSseBody(body) {
+    if (typeof body !== 'string') {
+      return body;
+    }
+
+    const dataLine = body
+      .split(/\r?\n/)
+      .find((line) =>
+        line.startsWith('data:')
+      );
+
+    if (!dataLine) {
+      return body;
+    }
+
+    try {
+      return JSON.parse(
+        dataLine.slice(5).trim()
+      );
+    } catch {
+      return body;
+    }
   }
 
   async function rpc(method, params = {}) {
@@ -49,15 +75,17 @@ function createMcpAdapter({
       );
     }
 
-    if (result.body && result.body.error) {
+    const body = parseSseBody(result.body);
+
+    if (body && body.error) {
       throw new Error(
-        result.body.error.message ||
+        body.error.message ||
         'MCP request failed'
       );
     }
 
-    return result.body
-      ? result.body.result
+    return body
+      ? body.result
       : null;
   }
 

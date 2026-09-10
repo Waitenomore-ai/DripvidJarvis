@@ -40,13 +40,13 @@ test(
     );
 
     assert.equal(
-      config.aihqBaseUrl,
-      'http://127.0.0.1:9001'
+      config.techAiBaseUrl,
+      'http://127.0.0.1:3100'
     );
 
     assert.equal(
-      config.aihqChatUrl,
-      'http://127.0.0.1:9001/aihq/chat'
+      config.techAiChatUrl,
+      'http://127.0.0.1:3100/chat'
     );
   }
 );

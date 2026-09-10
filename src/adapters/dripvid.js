@@ -26,8 +26,21 @@ function createDripVidAdapter({
 
       return {
         name: 'dripvid',
-        status: result.ok ? 'online' : 'offline',
+        status:
+          result.ok
+            ? 'online'
+            : result.status === 401 ||
+              result.status === 403
+              ? 'auth-required'
+              : 'offline',
+        reachable:
+          result.ok ||
+          result.status === 401 ||
+          result.status === 403,
         httpStatus: result.status,
+        authRequired:
+          result.status === 401 ||
+          result.status === 403,
         latencyMs: Date.now() - startedAt
       };
     } catch (error) {

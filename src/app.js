@@ -16,8 +16,8 @@ const {
 } = require('./adapters/mcp');
 
 const {
-  createAiHqAdapter
-} = require('./adapters/aihq');
+  createTechAiAdapter
+} = require('./adapters/techai');
 
 const {
   createJarvis
@@ -174,8 +174,8 @@ function createRuntime({
       fetchImpl
     });
 
-  const aihq =
-    createAiHqAdapter({
+  const techai =
+    createTechAiAdapter({
       config,
       fetchImpl
     });
@@ -185,7 +185,7 @@ function createRuntime({
       config,
       dripvid,
       mcp,
-      aihq,
+      techai,
       now
     });
 

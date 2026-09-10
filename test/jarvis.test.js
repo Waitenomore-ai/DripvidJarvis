@@ -10,7 +10,7 @@ const {
 function setup({
   dripvidStatus = 'online',
   mcpStatus = 'online',
-  aihqStatus = 'online',
+  techaiStatus = 'online',
   mcpTools = [],
   toolCalls = [],
   now = () => 1000
@@ -66,10 +66,10 @@ function setup({
       }
   };
 
-  const aihq = {
+  const techai = {
     health: async () => ({
-      name: 'aihq',
-      status: aihqStatus
+      name: 'techai',
+      status: techaiStatus
     }),
     chat: async () => ({
       message: 'Ready',
@@ -88,7 +88,7 @@ function setup({
       config,
       dripvid,
       mcp,
-      aihq,
+      techai,
       now
     }),
     calls
@@ -136,7 +136,7 @@ test(
       setup({
         dripvidStatus: 'offline',
         mcpStatus: 'offline',
-        aihqStatus: 'offline'
+        techaiStatus: 'offline'
       });
 
     const result =
@@ -193,7 +193,7 @@ test(
           callTool:
             async () => ({})
         },
-        aihq: {
+        techai: {
           health:
             async () => ({
               status: 'online'
@@ -367,7 +367,7 @@ test(
 );
 
 test(
-  'unknown AI-HQ tool never executes',
+  'unknown AI tool never executes',
   async () => {
     const { jarvis, calls } =
       setup({

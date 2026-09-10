@@ -82,9 +82,9 @@ async function refreshHealth() {
     );
 
     setStatus(
-      $('status-aihq'),
+      $('status-techai'),
       health.dependencies
-        .aihq.status
+        .techai.status
     );
 
     const reactor =
@@ -206,7 +206,7 @@ async function sendConversation(text) {
     response.message ||
     (
       response.degraded
-        ? 'AI-HQ unavailable.'
+        ? 'Tech-AI unavailable.'
         : 'Command processed.'
     );
 
