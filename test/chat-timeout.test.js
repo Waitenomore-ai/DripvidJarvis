@@ -2,43 +2,48 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createTechAiAdapter } = require('../src/adapters/techai');
-
-function sseMessage(text) {
-  const body = [
-    'event: token',
-    `data: ${JSON.stringify({ text })}`,
-    '',
-    'event: done',
-    `data: ${JSON.stringify({ provider: 'test', usage: null })}`,
-    ''
-  ].join('\n');
-
-  return {
-    ok: true,
-    headers: {
-      get: () => 'text/event-stream'
-    },
-    text: async () => body
-  };
-}
+const { createOpenAiAdapter } = require('../src/adapters/openai');
 
 test('chat uses chatTimeoutMs instead of requestTimeoutMs', async () => {
   const config = {
-    techAiChatUrl: 'http://127.0.0.1:3100/chat',
-    techAiHealthUrl: 'http://127.0.0.1:3100/health',
+    openAiBaseUrl: 'https://api.openai.com/v1',
+    openAiApiKey: 'test-key',
+    openAiModel: 'gpt-test',
     requestTimeoutMs: 10,
     chatTimeoutMs: 1000000
   };
 
-  const adapter = createTechAiAdapter({
+  const adapter = createOpenAiAdapter({
     config,
     fetchImpl: async () => {
       await new Promise(
         (resolve) =>
           setTimeout(resolve, 50)
       );
-      return sseMessage('hi');
+
+      return new Response(
+        JSON.stringify({
+          choices: [
+            {
+              index: 0,
+              message: {
+                role: 'assistant',
+                content: 'hi',
+                tool_calls: []
+              },
+              finish_reason: 'stop'
+            }
+          ],
+          usage: null
+        }),
+        {
+          status: 200,
+          headers: {
+            'content-type':
+              'application/json'
+          }
+        }
+      );
     }
   });
 

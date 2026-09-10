@@ -10,15 +10,18 @@ const {
 function setup({
   dripvidStatus = 'online',
   mcpStatus = 'online',
-  techaiStatus = 'online',
+  brainStatus = 'online',
+  modelStatus = 'online',
   mcpTools = [],
   toolCalls = [],
+  recallResult = [],
   rounds = 1,
   maxAgentIterations = 3,
   now = () => 1000
 } = {}) {
   const calls = [];
   const chats = [];
+  const remembered = [];
 
   const dripvid = {
     health: async () => ({
@@ -51,10 +54,31 @@ function setup({
     }
   };
 
-  const techai = {
+  const brain = {
     health: async () => ({
-      name: 'techai',
-      status: techaiStatus
+      name: 'brain',
+      status: brainStatus,
+      memoryCount: remembered.length
+    }),
+    recall: async () => recallResult,
+    remember: (payload) => {
+      remembered.push(payload);
+      return {
+        id: 'mem_1',
+        text: payload.text,
+        tags: payload.tags || []
+      };
+    },
+    forget: async () => true,
+    stats: () => ({
+      count: remembered.length
+    })
+  };
+
+  const model = {
+    health: async () => ({
+      name: 'model',
+      status: modelStatus
     }),
     chat: async (payload) => {
       chats.push(payload);
@@ -77,7 +101,8 @@ function setup({
 
   const config = {
     confirmationTtlMs: 1000,
-    maxAgentIterations
+    maxAgentIterations,
+    brainRecallLimit: 5
   };
 
   return {
@@ -85,11 +110,13 @@ function setup({
       config,
       dripvid,
       mcp,
-      techai,
+      brain,
+      model,
       now
     }),
     calls,
-    chats
+    chats,
+    remembered
   };
 }
 
@@ -109,10 +136,36 @@ test('health reports offline when every dependency is offline', async () => {
   const { jarvis } = setup({
     dripvidStatus: 'offline',
     mcpStatus: 'offline',
-    techaiStatus: 'offline'
+    brainStatus: 'offline',
+    modelStatus: 'offline'
   });
   const result = await jarvis.health();
   assert.equal(result.status, 'offline');
+});
+
+test('health exposes brain and model dependencies', async () => {
+  const { jarvis } = setup();
+  const result = await jarvis.health();
+  assert.equal(result.dependencies.brain.name, 'brain');
+  assert.equal(result.dependencies.model.name, 'model');
+  assert.equal(
+    Object.hasOwn(result.dependencies, 'techai'),
+    false
+  );
+});
+
+test('brain tools are always discovered', async () => {
+  const { jarvis } = setup();
+  const tools = await jarvis.tools();
+  assert.deepEqual(
+    tools.map((tool) => tool.name),
+    [
+      'brain.remember',
+      'brain.recall',
+      'brain.forget',
+      'dripvid.health'
+    ]
+  );
 });
 
 test('tool discovery preserves DripVid tools when MCP fails', async () => {
@@ -137,7 +190,14 @@ test('tool discovery preserves DripVid tools when MCP fails', async () => {
       },
       callTool: async () => ({})
     },
-    techai: {
+    brain: {
+      health: async () => ({ status: 'online' }),
+      recall: async () => [],
+      remember: () => null,
+      forget: async () => false,
+      stats: () => ({ count: 0 })
+    },
+    model: {
       health: async () => ({ status: 'online' }),
       chat: async () => ({
         message: '',
@@ -148,8 +208,9 @@ test('tool discovery preserves DripVid tools when MCP fails', async () => {
   });
 
   const tools = await base.jarvis.tools();
-  assert.equal(tools.length, 1);
-  assert.equal(tools[0].name, 'dripvid.health');
+  assert.equal(tools.length, 4);
+  assert.equal(tools[0].name, 'brain.remember');
+  assert.equal(tools[3].name, 'dripvid.health');
 });
 
 test('read-only tool executes immediately', async () => {
@@ -189,7 +250,13 @@ test('mutating MCP tools are hidden from first-release discovery', async () => {
   const tools = await jarvis.tools();
   assert.deepEqual(
     tools.map((tool) => tool.name),
-    ['dripvid.health', 'mcp.server_info']
+    [
+      'brain.remember',
+      'brain.recall',
+      'brain.forget',
+      'dripvid.health',
+      'mcp.server_info'
+    ]
   );
 });
 
@@ -365,4 +432,96 @@ test('agent loop tool failure is fed back without throwing', async () => {
     JSON.parse(toolMessage.content),
     { executed: true }
   );
+});
+
+test('recalled memories are injected as system context', async () => {
+  const memory = {
+    id: 'mem_1',
+    text: 'Operator prefers cyan accents',
+    tags: ['preference'],
+    score: 0.9
+  };
+
+  const { jarvis, chats } = setup({
+    recallResult: [memory]
+  });
+
+  await jarvis.conversation({
+    conversation: [
+      { role: 'user', content: 'What do you know about me?' }
+    ]
+  });
+
+  const system = chats[0].conversation[0];
+  assert.equal(system.role, 'system');
+  assert.match(system.content, /Operator prefers cyan accents/);
+});
+
+test('brain.remember tool stores a durable fact', async () => {
+  const { jarvis, remembered } = setup({
+    toolCalls: [
+      {
+        name: 'brain.remember',
+        arguments: {
+          text: 'Operator prefers cyan accents',
+          tags: ['preference']
+        }
+      }
+    ]
+  });
+
+  const result = await jarvis.conversation({
+    conversation: []
+  });
+
+  assert.equal(result.toolResults[0].ok, true);
+  assert.deepEqual(remembered, [
+    {
+      text: 'Operator prefers cyan accents',
+      tags: ['preference'],
+      source: 'operator'
+    }
+  ]);
+  assert.equal(result.memoryCount, 1);
+});
+
+test('brain.recall tool returns memories', async () => {
+  const memory = {
+    id: 'mem_1',
+    text: 'DripVid runs on 127.0.0.1:3000',
+    score: 0.8
+  };
+
+  const { jarvis } = setup({
+    recallResult: [memory],
+    toolCalls: [
+      {
+        name: 'brain.recall',
+        arguments: { query: 'DripVid port' }
+      }
+    ]
+  });
+
+  const result = await jarvis.conversation({
+    conversation: []
+  });
+
+  assert.equal(result.toolResults[0].ok, true);
+  assert.deepEqual(
+    result.toolResults[0].result.memories,
+    [memory]
+  );
+});
+
+test('brain outage degrades chat instead of throwing', async () => {
+  const { jarvis, chats } = setup({
+    brainStatus: 'offline'
+  });
+
+  const result = await jarvis.conversation({
+    conversation: []
+  });
+
+  assert.equal(result.degraded, false);
+  assert.equal(chats.length, 1);
 });

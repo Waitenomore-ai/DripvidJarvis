@@ -6,14 +6,15 @@ function createJarvis({
   config,
   dripvid,
   mcp,
-  techai,
+  brain,
+  model,
   now = () => Date.now()
 }) {
   const pending = new Map();
 
-  if (!techai) {
+  if (!brain || !model) {
     throw new TypeError(
-      'Tech-AI adapter is required'
+      'Brain and model adapters are required'
     );
   }
 
@@ -35,17 +36,23 @@ function createJarvis({
   }
 
   async function health() {
-    const [dripvidStatus, mcpStatus, techAiStatus] =
-      await Promise.all([
-        dripvid.health(),
-        mcp.health(),
-        techai.health()
-      ]);
+    const [
+      dripvidStatus,
+      mcpStatus,
+      brainStatus,
+      modelStatus
+    ] = await Promise.all([
+      dripvid.health(),
+      mcp.health(),
+      brain.health(),
+      model.health()
+    ]);
 
     const dependencies = {
       dripvid: dripvidStatus,
       mcp: mcpStatus,
-      techai: techAiStatus
+      brain: brainStatus,
+      model: modelStatus
     };
 
     return {
@@ -58,8 +65,77 @@ function createJarvis({
     };
   }
 
+  const BRAIN_TOOLS = [
+    {
+      name: 'brain.remember',
+      source: 'brain',
+      description:
+        'Store a durable fact, preference, or learned detail in JARVIS memory so it can be recalled in future conversations. Use when the operator shares something worth remembering.',
+      mutating: false,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          text: {
+            type: 'string',
+            description:
+              'The fact or memory to store.'
+          },
+          tags: {
+            type: 'array',
+            items: { type: 'string' },
+            description:
+              'Optional keywords to make the memory easier to find.'
+          }
+        },
+        required: ['text']
+      }
+    },
+    {
+      name: 'brain.recall',
+      source: 'brain',
+      description:
+        'Search JARVIS memory for relevant past facts, preferences, or learned details.',
+      mutating: false,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description:
+              'What to search memory for.'
+          },
+          limit: {
+            type: 'number',
+            description:
+              'Maximum number of memories to return (default 5).'
+          }
+        },
+        required: ['query']
+      }
+    },
+    {
+      name: 'brain.forget',
+      source: 'brain',
+      description:
+        'Delete a memory from JARVIS by its id.',
+      mutating: false,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          id: {
+            type: 'string',
+            description:
+              'The id of the memory to delete.'
+          }
+        },
+        required: ['id']
+      }
+    }
+  ];
+
   async function tools() {
     const discovered = [
+      ...BRAIN_TOOLS,
       ...dripvid.listTools()
     ];
 
@@ -76,6 +152,43 @@ function createJarvis({
   }
 
   async function executeTool(tool, args = {}) {
+    if (tool.source === 'brain') {
+      if (tool.name === 'brain.remember') {
+        const memory = await brain.remember({
+          text: args.text,
+          tags: args.tags,
+          source: 'operator'
+        });
+
+        return {
+          remembered: Boolean(memory),
+          id: memory ? memory.id : null,
+          text: memory ? memory.text : null
+        };
+      }
+
+      if (tool.name === 'brain.recall') {
+        return {
+          memories: await brain.recall(
+            String(args.query || ''),
+            { limit: args.limit }
+          )
+        };
+      }
+
+      if (tool.name === 'brain.forget') {
+        return {
+          forgotten: await brain.forget(
+            String(args.id || '')
+          )
+        };
+      }
+
+      throw new Error(
+        `Unsupported brain tool: ${tool.name}`
+      );
+    }
+
     if (tool.source === 'dripvid') {
       return dripvid.callTool(
         tool.name,
@@ -195,20 +308,63 @@ function createJarvis({
 
     let response = null;
 
-    const buildChatRequest = () => ({
-      conversation: messages,
-      tools: requestTools,
-      state:
-        state &&
-        typeof state === 'object'
-          ? state
-          : {},
-      options:
-        options &&
-        typeof options === 'object'
-          ? options
-          : {}
-    });
+    async function buildChatRequest() {
+      const userText = messages
+        .filter(
+          (message) =>
+            message &&
+            message.role === 'user'
+        )
+        .map(
+          (message) =>
+            String(message.content || '')
+        )
+        .join(' ');
+
+      const remembered =
+        await brain.recall(
+          userText,
+          {
+            limit:
+              config.brainRecallLimit ||
+              5
+          }
+        );
+
+      const conversation = [
+        ...messages
+      ];
+
+      if (remembered.length) {
+        conversation.unshift({
+          role: 'system',
+          content:
+            'You have these memories from previous conversations:\n' +
+            remembered
+              .map(
+                (memory) =>
+                  `- ${memory.text}`
+              )
+              .join('\n') +
+            '\n\nUse them to answer the operator when they are helpful.'
+        });
+      }
+
+      return {
+        conversation,
+        tools: requestTools,
+        state:
+          state &&
+          typeof state === 'object'
+            ? state
+            : {},
+        options:
+          options &&
+          typeof options === 'object'
+            ? options
+            : {}
+      };
+    }
 
     for (
       let iteration = 0;
@@ -224,8 +380,8 @@ function createJarvis({
       ) {
         try {
           response =
-            await techai.chat(
-              buildChatRequest()
+            await model.chat(
+              await buildChatRequest()
             );
 
           chatError = null;
@@ -238,7 +394,7 @@ function createJarvis({
       if (chatError) {
         return {
           message:
-            'Tech-AI is currently unavailable.',
+            'JARVIS brain is currently unavailable.',
           toolResults,
           confirmations,
           degraded: true,
@@ -413,6 +569,8 @@ function createJarvis({
       suggestedActions:
         response &&
         response.suggestedActions,
+      memoryCount:
+        brain.stats().count,
       degraded: false
     };
   }

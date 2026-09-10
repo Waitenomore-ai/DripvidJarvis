@@ -1,5 +1,7 @@
 'use strict';
 
+const path = require('node:path');
+
 function parsePositiveInteger(value, fallback) {
   const parsed = Number.parseInt(value, 10);
 
@@ -25,10 +27,6 @@ function loadConfig(env = process.env) {
     env.JARVIS_DRIPVID_BASE_URL ||
     'http://127.0.0.1:3000';
 
-  const techAiBaseUrl =
-    env.JARVIS_TECHAI_BASE_URL ||
-    'http://127.0.0.1:3100';
-
   return Object.freeze({
     host: env.JARVIS_HOST || '127.0.0.1',
     port: parsePort(env.JARVIS_PORT, 3342),
@@ -45,14 +43,53 @@ function loadConfig(env = process.env) {
     mcpBearer:
       env.JARVIS_MCP_BEARER || '',
 
-    techAiBaseUrl,
-    techAiHealthUrl:
-      env.JARVIS_TECHAI_HEALTH_URL ||
-      `${techAiBaseUrl}/health`,
+    openAiBaseUrl:
+      env.JARVIS_OPENAI_BASE_URL ||
+      'https://api.openai.com/v1',
 
-    techAiChatUrl:
-      env.JARVIS_TECHAI_CHAT_URL ||
-      `${techAiBaseUrl}/chat`,
+    openAiApiKey:
+      env.JARVIS_OPENAI_API_KEY || '',
+
+    openAiModel:
+      env.JARVIS_OPENAI_MODEL ||
+      'gpt-5.6-luna',
+
+    fallbackBaseUrl:
+      env.JARVIS_FALLBACK_BASE_URL || '',
+
+    fallbackApiKey:
+      env.JARVIS_FALLBACK_API_KEY || '',
+
+    fallbackModel:
+      env.JARVIS_FALLBACK_MODEL ||
+      'gpt-5.6-luna',
+
+    modelFallbackCooldownMs:
+      parsePositiveInteger(
+        env.JARVIS_MODEL_FALLBACK_COOLDOWN_MS,
+        600000
+      ),
+
+    brainPath:
+      env.JARVIS_BRAIN_PATH ||
+      path.resolve(
+        __dirname,
+        '..',
+        'data',
+        'brain.json'
+      ),
+
+    brainMaxMemories:
+      parsePositiveInteger(
+        env.JARVIS_BRAIN_MAX_MEMORIES,
+        200
+      ),
+
+    brainRecallLimit:
+      parsePositiveInteger(
+        env.JARVIS_BRAIN_RECALL_LIMIT,
+        5
+      ),
 
     requestTimeoutMs:
       parsePositiveInteger(

@@ -163,9 +163,26 @@ async function refreshHealth() {
     );
 
     setBadge(
-      'techai-status',
-      dependencies.techai?.status
+      'brain-status',
+      dependencies.brain?.status
     );
+
+    const brainModel =
+      $('brain-model');
+
+    brainModel.textContent =
+      dependencies.brain?.model ||
+      dependencies.brain?.provider ||
+      '—';
+
+    const brainMemory =
+      $('brain-memory');
+
+    brainMemory.textContent =
+      dependencies.brain?.memoryCount !==
+      undefined
+        ? `${dependencies.brain.memoryCount} memories`
+        : '—';
 
     setReactor(health.status);
 
@@ -402,6 +419,8 @@ async function sendConversation(text) {
 
   addMessage('jarvis', message);
 
+  speakAnswer(message);
+
   for (
     const result of
     response.toolResults || []
@@ -413,6 +432,13 @@ async function sendConversation(text) {
           : result.error
       }`
     );
+  }
+
+  if (
+    response.memoryCount !== undefined
+  ) {
+    $('brain-memory').textContent =
+      `${response.memoryCount} memories`;
   }
 
   await refreshConfirmations();
@@ -498,6 +524,103 @@ const SpeechRecognition =
   window.SpeechRecognition ||
   window.webkitSpeechRecognition;
 
+const speechSupported =
+  typeof window.speechSynthesis !==
+    'undefined' &&
+  typeof window.SpeechSynthesisUtterance !==
+    'undefined';
+
+let voiceEnabled =
+  localStorage.getItem(
+    'jarvis-voice-output'
+  ) === '1';
+
+function stopSpeaking() {
+  if (speechSupported) {
+    window.speechSynthesis.cancel();
+  }
+}
+
+function speakAnswer(text) {
+  if (!speechSupported || !voiceEnabled) {
+    return;
+  }
+
+  const content =
+    String(text || '').trim();
+
+  if (!content) {
+    return;
+  }
+
+  stopSpeaking();
+
+  const utterance =
+    new SpeechSynthesisUtterance(content);
+
+  utterance.lang =
+    navigator.language || 'en-GB';
+
+  utterance.rate = 1.05;
+  utterance.pitch = 1;
+
+  const voices =
+    window.speechSynthesis.getVoices();
+
+  const preferred =
+    voices.find((voice) =>
+      /en(-|_)?(GB|US)/i.test(voice.lang) &&
+      /natural|neural|online/i.test(voice.name)
+    ) ||
+    voices.find((voice) =>
+      voice.lang.startsWith('en')
+    );
+
+  if (preferred) {
+    utterance.voice = preferred;
+  }
+
+  window.speechSynthesis.speak(utterance);
+}
+
+const voiceButton =
+  $('voiceButton');
+
+function setVoiceButtonState() {
+  voiceButton.textContent =
+    voiceEnabled ? '🔊' : '🔇';
+
+  voiceButton.classList.toggle(
+    'active',
+    voiceEnabled
+  );
+
+  voiceButton.classList.toggle(
+    'off',
+    !voiceEnabled
+  );
+}
+
+setVoiceButtonState();
+
+voiceButton.addEventListener(
+  'click',
+  () => {
+    voiceEnabled = !voiceEnabled;
+
+    if (!voiceEnabled) {
+      stopSpeaking();
+    }
+
+    localStorage.setItem(
+      'jarvis-voice-output',
+      voiceEnabled ? '1' : '0'
+    );
+
+    setVoiceButtonState();
+  }
+);
+
 const micButton =
   $('micButton');
 
@@ -524,6 +647,8 @@ if (voiceSupported) {
   recognition.interimResults = true;
 
   recognition.onstart = () => {
+    stopSpeaking();
+
     micButton.classList.add(
       'listening'
     );

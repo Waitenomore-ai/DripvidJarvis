@@ -16,8 +16,16 @@ const {
 } = require('./adapters/mcp');
 
 const {
-  createTechAiAdapter
-} = require('./adapters/techai');
+  createOpenAiAdapter
+} = require('./adapters/openai');
+
+const {
+  createModelRouter
+} = require('./adapters/router');
+
+const {
+  createBrain
+} = require('./brain');
 
 const {
   createJarvis
@@ -174,18 +182,52 @@ function createRuntime({
       fetchImpl
     });
 
-  const techai =
-    createTechAiAdapter({
+  const primary =
+    createOpenAiAdapter({
       config,
       fetchImpl
     });
+
+  const fallback =
+    config.fallbackBaseUrl &&
+    config.fallbackApiKey
+      ? createOpenAiAdapter({
+          config: {
+            ...config,
+            openAiBaseUrl:
+              config.fallbackBaseUrl,
+            openAiApiKey:
+              config.fallbackApiKey,
+            openAiModel:
+              config.fallbackModel,
+            requestTimeoutMs:
+              config.requestTimeoutMs,
+            chatTimeoutMs:
+              config.chatTimeoutMs
+          },
+          fetchImpl
+        })
+      : null;
+
+  const model =
+    createModelRouter({
+      primary,
+      fallback,
+      cooldownMs:
+        config.modelFallbackCooldownMs,
+      now
+    });
+
+  const brain =
+    createBrain({ config });
 
   const jarvis =
     createJarvis({
       config,
       dripvid,
       mcp,
-      techai,
+      brain,
+      model,
       now
     });
 

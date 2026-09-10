@@ -405,6 +405,23 @@ button {
   color: var(--red);
 }
 
+.badge.subtle {
+  background: rgba(115, 107, 255, .1);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-weight: 500;
+}
+
+.status-card .badge.subtle {
+  display: inline-block;
+  margin-top: 3px;
+  margin-right: 4px;
+}
+
+.memory-badge {
+  color: var(--cyan);
+}
+
 /* METRICS */
 
 .metrics {
@@ -587,7 +604,7 @@ button {
 .composer {
   margin: 0 13px 13px;
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto auto auto;
   border: 1px solid rgba(115, 107, 255, .4);
   border-radius: 10px;
   overflow: hidden;
@@ -596,7 +613,7 @@ button {
 }
 
 .composer.no-voice {
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr auto auto;
 }
 
 .composer textarea {
@@ -623,6 +640,15 @@ button {
   font-size: 25px;
   color: #dc71ff;
   transition: .2s ease;
+}
+
+.mic-button.active {
+  color: #7cf7d4;
+  text-shadow: 0 0 14px #7cf7d4;
+}
+
+.mic-button.off {
+  opacity: .45;
 }
 
 .mic-button.listening {

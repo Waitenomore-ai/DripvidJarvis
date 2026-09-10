@@ -40,13 +40,33 @@ test(
     );
 
     assert.equal(
-      config.techAiBaseUrl,
-      'http://127.0.0.1:3100'
+      config.openAiBaseUrl,
+      'https://api.openai.com/v1'
     );
 
     assert.equal(
-      config.techAiChatUrl,
-      'http://127.0.0.1:3100/chat'
+      config.openAiModel,
+      'gpt-5.6-luna'
+    );
+
+    assert.equal(
+      config.fallbackBaseUrl,
+      ''
+    );
+
+    assert.equal(
+      config.modelFallbackCooldownMs,
+      600000
+    );
+
+    assert.equal(
+      config.brainPath,
+      path.resolve(
+        __dirname,
+        '..',
+        'data',
+        'brain.json'
+      )
     );
   }
 );

@@ -18,7 +18,18 @@ Default interface: http://127.0.0.1:3342/
 
 - DripVid: http://127.0.0.1:3000
 - MCP: http://127.0.0.1:8788/mcp
-- Tech-AI: http://127.0.0.1:3100
+- OpenAI API (direct): configured via `JARVIS_OPENAI_API_KEY` / `JARVIS_OPENAI_MODEL`
+
+## Brain
+
+JARVIS has its own server-side brain persisted to `JARVIS_BRAIN_PATH` (default `data/brain.json`):
+
+- `brain.remember` — store a durable fact, preference, or learned detail.
+- `brain.recall` — search past memories by relevance.
+- `brain.forget` — delete a memory by id.
+- Before answering, JARVIS pulls relevant memories into the model context automatically.
+
+Memories survive restarts and are capped by `JARVIS_BRAIN_MAX_MEMORIES`.
 
 ## Safety
 
