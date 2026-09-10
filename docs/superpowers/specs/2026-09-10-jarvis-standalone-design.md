@@ -1,0 +1,141 @@
+# DripVid JARVIS Standalone Design
+
+## Goal
+
+Build JARVIS as a standalone localhost-only service on the Debian server before integrating it into DripVid.
+
+JARVIS will provide:
+- futuristic operator HUD
+- dependency monitoring
+- AI conversation orchestration
+- DripVid and MCP tools
+- explicit confirmation for mutating actions
+
+## Runtime
+
+JARVIS:
+- Host: `127.0.0.1`
+- Port: `3342`
+- UI: `http://127.0.0.1:3342/`
+
+Dependencies:
+- DripVid: `http://127.0.0.1:3000`
+- MCP: `http://127.0.0.1:8788/mcp`
+- AI-HQ: `http://127.0.0.1:9001`
+- AI-HQ chat: `http://127.0.0.1:9001/aihq/chat`
+
+JARVIS must not bind to a public network interface during this phase.
+
+## Components
+
+`src/app.js`
+Runs the local HTTP server, serves the HUD, and exposes the JARVIS API.
+
+`src/config.js`
+Loads environment configuration and safe localhost defaults.
+
+`src/jarvis.js`
+Coordinates AI-HQ conversations, tools, and confirmations.
+
+`src/adapters/dripvid.js`
+Handles DripVid health and tool operations.
+
+`src/adapters/mcp.js`
+Handles MCP health, tool discovery, and execution.
+
+`src/adapters/aihq.js`
+Handles AI-HQ health and chat requests.
+
+Each dependency must fail independently. DripVid, MCP, or AI-HQ being offline must not crash JARVIS.
+
+## Safety
+
+Read-only diagnostic actions may execute directly.
+
+Anything that changes DripVid, JARVIS, AI-HQ, MCP, files, source code, services, configuration, databases, accounts, media, or server state is considered mutating.
+
+Mutating actions must:
+1. be validated
+2. create a pending confirmation
+3. show the operator what will happen
+4. execute only after explicit confirmation
+5. expire after a limited period
+6. be single-use
+
+Secrets must come from environment variables and must never be committed to Git.
+
+## Health and Resilience
+
+`GET /api/health` reports JARVIS plus DripVid, MCP, and AI-HQ independently.
+
+Overall states:
+- `online`
+- `degraded`
+- `offline`
+
+Tool discovery must also tolerate partial failures. If MCP is offline but DripVid works, DripVid tools must still be available.
+
+## Initial API
+
+- `GET /api/health`
+- `GET /api/tools`
+- `POST /api/conversation`
+- `POST /api/confirm`
+
+## HUD
+
+The UI will use an Iron-Man-inspired futuristic HUD aesthetic without copying Marvel artwork or logos.
+
+It will include:
+- JARVIS system status
+- reactor-style overall health indicator
+- DripVid status
+- MCP status
+- AI-HQ status
+- conversation console
+- tool/activity feed
+- confirmation panel
+
+## Technology
+
+Use Node.js 22 and prefer built-in functionality:
+- `node:http`
+- native `fetch`
+- `node:test`
+- `node:crypto`
+
+Avoid unnecessary dependencies.
+
+## Deployment
+
+The standalone service will ultimately run from `/opt/dripvid-jarvis`.
+
+It will use systemd, a non-root service account, localhost binding, environment configuration, restart-on-failure behavior, and reasonable service hardening.
+
+This phase will not alter the existing DripVid service or nginx configuration.
+
+## Testing
+
+Tests must cover:
+- configuration defaults
+- localhost binding
+- application startup
+- HUD static files
+- health endpoint
+- individual dependency failures
+- partial tool availability
+- AI-HQ offline behavior
+- mutating action blocking
+- confirmation execution
+- invalid and expired confirmations
+- malformed requests
+
+## Future Integration
+
+After standalone JARVIS is stable, a later phase can integrate it into:
+
+`https://dripvid.uk/jarvis`
+
+using DripVid's existing administrator authentication.
+
+That integration is outside this milestone.
