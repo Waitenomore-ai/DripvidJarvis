@@ -5,6 +5,59 @@ const {
   normalizeError
 } = require('./http');
 
+const READ_ONLY_TOOL_NAMES = new Set([
+  'server_info',
+  'disk_status',
+  'network_status',
+  'service_status',
+  'service_logs',
+  'http_health',
+  'dripvid_health',
+  'dripvid_git_status',
+  'dripvid_config'
+]);
+
+function isExplicitReadOnlyTool(tool) {
+  return Boolean(
+    tool &&
+    (
+      (
+        tool.annotations &&
+        tool.annotations.readOnlyHint === true
+      ) ||
+      READ_ONLY_TOOL_NAMES.has(
+        String(tool.name || '')
+      )
+    )
+  );
+}
+
+function isSensitiveKey(key) {
+  return /(?:api[_-]?key|token|password|secret|database[_-]?url|bearer|authorization|cookie)/i
+    .test(String(key || ''));
+}
+
+function redactSensitive(value) {
+  if (Array.isArray(value)) {
+    return value.map(redactSensitive);
+  }
+
+  if (!value || typeof value !== 'object') {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).map(
+      ([key, item]) => [
+        key,
+        isSensitiveKey(key)
+          ? '[REDACTED]'
+          : redactSensitive(item)
+      ]
+    )
+  );
+}
+
 function createMcpAdapter({
   config,
   fetchImpl = globalThis.fetch
@@ -130,10 +183,7 @@ function createMcpAdapter({
           additionalProperties: true
         },
       mutating:
-        !(
-          tool.annotations &&
-          tool.annotations.readOnlyHint === true
-        )
+        !isExplicitReadOnlyTool(tool)
     }));
   }
 
@@ -143,10 +193,14 @@ function createMcpAdapter({
         ? name.slice(4)
         : name;
 
-    return rpc('tools/call', {
+    const result = await rpc('tools/call', {
       name: remoteName,
       arguments: args
     });
+
+    return remoteName === 'dripvid_config'
+      ? redactSensitive(result)
+      : result;
   }
 
   return {
@@ -157,5 +211,7 @@ function createMcpAdapter({
 }
 
 module.exports = {
-  createMcpAdapter
+  createMcpAdapter,
+  isExplicitReadOnlyTool,
+  redactSensitive
 };
