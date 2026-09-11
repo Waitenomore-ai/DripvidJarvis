@@ -65,6 +65,27 @@ test('validation blocks unknown, mutating, malformed and missing-required-argume
   assert.equal(validateDiagnosticCall({ name: 'mcp.service_logs', arguments: { service: 'dripvid' } }, map).ok, true);
 });
 
+test('validation rejects non-object arguments even for zero-argument diagnostics', () => {
+  const map = new Map([
+    ['mcp.disk_status', {
+      name: 'mcp.disk_status',
+      mutating: false,
+      inputSchema: {
+        type: 'object',
+        required: []
+      }
+    }]
+  ]);
+
+  const result = validateDiagnosticCall({
+    name: 'mcp.disk_status',
+    arguments: 'not-an-object'
+  }, map);
+
+  assert.equal(result.ok, false);
+  assert.match(result.error, /arguments must be an object/i);
+});
+
 test('sanitization recursively redacts secret-bearing keys', () => {
   const result = sanitizeDiagnosticValue({
     safe: 'yes',
@@ -106,6 +127,24 @@ test('fallback summary reports successful and failed diagnostics', () => {
   assert.match(text, /mcp\.service_logs/);
   assert.match(text, /timeout/);
   assert.match(text, /model unavailable/);
+});
+
+test('fallback summary sanitizes and bounds oversized diagnostic details', () => {
+  const text = formatDiagnosticFallback([
+    {
+      name: 'mcp.service_logs',
+      ok: true,
+      result: {
+        token: 'secret-value',
+        output: 'x'.repeat(10000)
+      }
+    }
+  ], 'model unavailable');
+
+  assert.doesNotMatch(text, /secret-value/);
+  assert.match(text, /\[REDACTED\]/);
+  assert.ok(text.length < 2500);
+  assert.match(text, /truncated/i);
 });
 
 test('diagnostic request detection targets live operational questions without hijacking normal chat', () => {
