@@ -52,11 +52,27 @@ YAML frontmatter (`title`, `tags`) is honored. Hidden folders (`.obsidian`, `.tr
 
 With `JARVIS_ELEVENLABS_API_KEY` set, POST `/api/tts` with `{"text": "..."}` returns an mp3 for the configured voice (default: Daniel, a free british male voice). The operator's preferred voice `wDsJlOXPqcvIUKdLXjDs` requires a Creator-tier plan; set `JARVIS_ELEVENLABS_VOICE_ID` to switch. The HUD speaks replies through the API and falls back to the browser's Web Speech synthesis when ElevenLabs is unavailable. Voice output is toggled with the 🔊 button in the composer.
 
+## Natural-language diagnostics
+
+Operational questions in normal chat can invoke real read-only DripVid/MCP diagnostics and feed their results back to the model for a plain-language explanation. Examples include:
+
+- `Check DripVid health.`
+- `How much disk space do we have?`
+- `Show me recent DripVid errors.`
+- `Are any services unhealthy?`
+- `Why is streaming slow?`
+
+Automatic diagnostic execution is restricted to the approved read-only set: `dripvid.health`, `mcp.server_info`, `mcp.disk_status`, `mcp.network_status`, `mcp.service_status`, `mcp.service_logs`, `mcp.http_health`, `mcp.dripvid_health`, `mcp.dripvid_git_status`, and `mcp.dripvid_config`. Unknown or mutating tools are not auto-executed in diagnostic mode.
+
+A single request is bounded by `JARVIS_MAX_DIAGNOSTIC_ROUNDS` (default 4) and `JARVIS_MAX_DIAGNOSTIC_CALLS` (default 8). Independent diagnostics requested in the same model turn may run concurrently. Tool failures are reported as partial findings instead of discarding successful checks, secret-bearing keys are redacted before tool output re-enters model context, and large results remain capped by `JARVIS_MAX_TOOL_RESULT_CHARS`.
+
+Natural-language diagnostic mode does not auto-run restart, deploy, shell, source/config writes, vault writes/migrations, memory deletion, or other mutating operations.
+
 ## Safety
 
 JARVIS remains bound to localhost during this milestone.
-Diagnostic (read-only) tools may execute directly.
-Mutating tools are listed in the HUD as "REQUIRES APPROVAL" and queue an expiring single-use confirmation (TTL `JARVIS_CONFIRMATION_TTL_MS`) instead of executing; confirm them from the Pending Confirmations panel or via POST /api/confirm.
+Approved read-only diagnostic tools may execute directly when selected by natural-language diagnostic mode.
+Mutating tools outside diagnostic mode are listed in the HUD as "REQUIRES APPROVAL" and queue an expiring single-use confirmation (TTL `JARVIS_CONFIRMATION_TTL_MS`) instead of executing; confirm them from the Pending Confirmations panel or via POST /api/confirm.
 Unknown AI tool requests are rejected.
 Secrets must only be supplied through environment variables.
 
