@@ -4,6 +4,10 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const {
+  execFileSync
+} = require('node:child_process');
+
 const os = require('node:os');
 
 const { loadConfig } =
@@ -50,7 +54,11 @@ const STATIC_TYPES = {
   '.js':
     'application/javascript; charset=utf-8',
   '.json':
-    'application/json; charset=utf-8'
+    'application/json; charset=utf-8',
+  '.svg':
+    'image/svg+xml; charset=utf-8',
+  '.png':
+    'image/png'
 };
 
 function sendJson(
@@ -123,6 +131,130 @@ function readJson(
   );
 }
 
+function readNetworkCounters() {
+  try {
+    if (
+      process.platform === 'linux'
+    ) {
+      const raw =
+        fs.readFileSync(
+          '/proc/net/dev',
+          'utf8'
+        );
+
+      let rxBytes = 0;
+      let txBytes = 0;
+
+      for (const line of
+        raw.split('\n').slice(2)) {
+        const sep = line.indexOf(':');
+
+        if (sep === -1) {
+          continue;
+        }
+
+        const iface =
+          line.slice(0, sep).trim();
+
+        if (iface === 'lo') {
+          continue;
+        }
+
+        const fields =
+          line
+            .slice(sep + 1)
+            .trim()
+            .split(/\s+/);
+
+        rxBytes +=
+          Number(fields[0] || 0);
+        txBytes +=
+          Number(fields[8] || 0);
+      }
+
+      return {
+        rxBytes,
+        txBytes,
+        ts: Date.now()
+      };
+    }
+
+    if (
+      process.platform === 'win32'
+    ) {
+      const out =
+        execFileSync(
+          'netstat',
+          ['-e'],
+          { encoding: 'utf8' }
+        );
+
+      const match =
+        out.match(
+          /Bytes\s+([\d,]+)\s+([\d,]+)/
+        );
+
+      if (match) {
+        const un =
+          (s) =>
+            Number(s.replaceAll(',', ''));
+
+        return {
+          rxBytes: un(match[1]),
+          txBytes: un(match[2]),
+          ts: Date.now()
+        };
+      }
+    }
+
+    if (
+      process.platform === 'darwin'
+    ) {
+      const out =
+        execFileSync(
+          'netstat',
+          ['-ib'],
+          { encoding: 'utf8' }
+        );
+
+      let rxBytes = 0;
+      let txBytes = 0;
+
+      for (const line of
+        out.split('\n')) {
+        const parts =
+          line.trim().split(/\s+/);
+
+        if (
+          parts.length >= 10 &&
+          parts[0].match(
+            /^(en|eth|wlan|br|bond)\d/
+          )
+        ) {
+          rxBytes +=
+            Number(
+              parts[6] || 0
+            );
+          txBytes +=
+            Number(
+              parts[9] || 0
+            );
+        }
+      }
+
+      return {
+        rxBytes,
+        txBytes,
+        ts: Date.now()
+      };
+    }
+  } catch {
+    // counters unavailable
+  }
+
+  return null;
+}
+
 function gatherServerMetrics() {
   const cpuInfo = os.cpus();
 
@@ -168,7 +300,9 @@ function gatherServerMetrics() {
       total: os.totalmem(),
       free: os.freemem()
     },
-    storage
+    storage,
+    network:
+      readNetworkCounters()
   };
 }
 

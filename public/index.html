@@ -4,401 +4,379 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>DripVid J.A.R.V.I.S.</title>
-  <link rel="stylesheet" href="jarvis.css?v=9">
+  <link rel="icon" type="image/svg+xml" href="dripvid-icon.svg">
+  <link rel="stylesheet" href="jarvis.css?v=10">
 </head>
 <body>
 
 <div class="app">
 
-  <aside class="sidebar">
+  <header class="topbar">
 
     <div class="brand">
-      <span class="brand-mark"></span>
-      DRIPVID
-    </div>
-
-    <nav class="nav">
-      <a class="active"><span class="nav-icon">⌂</span>Dashboard</a>
-      <a><span class="nav-icon">☵</span>Chat Console</a>
-      <a><span class="nav-icon">⌁</span>System Status</a>
-      <a><span class="nav-icon">⚒</span>Tools</a>
-      <a><span class="nav-icon">▤</span>Logs</a>
-      <a><span class="nav-icon">⚙</span>Configurations</a>
-      <a><span class="nav-icon">▣</span>Documentation</a>
-    </nav>
-
-    <div class="reactor-wrap">
-
-      <div id="reactor" class="reactor">
-        <div class="ring one"></div>
-        <div class="ring two"></div>
-        <div class="ring three"></div>
-
-        <div class="reactor-core">
-          J.A.R.V.I.S.
-        </div>
-      </div>
-
-      <div class="operator">
-        <span class="online-dot"></span>
-        Operator Online
-      </div>
-
-      <div id="telemetry" style="font-size:11px;color:var(--muted)">
-        Telemetry
-      </div>
-
-    </div>
-
-    <div class="version-card">
-      <strong>JARVIS v1.0.0</strong>
-      <div>
-        <span class="online-dot"></span>
-        Online
-      </div>
-      <br>
-      DripVid Operator System<br>
-      Admin / Owner Access Only
-    </div>
-
-  </aside>
-
-  <main class="main">
-
-    <header class="topbar">
-
-      <div class="jarvis-title">
+      <img class="brand-logo" src="dripvid-logo.svg" alt="DripVid">
+      <div class="brand-title">
         <h1>J.A.R.V.I.S.</h1>
         <small>SYSTEM OPERATOR</small>
       </div>
+    </div>
 
-      <div class="topnav">
-        <span>MONITOR</span>
-        <span>ANALYSE</span>
-        <span>ASSIST</span>
-        <span>TOOLS</span>
-        <span>SECURE</span>
+    <nav class="topnav" aria-label="Primary">
+      <span>MONITOR</span>
+      <span>ANALYSE</span>
+      <span>ASSIST</span>
+      <span>TOOLS</span>
+      <span>SECURE</span>
+    </nav>
+
+    <div class="topbar-right">
+      <button id="bellButton" class="bell" title="Notifications" aria-label="Notifications">
+        <span class="bell-icon">🔔</span>
+        <span id="bellBadge" class="bell-badge" style="display:none">0</span>
+      </button>
+
+      <div class="profile" title="Admin / Owner Access Only">
+        <span class="profile-avatar">AD</span>
+        <span class="profile-name">ADMIN</span>
       </div>
 
       <div class="clock">
         <div id="clock" class="clock-time">--:--:--</div>
         <div id="date" class="clock-date"></div>
       </div>
-
-    </header>
-
-    <section class="status-grid">
-
-      <div class="card status-card">
-        <div class="status-icon">◉</div>
-        <div>
-          <h3>JARVIS</h3>
-          <p>AI Operator</p>
-          <span id="jarvis-status" class="badge offline">OFFLINE</span>
-        </div>
-      </div>
-
-      <div class="card status-card">
-        <div class="status-icon">▶</div>
-        <div>
-          <h3>DRIPVID</h3>
-          <p>Media Server</p>
-          <span id="dripvid-status" class="badge offline">OFFLINE</span>
-        </div>
-      </div>
-
-      <div class="card status-card">
-        <div class="status-icon">▦</div>
-        <div>
-          <h3>MCP</h3>
-          <p>Tool Server</p>
-          <span id="mcp-status" class="badge offline">OFFLINE</span>
-        </div>
-      </div>
-
-      <div class="card status-card">
-        <div class="status-icon">✦</div>
-        <div>
-          <h3>BRAIN</h3>
-          <p>AI Engine &amp; Memory</p>
-          <span id="brain-status" class="badge offline">OFFLINE</span>
-          <span id="brain-model" class="badge subtle">—</span>
-          <span id="brain-memory" class="badge subtle memory-badge">—</span>
-          <span id="voice-status" class="badge subtle">—</span>
-        </div>
-      </div>
-
-      <div class="card status-card">
-        <div class="status-icon">▤</div>
-        <div>
-          <h3>VAULT</h3>
-          <p>Obsidian Notes</p>
-          <span id="vault-status" class="badge offline">OFFLINE</span>
-          <span id="vault-notes" class="badge subtle">—</span>
-        </div>
-      </div>
-
-    </section>
-
-    <section class="metrics">
-
-      <div class="card metric">
-        <div class="metric-label">CPU Cores</div>
-        <div class="metric-value" id="cpu">—</div>
-      </div>
-
-      <div class="card metric">
-        <div class="metric-label">Memory</div>
-        <div class="metric-value" id="memory">—</div>
-      </div>
-
-      <div class="card metric">
-        <div class="metric-label">Storage</div>
-        <div class="metric-value" id="storage">—</div>
-      </div>
-
-      <div class="card metric">
-        <div class="metric-label">Uptime</div>
-        <div class="metric-value" id="uptime">—</div>
-      </div>
-
-    </section>
-
-    <div id="hostline" style="font-size:11px;color:var(--muted);margin:-8px 0 12px">
-      Host: —
     </div>
 
-    <section class="workspace">
+  </header>
+
+  <main class="dashboard">
+
+    <aside class="column left-column">
+
+      <section class="panel status-panel">
+
+        <h2 class="panel-heading">SYSTEM STATUS</h2>
+
+        <div class="service-stack">
+
+          <div class="service-card">
+            <span class="service-icon">◉</span>
+            <div class="service-meta">
+              <div class="service-name">JARVIS</div>
+              <div class="service-sub">AI Operator</div>
+            </div>
+            <span class="service-live">LIVE</span>
+            <span id="jarvis-status" class="badge offline">OFFLINE</span>
+          </div>
+
+          <div class="service-card">
+            <span class="service-icon">▶</span>
+            <div class="service-meta">
+              <div class="service-name">DRIPVID</div>
+              <div class="service-sub">Media Server</div>
+            </div>
+            <span class="service-live">LIVE</span>
+            <span id="dripvid-status" class="badge offline">OFFLINE</span>
+          </div>
+
+          <div class="service-card">
+            <span class="service-icon">▦</span>
+            <div class="service-meta">
+              <div class="service-name">MCP</div>
+              <div class="service-sub">Tool Server</div>
+            </div>
+            <span class="service-live">LIVE</span>
+            <span id="mcp-status" class="badge offline">OFFLINE</span>
+          </div>
+
+          <div class="service-card">
+            <span class="service-icon">✦</span>
+            <div class="service-meta">
+              <div class="service-name">TECH-AI</div>
+              <div class="service-sub">AI Engine</div>
+            </div>
+            <span class="service-live">LIVE</span>
+            <span id="techai-status" class="badge offline">OFFLINE</span>
+          </div>
+
+        </div>
+
+        <div class="chip-row">
+          <span id="brain-status" class="chip offline">BRAIN —</span>
+          <span id="vault-status" class="chip offline">VAULT —</span>
+        </div>
+        <div class="chip-sub">
+          <span id="brain-memory" class="sub-chip">— memories</span>
+          <span id="vault-notes" class="sub-chip">—</span>
+        </div>
+
+        <div class="metrics-block">
+
+          <div class="metric-row">
+            <div class="metric-title">CPU Usage</div>
+            <svg class="spark" id="cpuSpark" width="120" height="36" viewBox="0 0 120 36" preserveAspectRatio="none"></svg>
+          </div>
+          <div class="metric-bar">
+            <span id="cpu-percent">--%</span>
+            <span class="metric-extra" id="cpu-cores">-- cores</span>
+          </div>
+
+          <div class="metric-row">
+            <div class="metric-title">Memory Usage</div>
+            <svg class="spark" id="memSpark" width="120" height="36" viewBox="0 0 120 36" preserveAspectRatio="none"></svg>
+          </div>
+          <div class="metric-bar">
+            <span id="mem-percent">--%</span>
+            <span class="metric-extra" id="memory-detail">—</span>
+          </div>
+
+          <div class="metric-row metric-storage">
+            <div class="metric-title">Storage</div>
+            <span class="metric-extra" id="storage-detail">—</span>
+          </div>
+          <div class="progress-track">
+            <div id="storageBar" class="progress-fill" style="width:0%"></div>
+          </div>
+          <div class="metric-bar">
+            <span id="storage-used">0 used</span>
+            <span id="storage-free">0 free</span>
+          </div>
+
+          <div class="metric-row">
+            <div class="metric-title">Network</div>
+            <svg class="spark spark-cyan" id="netSpark" width="120" height="36" viewBox="0 0 120 36" preserveAspectRatio="none"></svg>
+          </div>
+          <div class="metric-bar">
+            <span id="net-down">↓ --</span>
+            <span id="net-up">↑ --</span>
+          </div>
+
+        </div>
+
+        <div class="overall-card online">
+          <div class="overall-icon">✓</div>
+          <div>
+            <strong id="overallHealth">Checking systems...</strong>
+            <div id="healthDetail" class="overall-detail">Awaiting telemetry</div>
+          </div>
+        </div>
+
+        <button id="openStatus" class="open-status">>> OPEN SYSTEM STATUS</button>
+
+        <div class="status-foot">
+          <span id="uptime">—</span>
+          <br>
+          <span id="hostline">Host: —</span>
+        </div>
+
+      </section>
+
+    </aside>
+
+    <section class="column center-column">
+
+      <div class="core-wrap">
+
+        <div id="reactor" class="core">
+          <div class="ring ring-base"></div>
+          <div class="ring ring-tick"></div>
+          <div class="ring ring-segment"></div>
+          <div class="ring ring-rotate r1"></div>
+          <div class="ring ring-rotate r2"></div>
+          <div class="ring ring-scan"></div>
+          <div class="core-hud">
+            <div class="core-title">J.A.R.V.I.S.</div>
+            <div class="core-sub">SYSTEM OPERATOR</div>
+            <span id="core-status" class="core-badge online">ONLINE</span>
+          </div>
+        </div>
+
+        <div class="core-label label-monitor">
+          <div class="core-label-title">MONITOR</div>
+          <ul>
+            <li>DripVid Server</li>
+            <li>MCP Bridge</li>
+            <li>AI Engine</li>
+            <li>Operator Router</li>
+            <li>Memory Storage</li>
+          </ul>
+        </div>
+
+        <div class="core-label label-analyse">
+          <div class="core-label-title">ANALYSE</div>
+          <ul>
+            <li>Health Telemetry</li>
+            <li>Tool Discovery</li>
+            <li>Vault Index</li>
+            <li>Confirmations</li>
+            <li>Verify Cycle</li>
+          </ul>
+        </div>
+
+        <div class="core-label label-assist">
+          <div class="core-label-title">ASSIST</div>
+          <ul>
+            <li>System Status</li>
+            <li>Dashboard</li>
+            <li>Agent Console</li>
+            <li>Documentation</li>
+            <li>Configuration</li>
+          </ul>
+        </div>
+
+        <div class="core-label label-secure">
+          <div class="core-label-title">SECURE</div>
+          <ul>
+            <li>Read-Only</li>
+            <li>Approval Gate</li>
+            <li>Scope Control</li>
+            <li>Access Restriction</li>
+            <li>Owner-Only</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="assist-prompt">
+        <div class="prompt-line">HOW CAN I ASSIST YOU TODAY?</div>
+        <div id="equalizer" class="equalizer">
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+
+    </section>
+
+    <aside class="column right-column">
 
       <section class="panel tools-panel">
 
-        <div class="panel-title">
-          Available Tools &nbsp;
-          <span style="color:var(--muted);font-size:11px">
-            (READ ONLY · Mutating Require Approval)
-          </span>
-        </div>
+        <h2 class="panel-heading">
+          AVAILABLE TOOLS
+          <small>(READ ONLY)</small>
+        </h2>
 
-        <div class="panel-body">
+        <input id="toolSearch" class="tool-search" placeholder="Search tools...">
 
-          <input class="tool-search" id="toolSearch" placeholder="Search tools...">
-
-          <div id="toolList" class="tool-list">
-            Loading tools...
-          </div>
-
+        <div id="toolList" class="tool-grid">
+          <div class="tool-loading">Loading tools...</div>
         </div>
 
       </section>
 
-      <section class="panel chat-panel">
+      <section class="panel activity-panel">
 
-        <div class="panel-title">
-          Conversation Console
-        </div>
+        <h2 class="panel-heading">RECENT ACTIVITY</h2>
 
-        <div id="chatLog" class="chat-log">
+        <div id="activity" class="activity-list"></div>
 
-          <div class="message jarvis">
-            <strong>JARVIS</strong><br><br>
-            Operator interface ready.<br><br>
-            How can I assist you today?
-          </div>
+      </section>
 
-        </div>
+      <section class="panel quick-panel">
 
-        <div class="quick-prompts">
-          <button class="quick-prompt" data-prompt="Check system health">
-            Check system health
-          </button>
+        <h2 class="panel-heading">QUICK ACTIONS</h2>
 
-          <button class="quick-prompt" data-prompt="Show disk usage">
-            Show disk usage
-          </button>
-
-          <button class="quick-prompt" data-prompt="List running services">
-            List running services
-          </button>
-
-          <button class="quick-prompt" data-prompt="Check DripVid status">
-            Check DripVid status
-          </button>
-        </div>
-
-        <div id="composer" class="composer">
-
-          <textarea id="message" placeholder="Type a message or press the mic to speak..."></textarea>
-
-          <button id="micButton" class="mic-button" title="Click to speak">🎙</button>
-
-          <button id="voiceButton" class="mic-button" title="Toggle JARVIS voice replies">🔊</button>
-
-          <button id="sendButton" class="send-button" title="Transmit message">➤</button>
-
+        <div class="quick-actions">
+          <button class="quick-action" data-prompt="Check system health">◉ &nbsp; System Health Check</button>
+          <button class="quick-action" data-prompt="Check DripVid status">▶ &nbsp; Check DripVid Status</button>
+          <button class="quick-action" data-prompt="Show recent service logs for dripvid">▤ &nbsp; View Recent Logs</button>
+          <button class="quick-action" data-prompt="Show disk usage">▰ &nbsp; Check Storage Status</button>
         </div>
 
       </section>
 
-      <aside class="right-column">
+      <section class="panel voice-panel">
 
-        <section class="panel">
+        <h2 class="panel-heading">VOICE STATUS</h2>
 
-          <div class="panel-title">
-            System Health
+        <div class="voice-box">
+          <div class="voice-icon">🎙</div>
+          <div>
+            <div id="voiceStatus" class="voice-status">Checking microphone...</div>
+            <div class="voice-hint">Click the microphone to talk</div>
           </div>
+          <button id="voiceButton" class="voice-toggle" title="Toggle JARVIS voice replies">🔇</button>
+        </div>
 
-          <div class="panel-body health">
-            <div class="health-icon">✓</div>
+      </section>
 
-            <div>
-              <strong id="overallHealth">Checking systems...</strong>
+      <section class="panel safety-panel">
 
-              <div id="healthDetail" style="color:var(--muted);font-size:11px;margin-top:4px">
-                Awaiting telemetry
-              </div>
-            </div>
-          </div>
+        <h2 class="panel-heading">SAFETY MODE</h2>
 
-        </section>
+        <div class="safety-box">
+          <span class="safety-shield">🛡</span>
+          <strong class="safety">READ ONLY</strong>
+          <span class="online-dot"></span>
+        </div>
 
-        <section class="panel">
+        <div class="safety-detail">
+          Diagnostic tools run directly. System-changing tools
+          require your one-time confirmation. JARVIS may save
+          facts to its own server-side brain.
+        </div>
 
-          <div class="panel-title">
-            Recent Activity
-          </div>
+      </section>
 
-          <div class="panel-body" id="activity">
-            <div class="activity-item">
-              System initialized
-            </div>
-          </div>
+      <section class="panel confirm-panel" id="confirmPanel" style="display:none">
 
-        </section>
+        <h2 class="panel-heading">PENDING CONFIRMATIONS</h2>
 
-        <section class="panel">
+        <div id="confirmList" class="confirm-list"></div>
 
-          <div class="panel-title">
-            Auto-Verify
-          </div>
+      </section>
 
-          <div class="panel-body verify-body">
-
-            <span id="verify-status" class="badge offline">UNKNOWN</span>
-
-            <div id="verify-detail" style="color:var(--muted);font-size:11px;margin-top:4px">
-              Daily automated verification has not run yet
-            </div>
-
-          </div>
-
-        </section>
-
-        <section class="panel" id="confirmPanel" style="display:none">
-
-          <div class="panel-title">
-            Pending Confirmations
-          </div>
-
-          <div class="panel-body" id="confirmList"></div>
-
-        </section>
-
-        <section class="panel">
-
-          <div class="panel-title">
-            Quick Actions
-          </div>
-
-          <div class="panel-body">
-
-            <button class="action-button quick-action" data-prompt="Check system health">
-              ◉ &nbsp; System Health Check
-            </button>
-
-            <button class="action-button quick-action" data-prompt="Check DripVid status">
-              ▶ &nbsp; Check DripVid Status
-            </button>
-
-            <button class="action-button quick-action" data-prompt="Show recent service logs for dripvid">
-              ▤ &nbsp; View Recent Logs
-            </button>
-
-            <button class="action-button quick-action" data-prompt="Show disk usage">
-              ▰ &nbsp; Check Storage Status
-            </button>
-
-          </div>
-
-        </section>
-
-        <section class="panel">
-
-          <div class="panel-title">
-            Voice Status
-          </div>
-
-          <div class="panel-body voice-box">
-
-            <div class="voice-icon">🎙</div>
-
-            <div>
-              <div id="voiceStatus" class="voice-status">Checking microphone...</div>
-
-              <div style="color:var(--muted);font-size:11px;margin-top:4px">
-                Click the microphone to talk
-              </div>
-            </div>
-
-          </div>
-
-        </section>
-
-        <section class="panel">
-
-          <div class="panel-title">
-            Safety Mode
-          </div>
-
-          <div class="panel-body">
-
-            <strong class="safety">🛡 READ ONLY + APPROVAL</strong>
-
-            <div style="color:var(--muted);font-size:11px;margin-top:8px">
-              Diagnostic tools run directly. System-changing
-              tools require your one-time confirmation from the
-              Pending Confirmations panel. JARVIS may save facts
-              to its own server-side brain.
-            </div>
-
-          </div>
-
-        </section>
-
-      </aside>
-
-    </section>
-
-    <footer class="footer">
-
-      <div>
-        J.A.R.V.I.S. &nbsp; | &nbsp;
-        DRIPVID OPERATOR SYSTEM &nbsp; | &nbsp;
-        v1.0.0
-      </div>
-
-      <div>
-        SECURE &nbsp; • &nbsp;
-        CONTROLLED &nbsp; • &nbsp;
-        RELIABLE
-        <span class="online-dot"></span>
-      </div>
-
-    </footer>
+    </aside>
 
   </main>
 
+  <section class="console">
+
+    <div class="console-bar">
+      <h2 class="console-title">CONVERSATION CONSOLE</h2>
+      <button id="clearButton" class="clear-button">Clear</button>
+    </div>
+
+    <div id="chatLog" class="chat-log">
+
+      <div class="message jarvis">
+        Operator interface ready.<br><br>
+        How can I assist you today?
+      </div>
+
+    </div>
+
+    <div id="composer" class="composer">
+
+      <button id="attachButton" class="attach-button" title="Attachments are not enabled in this release">＋</button>
+
+      <input id="message" type="text" placeholder="Type a message or press the mic to speak..." autocomplete="off">
+
+      <button id="micButton" class="mic-button" title="Click to speak">🎙</button>
+
+      <button id="sendButton" class="send-button" title="Transmit message">➤</button>
+
+    </div>
+
+  </section>
+
+  <footer class="footer">
+
+    <div>
+      J.A.R.V.I.S. &nbsp; | &nbsp;
+      DRIPVID OPERATOR SYSTEM &nbsp; | &nbsp;
+      v1.0.0
+    </div>
+
+    <div>
+      SECURE &nbsp; • &nbsp;
+      CONTROLLED &nbsp; • &nbsp;
+      RELIABLE
+      <span class="online-dot"></span>
+    </div>
+
+  </footer>
+
 </div>
 
-<script src="jarvis.js?v=9"></script>
+<script src="jarvis.js?v=10"></script>
 </body>
 </html>

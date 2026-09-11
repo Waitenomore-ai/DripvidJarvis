@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300" role="img" aria-labelledby="title desc">
+  <title id="title">DripVid</title>
+  <desc id="desc">DripVid glossy neon dripping play logo in purple, pink and cyan.</desc>
+  <defs>
+    <linearGradient id="drip-gradient" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="0.38" stop-color="#7c3aed"/>
+      <stop offset="0.68" stop-color="#a855f7"/>
+      <stop offset="1" stop-color="#ec4899"/>
+    </linearGradient>
+    <linearGradient id="drip-gradient-reverse" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ec4899"/>
+      <stop offset="0.48" stop-color="#a855f7"/>
+      <stop offset="1" stop-color="#22d3ee"/>
+    </linearGradient>
+    <linearGradient id="word-gradient" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.58" stop-color="#f8f7ff"/>
+      <stop offset="1" stop-color="#dcd7ff"/>
+    </linearGradient>
+    <radialGradient id="inner-glow" cx="42%" cy="35%" r="75%">
+      <stop offset="0" stop-color="#20113a"/>
+      <stop offset="1" stop-color="#07080d"/>
+    </radialGradient>
+    <filter id="neon-glow" x="-35%" y="-35%" width="170%" height="190%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="1 0 0 0 0.45  0 0.5 0 0 0.05  0 0 1 0 0.55  0 0 0 0.7 0" result="glow"/>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="soft-shadow" x="-20%" y="-30%" width="150%" height="180%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#000000" flood-opacity="0.48"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#a855f7" flood-opacity="0.42"/>
+    </filter>
+  </defs>
+
+  <!-- Neon play/drop mark -->
+  <g transform="translate(14 12)" filter="url(#neon-glow)">
+    <path d="M132 5C167 4 198 24 218 55L269 139C285 165 285 198 270 224C255 250 227 266 196 266H73C42 266 14 250 0 224C-15 198-15 165 1 139L52 55C70 25 98 6 132 5Z" fill="url(#inner-glow)" stroke="url(#drip-gradient-reverse)" stroke-width="18" stroke-linejoin="round"/>
+    <path d="M132 17C107 18 84 32 70 55L20 142C8 162 7 184 17 203" fill="none" stroke="#22d3ee" stroke-width="11" stroke-linecap="round" opacity="0.9"/>
+    <path d="M145 18C174 22 197 39 212 64L258 141C269 159 271 177 265 194" fill="none" stroke="#ec4899" stroke-width="10" stroke-linecap="round" opacity="0.94"/>
+    <path d="M105 81C105 70 117 64 126 70L190 108C199 114 199 127 190 133L126 171C117 177 105 170 105 159Z" fill="url(#drip-gradient)" stroke="#ffffff" stroke-opacity="0.62" stroke-width="3"/>
+    <path d="M118 77L179 113" stroke="#ffffff" stroke-width="5" stroke-linecap="round" opacity="0.42"/>
+    <!-- icon drips -->
+    <path d="M48 250C48 239 56 232 66 232C76 232 84 239 84 250V273C84 286 76 296 66 296C56 296 48 286 48 273Z" fill="url(#drip-gradient)"/>
+    <circle cx="28" cy="260" r="8" fill="#22d3ee"/>
+    <path d="M124 254C124 245 131 239 140 239C149 239 156 245 156 254V272C156 284 149 292 140 292C131 292 124 284 124 272Z" fill="url(#drip-gradient-reverse)"/>
+    <path d="M219 247C219 237 227 230 237 230C247 230 255 237 255 247V276C255 288 247 297 237 297C227 297 219 288 219 276Z" fill="url(#drip-gradient-reverse)"/>
+    <circle cx="270" cy="260" r="7" fill="#ec4899"/>
+  </g>
+
+  <!-- Wordmark -->
+  <g filter="url(#soft-shadow)">
+    <text x="318" y="188" fill="url(#word-gradient)" stroke="#ffffff" stroke-opacity="0.18" stroke-width="1.5" font-family="Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="146" font-weight="900" letter-spacing="-9">DripVid</text>
+    <path d="M329 183H365V220C365 239 355 252 342 252C329 252 321 240 324 227Z" fill="url(#drip-gradient)"/>
+    <circle cx="374" cy="224" r="8" fill="#a855f7"/>
+    <path d="M544 184H572V224C572 240 564 252 553 252C542 252 535 241 538 228Z" fill="url(#drip-gradient)"/>
+    <circle cx="582" cy="218" r="6" fill="#22d3ee"/>
+    <path d="M703 183H736V229C736 248 727 262 715 262C703 262 695 248 698 233Z" fill="url(#drip-gradient-reverse)"/>
+    <path d="M899 183H930V219C930 236 922 248 911 248C900 248 893 237 896 223Z" fill="url(#drip-gradient-reverse)"/>
+    <circle cx="940" cy="221" r="7" fill="#ec4899"/>
+  </g>
+
+  <!-- Gloss and small neon beads -->
+  <g opacity="0.9">
+    <ellipse cx="481" cy="87" rx="9" ry="14" fill="#7c3aed"/>
+    <circle cx="492" cy="103" r="5" fill="#a855f7"/>
+    <ellipse cx="806" cy="87" rx="9" ry="14" fill="#ec4899"/>
+    <circle cx="817" cy="103" r="5" fill="#f472b6"/>
+  </g>
+</svg>

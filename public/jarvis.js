@@ -14,16 +14,12 @@ function apiPath(path) {
   return `${prefix}${path}`;
 }
 
-async function api(
-  url,
-  options = {}
-) {
+async function api(url, options = {}) {
   const response =
     await fetch(url, {
       ...options,
       headers: {
-        'content-type':
-          'application/json',
+        'content-type': 'application/json',
         ...(options.headers || {})
       }
     });
@@ -35,8 +31,7 @@ async function api(
 
   if (!response.ok) {
     throw new Error(
-      body.error ||
-      `HTTP ${response.status}`
+      body.error || `HTTP ${response.status}`
     );
   }
 
@@ -55,21 +50,19 @@ function escapeHtml(value) {
 function setBadge(id, status) {
   const element = $(id);
 
-  const normalized =
-    String(status || 'offline')
-      .toLowerCase();
+  if (!element) {
+    return;
+  }
 
-  element.classList.remove(
-    'online',
-    'degraded',
-    'offline'
-  );
+  const normalized =
+    String(status || 'offline').toLowerCase();
+
+  element.classList.remove('online', 'degraded', 'offline');
 
   element.classList.add(
     normalized === 'online'
       ? 'online'
-      : normalized === 'degraded' ||
-        normalized === 'auth-required'
+      : normalized === 'degraded' || normalized === 'auth-required'
         ? 'degraded'
         : 'offline'
   );
@@ -78,39 +71,41 @@ function setBadge(id, status) {
     normalized.toUpperCase();
 }
 
-function setReactor(status) {
+function setCore(status) {
   const reactor = $('reactor');
+  const badge = $('core-status');
 
-  reactor.classList.remove(
-    'online',
-    'degraded',
-    'offline'
-  );
+  const normalized =
+    String(status || 'offline').toLowerCase();
 
-  reactor.classList.add(
-    status || 'offline'
-  );
+  reactor.classList.remove('online', 'degraded', 'offline');
+  reactor.classList.add(normalized);
+
+  badge.classList.remove('online', 'degraded', 'offline');
+  badge.classList.add(normalized);
+
+  badge.textContent =
+    normalized.toUpperCase();
 }
 
 function addActivity(text) {
   const root = $('activity');
 
-  const row =
-    document.createElement('div');
+  const row = document.createElement('div');
 
   row.className = 'activity-item';
 
-  row.innerHTML =
-    `<span class="activity-time">
+  row.innerHTML = `
+    <span class="activity-dot"></span>
+    <span class="activity-time">
       ${new Date().toLocaleTimeString()}
-     </span>
-     ${escapeHtml(text)}`;
+    </span>
+    <span class="activity-text">${escapeHtml(text)}</span>
+  `;
 
   root.prepend(row);
 
-  while (
-    root.children.length > 40
-  ) {
+  while (root.children.length > 30) {
     root.lastElementChild.remove();
   }
 }
@@ -122,138 +117,90 @@ function updateClock() {
     now.toLocaleTimeString();
 
   $('date').textContent =
-    now.toLocaleDateString(
-      undefined,
-      {
-        weekday: 'short',
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric'
-      }
-    );
-
-  $('telemetry').textContent =
-    `Telemetry ${now
-      .toLocaleTimeString()}`;
+    now.toLocaleDateString(undefined, {
+      weekday: 'short',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
 }
 
 async function refreshHealth() {
   try {
-    const health =
-      await api(
-        apiPath('/api/health')
-      );
+    const data = await api(apiPath('/api/health'));
 
-    setBadge(
-      'jarvis-status',
-      health.status
-    );
+    const deps = data.dependencies || {};
 
-    const dependencies =
-      health.dependencies || {};
+    setBadge('jarvis-status', data.status);
+    setBadge('dripvid-status', (deps.dripvid || {}).status);
+    setBadge('mcp-status', (deps.mcp || {}).status);
+    setBadge('techai-status', (deps.model || {}).status);
 
-    setBadge(
-      'dripvid-status',
-      dependencies.dripvid?.status
-    );
+    setCore(data.status);
 
-    setBadge(
-      'mcp-status',
-      dependencies.mcp?.status
-    );
+    const brain = deps.brain || {};
+    setBadge('brain-status', brain.status);
 
-    setBadge(
-      'brain-status',
-      dependencies.brain?.status
-    );
+    const brainEl = $('brain-status');
+    brainEl.textContent = brain.status
+      ? `BRAIN ${brain.status.toUpperCase()}`
+      : 'BRAIN —';
 
-    const vaultHealth =
-      dependencies.vault;
+    if (brain.memoryCount !== undefined) {
+      $('brain-memory').textContent =
+        `${brain.memoryCount} memories`;
+    }
 
-    setBadge(
-      'vault-status',
-      vaultHealth?.status
-    );
+    const vault = deps.vault || {};
+    setBadge('vault-status', vault.status);
 
-    const vaultNotes =
-      $('vault-notes');
+    const vaultEl = $('vault-status');
+    vaultEl.textContent = vault.status
+      ? `VAULT ${vault.status.toUpperCase()}`
+      : 'VAULT —';
 
-    vaultNotes.textContent =
-      vaultHealth && vaultHealth.noteCount !==
-      undefined
-        ? `${vaultHealth.noteCount} notes`
-        : '—';
+    if (vault.noteCount !== undefined) {
+      $('vault-notes').textContent =
+        `${vault.noteCount} notes`;
+    }
 
-    const brainModel =
-      $('brain-model');
+    const overall = $('overallHealth');
+    const detail = $('healthDetail');
+    const card = overall.closest('.overall-card');
 
-    brainModel.textContent =
-      dependencies.brain?.model ||
-      dependencies.brain?.provider ||
-      '—';
+    if (data.status === 'online') {
+      overall.textContent = 'All systems operational';
+      detail.textContent = 'No issues detected';
 
-    const brainMemory =
-      $('brain-memory');
-
-    brainMemory.textContent =
-      dependencies.brain?.memoryCount !==
-      undefined
-        ? `${dependencies.brain.memoryCount} memories`
-        : '—';
-
-    const voiceStatus =
-      $('voice-status');
-
-    const voiceHealth =
-      dependencies.tts;
-
-    voiceStatus.textContent =
-      voiceHealth
-        ? `${voiceHealth.status}${voiceHealth.status === 'online' ? ` ${voiceHealth.voiceId}` : ''}`
-        : voiceSupported
-          ? 'browser'
-          : '—';
-
-    setReactor(health.status);
-
-    const overall =
-      $('overallHealth');
-
-    const detail =
-      $('healthDetail');
-
-    if (
-      health.status === 'online'
-    ) {
-      overall.textContent =
-        'All systems operational';
-
-      detail.textContent =
-        'No issues detected';
-    } else {
+      card.classList.remove('online', 'degraded', 'offline');
+      card.classList.add('online');
+    } else if (data.status === 'degraded') {
       overall.textContent =
         'System operating in degraded mode';
-
       detail.textContent =
         'Check service cards for details';
+
+      card.classList.remove('online', 'degraded', 'offline');
+      card.classList.add('degraded');
+    } else {
+      overall.textContent = 'JARVIS unavailable';
+      detail.textContent = 'One or more services offline';
+
+      card.classList.remove('online', 'degraded', 'offline');
+      card.classList.add('offline');
     }
   } catch (error) {
-    setBadge(
-      'jarvis-status',
-      'offline'
-    );
+    setBadge('jarvis-status', 'offline');
+    setCore('offline');
 
-    setReactor('offline');
+    $('overallHealth').textContent = 'JARVIS unavailable';
+    $('healthDetail').textContent = error.message;
 
-    $('overallHealth').textContent =
-      'JARVIS unavailable';
+    const card = $('overallHealth').closest('.overall-card');
+    card.classList.remove('online', 'degraded', 'offline');
+    card.classList.add('offline');
 
-    $('healthDetail').textContent =
-      error.message;
-
-    addActivity(
-      `Health failure: ${error.message}`
-    );
+    addActivity(`Health failure: ${error.message}`);
   }
 }
 
@@ -263,24 +210,16 @@ async function refreshTools() {
   const root = $('toolList');
 
   try {
-    const data =
-      await api(
-        apiPath('/api/tools')
-      );
+    const data = await api(apiPath('/api/tools'));
 
-    allTools =
-      Array.isArray(data)
-        ? data
-        : data.tools || [];
+    allTools = Array.isArray(data) ? data : data.tools || [];
 
     renderTools(allTools);
-  } catch (error) {
-    root.textContent =
-      'Tool discovery unavailable.';
 
-    addActivity(
-      `Tools failure: ${error.message}`
-    );
+    addActivity(`Loaded ${allTools.length} tools`);
+  } catch (error) {
+    root.textContent = 'Tool discovery unavailable.';
+    addActivity(`Tools failure: ${error.message}`);
   }
 }
 
@@ -290,189 +229,291 @@ function renderTools(tools) {
   root.textContent = '';
 
   if (!tools.length) {
-    root.textContent =
-      'No read-only tools available.';
+    root.textContent = 'No read-only tools available.';
     return;
   }
 
   for (const tool of tools) {
-    const row =
-      document.createElement('div');
+    const card = document.createElement('div');
 
-    row.className = 'tool';
+    card.className = 'tool';
 
-    row.innerHTML = `
+    card.innerHTML = `
       <div class="tool-icon">⌁</div>
-
-      <div class="tool-meta">
-        <div class="tool-name">
-          ${escapeHtml(tool.name || '')}
-        </div>
-
-        <div class="tool-desc">
-          ${escapeHtml(
-            tool.description ||
-            'Read-only diagnostic tool'
-          )}
-        </div>
-
-        <span class="tool-tag ${tool.mutating ? 'mutating' : ''}">
-          ${tool.mutating ? 'REQUIRES APPROVAL' : 'READ ONLY'}
-        </span>
+      <div class="tool-name">
+        ${escapeHtml(tool.name || '')}
       </div>
+      <div class="tool-desc">
+        ${escapeHtml(tool.description || 'Read-only diagnostic tool')}
+      </div>
+      <span class="tool-tag ${tool.mutating ? 'mutating' : ''}">
+        ${tool.mutating ? 'REQUIRES APPROVAL' : 'READ ONLY'}
+      </span>
     `;
 
-    root.appendChild(row);
+    root.appendChild(card);
   }
 }
 
-$('toolSearch').addEventListener(
-  'input',
-  (event) => {
-    const query =
-      event.target.value
-        .toLowerCase();
+$('toolSearch').addEventListener('input', (event) => {
+  const query = event.target.value.toLowerCase();
 
-    renderTools(
-      allTools.filter((tool) =>
-        `${tool.name} ${tool.description || ''}`
-          .toLowerCase()
-          .includes(query)
-      )
-    );
-  }
-);
+  renderTools(
+    allTools.filter((tool) =>
+      `${tool.name} ${tool.description || ''}`
+        .toLowerCase()
+        .includes(query)
+    )
+  );
+});
 
 function formatBytes(bytes) {
-  if (
-    typeof bytes !== 'number' ||
-    !Number.isFinite(bytes)
-  ) {
+  if (typeof bytes !== 'number' || !Number.isFinite(bytes)) {
     return '—';
   }
 
   if (bytes >= 1024 ** 4) {
-    return `${(bytes / 1024 ** 4)
-      .toFixed(2)} TB`;
+    return `${(bytes / 1024 ** 4).toFixed(2)} TB`;
   }
 
-  return `${(bytes / 1024 ** 3)
-    .toFixed(1)} GB`;
+  if (bytes >= 1024 ** 3) {
+    return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
+  }
+
+  return `${(bytes / 1024 ** 2).toFixed(0)} MB`;
+}
+
+function formatSpeed(bytesPerSecond) {
+  if (
+    typeof bytesPerSecond !== 'number' ||
+    !Number.isFinite(bytesPerSecond) ||
+    bytesPerSecond <= 0
+  ) {
+    return '--';
+  }
+
+  if (bytesPerSecond >= 1024 ** 2) {
+    return `${(bytesPerSecond / 1024 ** 2).toFixed(2)} MB/s`;
+  }
+
+  return `${(bytesPerSecond / 1024).toFixed(0)} KB/s`;
 }
 
 function formatDuration(seconds) {
-  if (
-    typeof seconds !== 'number' ||
-    !Number.isFinite(seconds)
-  ) {
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds)) {
     return '—';
   }
 
-  const days = Math.floor(
-    seconds / 86400
-  );
-  const hours = Math.floor(
-    (seconds % 86400) / 3600
-  );
-  const minutes = Math.floor(
-    (seconds % 3600) / 60
-  );
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
 
   if (days > 0) {
-    return `up ${days}d ${hours}h`;
+    return `Uptime ${days}d ${hours}h`;
   }
 
   if (hours > 0) {
-    return `up ${hours}h ${minutes}m`;
+    return `Uptime ${hours}h ${minutes}m`;
   }
 
-  return `up ${minutes}m`;
+  return `Uptime ${minutes}m`;
+}
+
+const SPARK = {
+  cpu: [],
+  mem: [],
+  net: []
+};
+
+const MAX_POINTS = 24;
+
+function paintSpark(canvasId, samples, color) {
+  const svg = $(canvasId);
+
+  if (!svg) {
+    return;
+  }
+
+  const width = 120;
+  const height = 36;
+  const pad = 2;
+
+  let points = '';
+
+  samples.forEach((value, index) => {
+    if (value === null || value === undefined) {
+      return;
+    }
+
+    const x =
+      pad + (index / (MAX_POINTS - 1)) * (width - pad * 2);
+
+    const y =
+      height -
+      pad -
+      Math.min(1, Math.max(0, value)) * (height - pad * 2);
+
+    if (points) {
+      points += ' ';
+    }
+
+    points += `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+
+  if (!points) {
+    points = `${pad},${height - pad} ${width - pad},${height - pad}`;
+  }
+
+  svg.innerHTML = `
+    <polyline
+      points="${points}"
+      fill="none"
+      stroke="${color}"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      style="filter: drop-shadow(0 0 4px ${color})"/>
+  `;
+}
+
+let lastNetwork = null;
+
+function percent(value) {
+  return `${Math.round(value)}%`;
 }
 
 async function refreshMetrics() {
-  const hostline = $('hostline');
-
   try {
-    const metrics =
-      await api(
-        apiPath('/api/metrics')
-      );
+    const metrics = await api(apiPath('/api/metrics'));
 
-    const memoryTotal =
-      metrics.memory &&
-      metrics.memory.total;
-    const memoryFree =
-      metrics.memory &&
-      metrics.memory.free;
+    const memoryTotal = metrics.memory && metrics.memory.total;
+    const memoryFree = metrics.memory && metrics.memory.free;
     const memoryUsed =
-      memoryTotal && memoryFree
-        ? memoryTotal - memoryFree
+      memoryTotal && memoryFree ? memoryTotal - memoryFree : null;
+
+    const cpuCores = (metrics.cpu && metrics.cpu.cores) || 0;
+    const loadAvg = (metrics.cpu && metrics.cpu.loadAvg) || [];
+
+    const cpuPercent =
+      cpuCores > 0 && loadAvg.length
+        ? Math.min(100, (loadAvg[0] / cpuCores) * 100)
         : null;
 
-    $('cpu').textContent =
-      metrics.cpu &&
-      metrics.cpu.cores
-        ? `${metrics.cpu.cores} cores`
-        : '—';
+    const memPercent =
+      memoryTotal && memoryUsed
+        ? Math.min(100, (memoryUsed / memoryTotal) * 100)
+        : null;
 
-    $('memory').textContent =
+    $('cpu-percent').textContent =
+      cpuPercent !== null ? percent(cpuPercent / 100) : '--%';
+
+    $('cpu-cores').textContent =
+      cpuCores ? `${cpuCores} cores` : '-- cores';
+
+    $('mem-percent').textContent =
+      memPercent !== null ? percent(memPercent / 100) : '--%';
+
+    $('memory-detail').textContent =
       memoryTotal && memoryUsed
         ? `${formatBytes(memoryUsed)} / ${formatBytes(memoryTotal)}`
         : '—';
 
-    const storage =
-      metrics.storage;
+    const storage = metrics.storage;
 
-    $('storage').textContent =
-      storage &&
-      storage.total
-        ? `${formatBytes(storage.total - storage.avail)} / ${formatBytes(storage.total)}`
-        : '—';
+    if (storage && storage.total) {
+      const used = storage.total - storage.avail;
+      const pct =
+        Math.min(100, Math.max(0, (used / storage.total) * 100));
+
+      $('storageBar').style.width = `${pct}%`;
+      $('storage-used').textContent = `${formatBytes(used)} used`;
+      $('storage-free').textContent = `${formatBytes(storage.avail)} free`;
+      $('storage-detail').textContent =
+        `${Math.round(pct)}% of ${formatBytes(storage.total)}`;
+    } else {
+      $('storageBar').style.width = '0%';
+      $('storage-detail').textContent = '—';
+    }
+
+    const network = metrics.network;
+
+    if (network && lastNetwork &&
+        network.ts && lastNetwork.ts) {
+      const elapsedMs = network.ts - lastNetwork.ts;
+
+      if (elapsedMs > 0) {
+        const rxRate =
+          Math.max(0, network.rxBytes - lastNetwork.rxBytes) *
+          (1000 / elapsedMs);
+
+        const txRate =
+          Math.max(0, network.txBytes - lastNetwork.txBytes) *
+          (1000 / elapsedMs);
+
+        $('net-down').textContent = `↓ ${formatSpeed(rxRate)}`;
+        $('net-up').textContent = `↑ ${formatSpeed(txRate)}`;
+
+        SPARK.net.push(
+          Math.min(1, rxRate / (1024 * 1024 * 4))
+        );
+
+        if (SPARK.net.length > MAX_POINTS) {
+          SPARK.net.shift();
+        }
+
+        paintSpark('netSpark', SPARK.net, '#20c8ff');
+      }
+    } else {
+      $('net-down').textContent = '↓ --';
+      $('net-up').textContent = '↑ --';
+      paintSpark('netSpark', [], '#20c8ff');
+    }
+
+    if (network && network.ts) {
+      lastNetwork = network;
+    }
 
     $('uptime').textContent =
-      formatDuration(
-        metrics.uptimeSec
-      );
+      formatDuration(metrics.uptimeSec);
 
-    hostline.textContent =
-      `Host: ${
-        metrics.hostname || '—'
-      } · ${
-        metrics.platform || ''
-      }${
-        metrics.osRelease
-          ? ` · ${metrics.osRelease}`
-          : ''
-      }`;
+    $('hostline').textContent =
+      `Host: ${metrics.hostname || '—'} · ${metrics.platform || ''}` +
+      (metrics.osRelease ? ` · ${metrics.osRelease}` : '');
+
+    if (cpuPercent !== null) {
+      SPARK.cpu.push(cpuPercent / 100);
+    }
+
+    if (memPercent !== null) {
+      SPARK.mem.push(memPercent / 100);
+    }
+
+    if (SPARK.cpu.length > MAX_POINTS) {
+      SPARK.cpu.shift();
+    }
+
+    if (SPARK.mem.length > MAX_POINTS) {
+      SPARK.mem.shift();
+    }
+
+    paintSpark('cpuSpark', SPARK.cpu, '#914cff');
+    paintSpark('memSpark', SPARK.mem, '#6f5cff');
   } catch (error) {
-    $('cpu').textContent = '—';
-    $('memory').textContent = '—';
-    $('storage').textContent = '—';
+    $('cpu-percent').textContent = '--%';
+    $('mem-percent').textContent = '--%';
+    $('storage-detail').textContent = '—';
     $('uptime').textContent = '—';
-
-    hostline.textContent =
-      `Host: unavailable (${error.message})`;
+    $('hostline').textContent = `Host: unavailable (${error.message})`;
   }
 }
 
 function addMessage(role, text) {
-  const item =
-    document.createElement('div');
+  const item = document.createElement('div');
 
-  item.className =
-    `message ${
-      role === 'user'
-        ? 'you'
-        : 'jarvis'
-    }`;
+  item.className = `message ${role === 'user' ? 'you' : 'jarvis'}`;
 
   item.innerHTML = `
-    <strong>
-      ${role === 'user'
-        ? 'YOU'
-        : 'JARVIS'}
-    </strong>
-    <br><br>
+    ${role === 'user' ? 'YOU' : 'JARVIS'}<br><br>
     ${escapeHtml(text)}
   `;
 
@@ -480,8 +521,7 @@ function addMessage(role, text) {
 
   log.appendChild(item);
 
-  log.scrollTop =
-    log.scrollHeight;
+  log.scrollTop = log.scrollHeight;
 }
 
 async function sendConversation(text) {
@@ -492,25 +532,18 @@ async function sendConversation(text) {
 
   addMessage('user', text);
 
-  const response =
-    await api(
-      apiPath('/api/conversation'),
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          conversation:
-            conversationHistory
-        })
-      }
-    );
+  const response = await api(apiPath('/api/conversation'), {
+    method: 'POST',
+    body: JSON.stringify({
+      conversation: conversationHistory
+    })
+  });
 
   const message =
     response.message ||
-    (
-      response.degraded
-        ? 'Artificial intelligence engine unavailable.'
-        : 'Command processed.'
-    );
+    (response.degraded
+      ? 'Artificial intelligence engine unavailable.'
+      : 'Command processed.');
 
   conversationHistory.push({
     role: 'assistant',
@@ -521,35 +554,27 @@ async function sendConversation(text) {
 
   speakAnswer(message);
 
-  for (
-    const result of
-    response.toolResults || []
-  ) {
+  for (const result of response.toolResults || []) {
     addActivity(
       `${result.name || 'tool'}: ${
-        result.ok
-          ? 'completed'
-          : result.error
+        result.ok ? 'completed' : result.error
       }`
     );
   }
 
-  if (
-    response.memoryCount !== undefined
-  ) {
+  if (response.memoryCount !== undefined) {
     $('brain-memory').textContent =
       `${response.memoryCount} memories`;
   }
 
   await refreshConfirmations();
+  refreshHealth();
 }
 
 async function sendMessage() {
-  const input =
-    $('message');
+  const input = $('message');
 
-  const text =
-    input.value.trim();
+  const text = input.value.trim();
 
   if (!text) {
     return;
@@ -557,86 +582,81 @@ async function sendMessage() {
 
   input.value = '';
 
-  addActivity(
-    'Request sent'
-  );
+  addActivity('Request sent');
 
   try {
     await sendConversation(text);
-
-    addActivity(
-      'JARVIS request completed'
-    );
+    addActivity('JARVIS request completed');
   } catch (error) {
     addMessage(
       'jarvis',
       'I cannot reach the AI service at the moment.'
     );
 
-    addActivity(
-      `Request failed: ${error.message}`
-    );
+    addActivity(`Request failed: ${error.message}`);
   }
 }
 
 function quick(text) {
   $('message').value = text;
-
   sendMessage();
 }
 
-$('sendButton').addEventListener(
-  'click',
-  sendMessage
-);
+$('sendButton').addEventListener('click', sendMessage);
 
-$('message').addEventListener(
-  'keydown',
-  (event) => {
-    if (
-      event.key === 'Enter' &&
-      !event.shiftKey
-    ) {
-      event.preventDefault();
-
-      sendMessage();
-    }
+$('message').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault();
+    sendMessage();
   }
-);
+});
 
-for (
-  const button of
-  document.querySelectorAll(
-    '.quick-prompt, .quick-action'
-  )
-) {
-  button.addEventListener(
-    'click',
-    () => {
-      quick(
-        button.dataset.prompt || ''
-      );
-    }
-  );
+$('clearButton').addEventListener('click', () => {
+  $('chatLog').textContent = '';
+
+  addActivity('Conversation cleared');
+});
+
+for (const button of document.querySelectorAll('.quick-action')) {
+  button.addEventListener('click', () => {
+    quick(button.dataset.prompt || '');
+  });
 }
+
+$('openStatus').addEventListener('click', () => {
+  refreshHealth();
+  refreshMetrics();
+
+  addActivity('System status refresh requested');
+});
+
+$('bellButton').addEventListener('click', () => {
+  addActivity('No new notifications');
+});
 
 const SpeechRecognition =
   window.SpeechRecognition ||
   window.webkitSpeechRecognition;
 
 const speechSupported =
-  typeof window.speechSynthesis !==
-    'undefined' &&
-  typeof window.SpeechSynthesisUtterance !==
-    'undefined';
+  typeof window.speechSynthesis !== 'undefined' &&
+  typeof window.SpeechSynthesisUtterance !== 'undefined';
 
 const audioSupported =
   typeof window.Audio === 'function';
 
 let voiceEnabled =
-  localStorage.getItem(
-    'jarvis-voice-output'
-  ) === '1';
+  localStorage.getItem('jarvis-voice-output') === '1';
+
+const equalizer = $('equalizer');
+
+function setEqualizerLive(live) {
+  if (!equalizer) {
+    return;
+  }
+
+  equalizer.classList.toggle('live', Boolean(live));
+}
 
 let currentAudio = null;
 
@@ -649,6 +669,8 @@ function stopSpeaking() {
   if (speechSupported) {
     window.speechSynthesis.cancel();
   }
+
+  setEqualizerLive(false);
 }
 
 function browserSpeak(text) {
@@ -656,17 +678,13 @@ function browserSpeak(text) {
     return;
   }
 
-  const utterance =
-    new SpeechSynthesisUtterance(text);
+  const utterance = new SpeechSynthesisUtterance(text);
 
-  utterance.lang =
-    navigator.language || 'en-GB';
-
+  utterance.lang = navigator.language || 'en-GB';
   utterance.rate = 1.05;
   utterance.pitch = 1;
 
-  const voices =
-    window.speechSynthesis.getVoices();
+  const voices = window.speechSynthesis.getVoices();
 
   const preferred =
     voices.find((voice) =>
@@ -685,8 +703,7 @@ function browserSpeak(text) {
 }
 
 async function speakAnswer(text) {
-  const content =
-    String(text || '').trim();
+  const content = String(text || '').trim();
 
   if (!voiceEnabled || !content) {
     return;
@@ -697,30 +714,19 @@ async function speakAnswer(text) {
   if (audioSupported) {
     try {
       const response =
-        await fetch(
-          apiPath('/api/tts'),
-          {
-            method: 'POST',
-            headers: {
-              'content-type':
-                'application/json'
-            },
-            body:
-              JSON.stringify({
-                text: content
-              })
-          }
-        );
+        await fetch(apiPath('/api/tts'), {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json'
+          },
+          body: JSON.stringify({ text: content })
+        });
 
       if (response.ok) {
-        const blob =
-          await response.blob();
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
 
-        const url =
-          URL.createObjectURL(blob);
-
-        currentAudio =
-          new Audio(url);
+        currentAudio = new Audio(url);
 
         const cleanup = () => {
           if (currentAudio) {
@@ -729,13 +735,13 @@ async function speakAnswer(text) {
           }
 
           URL.revokeObjectURL(url);
+          setEqualizerLive(false);
         };
 
-        currentAudio.onended =
-          cleanup;
+        currentAudio.onended = cleanup;
+        currentAudio.onerror = cleanup;
 
-        currentAudio.onerror =
-          cleanup;
+        setEqualizerLive(true);
 
         await currentAudio
           .play()
@@ -751,159 +757,122 @@ async function speakAnswer(text) {
   browserSpeak(content);
 }
 
-const voiceButton =
-  $('voiceButton');
+const voiceButton = $('voiceButton');
 
 function setVoiceButtonState() {
   voiceButton.textContent =
     voiceEnabled ? '🔊' : '🔇';
 
-  voiceButton.classList.toggle(
-    'active',
-    voiceEnabled
-  );
-
-  voiceButton.classList.toggle(
-    'off',
-    !voiceEnabled
-  );
+  voiceButton.classList.toggle('active', voiceEnabled);
+  voiceButton.classList.toggle('off', !voiceEnabled);
 }
 
 setVoiceButtonState();
 
-voiceButton.addEventListener(
-  'click',
-  () => {
-    voiceEnabled = !voiceEnabled;
+voiceButton.addEventListener('click', () => {
+  voiceEnabled = !voiceEnabled;
 
-    if (!voiceEnabled) {
-      stopSpeaking();
-    }
-
-    localStorage.setItem(
-      'jarvis-voice-output',
-      voiceEnabled ? '1' : '0'
-    );
-
-    setVoiceButtonState();
+  if (!voiceEnabled) {
+    stopSpeaking();
   }
-);
 
-const micButton =
-  $('micButton');
+  localStorage.setItem(
+    'jarvis-voice-output',
+    voiceEnabled ? '1' : '0'
+  );
 
-const voiceStatus =
-  $('voiceStatus');
+  setVoiceButtonState();
+});
+
+const micButton = $('micButton');
+const voiceStatus = $('voiceStatus');
 
 const voiceSupported =
-  !!(navigator.mediaDevices &&
-     SpeechRecognition);
+  !!(navigator.mediaDevices && SpeechRecognition);
 
 let recognition = null;
 
 if (voiceSupported) {
-  voiceStatus.textContent =
-    'Microphone available';
+  voiceStatus.textContent = 'Microphone available';
 
-  recognition =
-    new SpeechRecognition();
+  recognition = new SpeechRecognition();
 
-  recognition.lang =
-    navigator.language || 'en-GB';
-
+  recognition.lang = navigator.language || 'en-GB';
   recognition.continuous = false;
   recognition.interimResults = true;
 
   recognition.onstart = () => {
     stopSpeaking();
 
-    micButton.classList.add(
-      'listening'
-    );
+    micButton.classList.add('listening');
+    voiceStatus.textContent = 'Listening...';
 
-    voiceStatus.textContent =
-      'Listening...';
+    setEqualizerLive(true);
   };
 
   recognition.onresult = (event) => {
     let transcript = '';
 
-    for (
-      let i = event.resultIndex;
-      i < event.results.length;
-      i++
-    ) {
-      transcript +=
-        event.results[i][0].transcript;
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      transcript += event.results[i][0].transcript;
     }
 
     $('message').value = transcript;
   };
 
   recognition.onend = () => {
-    micButton.classList.remove(
-      'listening'
-    );
+    micButton.classList.remove('listening');
+    voiceStatus.textContent = 'Microphone detected';
 
-    voiceStatus.textContent =
-      'Microphone detected';
+    setEqualizerLive(false);
   };
 
   recognition.onerror = (event) => {
-    micButton.classList.remove(
-      'listening'
-    );
-
+    micButton.classList.remove('listening');
     voiceStatus.textContent =
       event.error === 'not-allowed'
         ? 'Microphone permission denied'
         : 'Voice input unavailable';
+
+    setEqualizerLive(false);
   };
 
-  micButton.addEventListener(
-    'click',
-    async () => {
-      try {
-        await navigator.mediaDevices
-          .getUserMedia({
-            audio: true
-          });
+  micButton.addEventListener('click', async () => {
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
 
-        recognition.start();
-      } catch {
-        voiceStatus.textContent =
-          'Microphone permission denied';
-      }
+      recognition.start();
+    } catch {
+      voiceStatus.textContent = 'Microphone permission denied';
+      setEqualizerLive(false);
     }
-  );
+  });
 } else {
   micButton.style.display = 'none';
-
-  $('composer').classList.add(
-    'no-voice'
-  );
-
-  voiceStatus.textContent =
-    'Voice input unsupported';
+  $('composer').classList.add('no-voice');
+  voiceStatus.textContent = 'Voice input unsupported';
 }
 
 async function refreshConfirmations() {
   try {
-    const data =
-      await api(
-        apiPath('/api/confirmations')
-      );
+    const data = await api(apiPath('/api/confirmations'));
 
-    const confirmations =
-      data.confirmations || [];
+    const confirmations = data.confirmations || [];
 
     const panel = $('confirmPanel');
     const list = $('confirmList');
+
+    const badge = $('bellBadge');
 
     if (!confirmations.length) {
       if (panel) {
         panel.style.display = 'none';
       }
+
+      if (badge) {
+        badge.style.display = 'none';
+      }
+
       return;
     }
 
@@ -911,13 +880,15 @@ async function refreshConfirmations() {
       panel.style.display = '';
     }
 
+    if (badge) {
+      badge.style.display = '';
+      badge.textContent = confirmations.length;
+    }
+
     list.textContent = '';
 
-    for (
-      const confirmation of confirmations
-    ) {
-      const row =
-        document.createElement('div');
+    for (const confirmation of confirmations) {
+      const row = document.createElement('div');
 
       row.className = 'confirm-row';
 
@@ -927,14 +898,10 @@ async function refreshConfirmations() {
             ${escapeHtml(confirmation.tool)}
           </div>
           <div class="confirm-args">
-            ${escapeHtml(
-              JSON.stringify(
-                confirmation.args || {}
-              )
-            )}
+            ${escapeHtml(JSON.stringify(confirmation.args || {}))}
           </div>
         </div>
-        <button class="action-button confirm-button"
+        <button class="confirm-button"
           data-id="${confirmation.id}">
           CONFIRM
         </button>
@@ -944,27 +911,19 @@ async function refreshConfirmations() {
         .querySelector('.confirm-button')
         .addEventListener('click', async () => {
           try {
-            const result =
-              await api(
-                apiPath('/api/confirm'),
-                {
-                  method: 'POST',
-                  body: JSON.stringify({
-                    id: confirmation.id
-                  })
-                }
-              );
+            const result = await api(apiPath('/api/confirm'), {
+              method: 'POST',
+              body: JSON.stringify({
+                id: confirmation.id
+              })
+            });
 
-            addActivity(
-              `Confirmed: ${result.tool}`
-            );
+            addActivity(`Confirmed: ${result.tool}`);
 
             refreshConfirmations();
             refreshHealth();
           } catch (error) {
-            addActivity(
-              `Confirmation failed: ${error.message}`
-            );
+            addActivity(`Confirmation failed: ${error.message}`);
             refreshConfirmations();
           }
         });
@@ -972,128 +931,57 @@ async function refreshConfirmations() {
       list.appendChild(row);
     }
 
-    addActivity(
-      `Pending confirmation: ${confirmations[0].tool}`
-    );
+    addActivity(`Pending confirmation: ${confirmations[0].tool}`);
   } catch {}
 }
 
 async function refreshVerify() {
-  const statusEl = $('verify-status');
-  const detailEl = $('verify-detail');
-
   try {
-    const result =
-      await api(
-        apiPath('/api/verify')
-      );
+    const result = await api(apiPath('/api/verify'));
 
-    const status =
-      result.status || 'unknown';
-
-    statusEl.classList.remove(
-      'online',
-      'degraded',
-      'offline'
-    );
-
-    statusEl.classList.add(
-      status === 'ok'
-        ? 'online'
-        : status === 'failed'
-          ? 'offline'
-          : 'degraded'
-    );
-
-    statusEl.textContent =
-      status === 'ok'
-        ? 'PASS'
-        : status === 'failed'
-          ? 'FAIL'
-          : 'UNKNOWN';
-
-    const steps =
-      result.steps || {};
+    const status = result.status || 'unknown';
 
     const parts = [];
 
-    if (
-      steps.chat !== undefined
-    ) {
+    const steps = result.steps || {};
+
+    if (steps.chat !== undefined) {
       parts.push(`chat ${steps.chat}`);
     }
 
-    if (
-      steps.tool !== undefined
-    ) {
+    if (steps.tool !== undefined) {
       parts.push(`tool ${steps.tool}`);
     }
 
-    if (
-      steps.teach !== undefined
-    ) {
+    if (steps.teach !== undefined) {
       parts.push(`teach ${steps.teach}`);
     }
 
-    if (
-      steps.recall !== undefined
-    ) {
+    if (steps.recall !== undefined) {
       parts.push(`recall ${steps.recall}`);
     }
 
-    detailEl.textContent =
-      parts.length
-        ? parts.join(' · ')
-        : 'No per-step results recorded';
-  } catch {
-    statusEl.classList.remove(
-      'online',
-      'degraded',
-      'offline'
-    );
-
-    statusEl.classList.add(
-      'offline'
-    );
-
-    statusEl.textContent =
-      'UNKNOWN';
-
-    detailEl.textContent =
-      'Verify endpoint unavailable';
-  }
+    if (status === 'ok') {
+      addActivity(`Auto-verify passed: ${parts.join(' · ')}`);
+    } else if (status === 'failed') {
+      addActivity('Auto-verify failed');
+    }
+  } catch {}
 }
 
 updateClock();
 
-setInterval(
-  updateClock,
-  1000
-);
+setInterval(updateClock, 1000);
 
 refreshMetrics();
 
-setInterval(
-  refreshMetrics,
-  30000
-);
+setInterval(refreshMetrics, 30000);
 
 refreshHealth();
 refreshTools();
 refreshConfirmations();
 refreshVerify();
 
-setInterval(
-  refreshHealth,
-  10000
-);
-
-setInterval(
-  refreshConfirmations,
-  10000
-);
-
-setInterval(
-  refreshVerify,
-  30000
-);
+setInterval(refreshHealth, 10000);
+setInterval(refreshConfirmations, 10000);
+setInterval(refreshVerify, 30000);
