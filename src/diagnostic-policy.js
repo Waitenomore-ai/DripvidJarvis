@@ -122,6 +122,38 @@ function validateDiagnosticCall(
   };
 }
 
+function isDiagnosticRequest(text) {
+  const value = String(text || '').trim();
+
+  if (!value) {
+    return false;
+  }
+
+  if (/\bremember\b/i.test(value)) {
+    return false;
+  }
+
+  if (/\b(?:disk|storage|network|logs?|errors?|dependencies|services?)\b/i.test(value)) {
+    return true;
+  }
+
+  if (/\bstreaming\b.*\b(?:slow|issue|problem|buffer)/i.test(value)) {
+    return true;
+  }
+
+  if (/\b(?:health|healthy|unhealthy|running|operational|reachable|online|offline)\b/i.test(value) &&
+      /\b(?:dripvid|mcp|jarvis|server|system|service|streaming)\b/i.test(value)) {
+    return true;
+  }
+
+  if (/\b(?:check|show|inspect|verify)\b/i.test(value) &&
+      /\b(?:dripvid|mcp|jarvis|server|system|service|health|disk|storage|network|logs?|errors?)\b/i.test(value)) {
+    return true;
+  }
+
+  return false;
+}
+
 function formatDiagnosticFallback(
   toolResults,
   reason
@@ -154,5 +186,6 @@ module.exports = {
   selectAutomaticDiagnosticTools,
   validateDiagnosticCall,
   sanitizeDiagnosticValue,
-  formatDiagnosticFallback
+  formatDiagnosticFallback,
+  isDiagnosticRequest
 };
