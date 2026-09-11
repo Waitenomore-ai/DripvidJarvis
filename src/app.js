@@ -285,6 +285,69 @@ function createApp(options = {}) {
 
         if (
           req.method === 'GET' &&
+          req.url === '/api/verify'
+        ) {
+          const verifyResult = {
+            status: 'unknown',
+            enabled: true,
+            reset: null
+          };
+
+          try {
+            const raw =
+              fs.readFileSync(
+                runtime
+                  .config
+                  .verifyResultPath,
+                'utf8'
+              );
+
+            const parsed =
+              JSON.parse(raw);
+
+            if (
+              parsed &&
+              typeof parsed ===
+                'object'
+            ) {
+              verifyResult.status =
+                typeof parsed.status ===
+                  'string' &&
+                parsed.status.length
+                  ? parsed.status
+                  : 'unknown';
+              verifyResult.attempts =
+                Number.isInteger(
+                  parsed.attempts
+                )
+                  ? parsed.attempts
+                  : null;
+              verifyResult.steps =
+                parsed.steps &&
+                typeof parsed.steps ===
+                  'object'
+                  ? parsed.steps
+                  : null;
+              verifyResult.updatedAt =
+                typeof parsed.updatedAt ===
+                  'string'
+                  ? parsed.updatedAt
+                  : null;
+            }
+          } catch {
+            // left as 'unknown'
+          }
+
+          sendJson(
+            res,
+            200,
+            verifyResult
+          );
+          return;
+        }
+
+        if (
+          req.method === 'GET' &&
           req.url === '/api/tools'
         ) {
           sendJson(

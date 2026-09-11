@@ -3,6 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
 const {
@@ -96,6 +97,16 @@ test(
         '..',
         'data',
         'brain.json'
+      )
+    );
+
+    assert.equal(
+      config.verifyResultPath,
+      path.resolve(
+        __dirname,
+        '..',
+        'data',
+        'auto-verify.result'
       )
     );
   }
@@ -211,5 +222,165 @@ test(
       ),
       true
     );
+  }
+);
+
+test(
+  '/api/verify returns stored auto-verify result',
+  async () => {
+    const tmpDir =
+      fs.mkdtempSync(
+        path.join(
+          os.tmpdir(),
+          'jarvis-verify-'
+        )
+      );
+
+    const resultPath =
+      path.join(
+        tmpDir,
+        'auto-verify.result'
+      );
+
+    fs.writeFileSync(
+      resultPath,
+      JSON.stringify({
+        status: 'ok',
+        attempts: 7,
+        steps: {
+          chat: true,
+          tool: true,
+          teach: 'skipped',
+          recall: true
+        },
+        updatedAt:
+          '2026-09-11T09:00:00Z'
+      })
+    );
+
+    const server =
+      createApp({
+        env: {
+          JARVIS_VERIFY_RESULT_PATH:
+            resultPath
+        }
+      });
+
+    await new Promise((resolve) => {
+      server.listen(
+        0,
+        '127.0.0.1',
+        resolve
+      );
+    });
+
+    const address =
+      server.address();
+
+    try {
+      const response =
+        await fetch(
+          `http://127.0.0.1:${address.port}/api/verify`
+        );
+
+      const body =
+        await response.json();
+
+      assert.equal(
+        response.status,
+        200
+      );
+
+      assert.equal(
+        body.status,
+        'ok'
+      );
+
+      assert.equal(
+        body.attempts,
+        7
+      );
+
+      assert.equal(
+        body.steps.chat,
+        true
+      );
+
+      assert.equal(
+        body.steps.teach,
+        'skipped'
+      );
+
+      assert.equal(
+        body.updatedAt,
+        '2026-09-11T09:00:00Z'
+      );
+    } finally {
+      server.close();
+
+      fs.rmSync(tmpDir, {
+        recursive: true,
+        force: true
+      });
+    }
+  }
+);
+
+test(
+  '/api/verify falls back to unknown when no result file',
+  async () => {
+    const tmpDir =
+      fs.mkdtempSync(
+        path.join(
+          os.tmpdir(),
+          'jarvis-verify-'
+        )
+      );
+
+    const resultPath =
+      path.join(
+        tmpDir,
+        'missing.result'
+      );
+
+    const server =
+      createApp({
+        env: {
+          JARVIS_VERIFY_RESULT_PATH:
+            resultPath
+        }
+      });
+
+    await new Promise((resolve) => {
+      server.listen(
+        0,
+        '127.0.0.1',
+        resolve
+      );
+    });
+
+    const address =
+      server.address();
+
+    try {
+      const body =
+        await (
+          await fetch(
+            `http://127.0.0.1:${address.port}/api/verify`
+          )
+        ).json();
+
+      assert.equal(
+        body.status,
+        'unknown'
+      );
+    } finally {
+      server.close();
+
+      fs.rmSync(tmpDir, {
+        recursive: true,
+        force: true
+      });
+    }
   }
 );

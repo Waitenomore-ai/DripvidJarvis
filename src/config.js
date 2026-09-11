@@ -106,6 +106,15 @@ function loadConfig(env = process.env) {
         5
       ),
 
+    verifyResultPath:
+      env.JARVIS_VERIFY_RESULT_PATH ||
+      path.resolve(
+        __dirname,
+        '..',
+        'data',
+        'auto-verify.result'
+      ),
+
     requestTimeoutMs:
       parsePositiveInteger(
         env.JARVIS_REQUEST_TIMEOUT_MS,
@@ -115,7 +124,7 @@ function loadConfig(env = process.env) {
     chatTimeoutMs:
       parsePositiveInteger(
         env.JARVIS_CHAT_TIMEOUT_MS,
-        120000
+        300000
       ),
 
     maxAgentIterations:

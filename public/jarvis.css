@@ -588,6 +588,24 @@ button {
   font-size: 10px;
 }
 
+/* AUTO-VERIFY */
+
+.verify-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.verify-body .badge {
+  align-self: flex-start;
+}
+
+.verify-detail {
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 4px;
+}
+
 /* CHAT */
 
 .chat-panel {

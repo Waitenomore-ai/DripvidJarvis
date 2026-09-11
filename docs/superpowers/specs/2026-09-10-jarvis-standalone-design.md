@@ -162,3 +162,46 @@ Safety requirements remain unchanged:
 - Mutating operations require expiring single-use confirmation.
 - Secrets are never committed or printed.
 - This work does not deploy JARVIS, modify nginx, or restart production services.
+
+## Approval Flow Amendment — 2026-09-11
+
+Live-tool discovery confirmed there are no mutating MCP tools yet; the approval flow is implemented and covered by unit tests, ready to exercise end-to-end as soon as any mutating tool is added.
+
+### Tool annotation contract
+
+- Every discovered tool carries a `mutating` boolean.
+- Read-only tools execute directly in the agent loop.
+- Mutating tools are never executed in the agent loop. The tool call is converted into a pending confirmation instead.
+- Safe defaults: DripVid tools are read-only unless a `tool` wrapper marks them mutating; unknown/tool-less MCP tools are considered mutating by default (fail-safe).
+
+### Confirmation lifecycle
+
+1. JARVIS detects a mutating tool call in the model response.
+2. It queues a confirmation with a random `id` and an `expiresAt = createdAt + confirmationTtlMs` (default 120000 ms, `JARVIS_CONFIRMATION_TTL_MS`).
+3. The reply to the operator includes the confirmation `id` and the `confirmations` list (with tool name and serialized arguments) instead of executing anything.
+4. `/api/confirm` with that `id`:
+   - rejects missing ids and unknown/used ids (HTTP 400)
+   - rejects expired confirmations (HTTP 400)
+   - otherwise deletes the entry, executes the tool once, and returns `{ confirmed: true, tool, result }`.
+5. `GET /api/confirmations` returns the list of pending confirmations; the HUD polls it and renders an Approve button per pending row.
+6. The HUD surfaces the flow in the Pending Confirmations panel and the Safety panel.
+
+### Loop semantics
+
+The agent loop batches available tools, feeds them to the model, feeds read-only and confirmed results back, stops after `maxAgentIterations`, and never runs a mutating tool without `/api/confirm`.
+
+### Auto-verify notify outcome
+
+- `scripts/auto-verify.sh` runs daily via systemd timer (`dripvid-jarvis-verify.timer`), exercising chat, tool, teach, and recall legs.
+- It writes a machine-readable result to `data/auto-verify.result` (`JARVIS_VERIFY_RESULT_PATH`).
+- `GET /api/verify` returns that result for the HUD Auto-Verify panel.
+- Notifications are best-effort: webhook (`JARVIS_VERIFY_WEBHOOK_URL` + `pterm push`) when available.
+- `scripts/confirm-smoke.sh` verifies infra readiness for the approval flow: health, confirmations endpoint, unknown-id rejection, and tool mutating flags.
+
+### OmniRoute model gateway
+
+As of 2026-09-11 OmniRoute occupies the PRIMARY model slot instead of the fallback:
+
+- `JARVIS_OPENAI_BASE_URL=http://127.0.0.1:20128/v1`, `JARVIS_OPENAI_MODEL=auto`, `JARVIS_OPENAI_API_KEY=<OmniRoute key>`.
+- Direct OpenAI remains the fallback (`JARVIS_FALLBACK_*`, `gpt-5.6-luna`).
+- The model router (`src/adapters/router.js`) falls back to direct OpenAI and cooldown only when OmniRoute is unreachable or returns an error.

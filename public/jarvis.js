@@ -891,6 +891,92 @@ async function refreshConfirmations() {
   } catch {}
 }
 
+async function refreshVerify() {
+  const statusEl = $('verify-status');
+  const detailEl = $('verify-detail');
+
+  try {
+    const result =
+      await api(
+        apiPath('/api/verify')
+      );
+
+    const status =
+      result.status || 'unknown';
+
+    statusEl.classList.remove(
+      'online',
+      'degraded',
+      'offline'
+    );
+
+    statusEl.classList.add(
+      status === 'ok'
+        ? 'online'
+        : status === 'failed'
+          ? 'offline'
+          : 'degraded'
+    );
+
+    statusEl.textContent =
+      status === 'ok'
+        ? 'PASS'
+        : status === 'failed'
+          ? 'FAIL'
+          : 'UNKNOWN';
+
+    const steps =
+      result.steps || {};
+
+    const parts = [];
+
+    if (
+      steps.chat !== undefined
+    ) {
+      parts.push(`chat ${steps.chat}`);
+    }
+
+    if (
+      steps.tool !== undefined
+    ) {
+      parts.push(`tool ${steps.tool}`);
+    }
+
+    if (
+      steps.teach !== undefined
+    ) {
+      parts.push(`teach ${steps.teach}`);
+    }
+
+    if (
+      steps.recall !== undefined
+    ) {
+      parts.push(`recall ${steps.recall}`);
+    }
+
+    detailEl.textContent =
+      parts.length
+        ? parts.join(' · ')
+        : 'No per-step results recorded';
+  } catch {
+    statusEl.classList.remove(
+      'online',
+      'degraded',
+      'offline'
+    );
+
+    statusEl.classList.add(
+      'offline'
+    );
+
+    statusEl.textContent =
+      'UNKNOWN';
+
+    detailEl.textContent =
+      'Verify endpoint unavailable';
+  }
+}
+
 updateClock();
 
 setInterval(
@@ -908,6 +994,7 @@ setInterval(
 refreshHealth();
 refreshTools();
 refreshConfirmations();
+refreshVerify();
 
 setInterval(
   refreshHealth,
@@ -917,4 +1004,9 @@ setInterval(
 setInterval(
   refreshConfirmations,
   10000
+);
+
+setInterval(
+  refreshVerify,
+  30000
 );
