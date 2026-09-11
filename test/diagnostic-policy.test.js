@@ -8,7 +8,8 @@ const {
   selectAutomaticDiagnosticTools,
   validateDiagnosticCall,
   sanitizeDiagnosticValue,
-  formatDiagnosticFallback
+  formatDiagnosticFallback,
+  isDiagnosticRequest
 } = require('../src/diagnostic-policy');
 
 test('automatic diagnostic allowlist contains only approved tools', () => {
@@ -105,4 +106,17 @@ test('fallback summary reports successful and failed diagnostics', () => {
   assert.match(text, /mcp\.service_logs/);
   assert.match(text, /timeout/);
   assert.match(text, /model unavailable/);
+});
+
+test('diagnostic request detection targets live operational questions without hijacking normal chat', () => {
+  assert.equal(isDiagnosticRequest('Check DripVid health'), true);
+  assert.equal(isDiagnosticRequest('How much disk space do we have?'), true);
+  assert.equal(isDiagnosticRequest('Show me recent DripVid errors'), true);
+  assert.equal(isDiagnosticRequest('Is MCP running properly?'), true);
+  assert.equal(isDiagnosticRequest('Are any services unhealthy?'), true);
+  assert.equal(isDiagnosticRequest('Why is streaming slow?'), true);
+
+  assert.equal(isDiagnosticRequest('Remember that DripVid is my project'), false);
+  assert.equal(isDiagnosticRequest('What do you know about me?'), false);
+  assert.equal(isDiagnosticRequest('status?'), false);
 });
