@@ -7,7 +7,10 @@ const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..');
 const html = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
-const css = fs.readFileSync(path.join(ROOT, 'public', 'jarvis.css'), 'utf8');
+const css = [
+  fs.readFileSync(path.join(ROOT, 'public', 'jarvis.css'), 'utf8'),
+  fs.readFileSync(path.join(ROOT, 'public', 'compact-hud.css'), 'utf8')
+].join('\n');
 
 test('HUD keeps the home workspace on one desktop screen', () => {
   assert.match(css, /height:\s*100vh/);
