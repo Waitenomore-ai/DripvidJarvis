@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>DripVid J.A.R.V.I.S.</title>
   <link rel="icon" type="image/svg+xml" href="dripvid-icon.svg">
-  <link rel="stylesheet" href="jarvis.css?v=10">
+  <link rel="stylesheet" href="jarvis.css?v=11">
 </head>
 <body>
 
@@ -47,6 +47,83 @@
     </div>
 
   </header>
+
+  <section class="core-band">
+
+    <div class="core-wrap">
+
+      <div id="reactor" class="core">
+        <div class="ring ring-base"></div>
+        <div class="ring ring-tick"></div>
+        <div class="ring ring-segment"></div>
+        <div class="ring ring-rotate r1"></div>
+        <div class="ring ring-rotate r2"></div>
+        <div class="ring ring-scan"></div>
+        <div class="core-hud">
+          <div class="core-title">J.A.R.V.I.S.</div>
+          <div class="core-sub">SYSTEM OPERATOR</div>
+          <span id="core-status" class="core-badge online">ONLINE</span>
+        </div>
+      </div>
+
+      <div class="core-labels">
+
+        <div class="core-label label-monitor">
+          <div class="core-label-title">MONITOR</div>
+          <ul>
+            <li>DripVid Server</li>
+            <li>MCP Bridge</li>
+            <li>AI Engine</li>
+            <li>Operator Router</li>
+            <li>Memory Storage</li>
+          </ul>
+        </div>
+
+        <div class="core-label label-analyse">
+          <div class="core-label-title">ANALYSE</div>
+          <ul>
+            <li>Health Telemetry</li>
+            <li>Tool Discovery</li>
+            <li>Vault Index</li>
+            <li>Confirmations</li>
+            <li>Verify Cycle</li>
+          </ul>
+        </div>
+
+        <div class="core-label label-assist">
+          <div class="core-label-title">ASSIST</div>
+          <ul>
+            <li>System Status</li>
+            <li>Dashboard</li>
+            <li>Agent Console</li>
+            <li>Documentation</li>
+            <li>Configuration</li>
+          </ul>
+        </div>
+
+        <div class="core-label label-secure">
+          <div class="core-label-title">SECURE</div>
+          <ul>
+            <li>Read-Only</li>
+            <li>Approval Gate</li>
+            <li>Scope Control</li>
+            <li>Access Restriction</li>
+            <li>Owner-Only</li>
+          </ul>
+        </div>
+
+      </div>
+
+    </div>
+
+    <div class="assist-prompt">
+      <div class="prompt-line">HOW CAN I ASSIST YOU TODAY?</div>
+      <div id="equalizer" class="equalizer">
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+    </div>
+
+  </section>
 
   <main class="dashboard">
 
@@ -174,67 +251,35 @@
 
     <section class="column center-column">
 
-      <div class="core-wrap">
+      <section class="console">
 
-        <div id="reactor" class="core">
-          <div class="ring ring-base"></div>
-          <div class="ring ring-tick"></div>
-          <div class="ring ring-segment"></div>
-          <div class="ring ring-rotate r1"></div>
-          <div class="ring ring-rotate r2"></div>
-          <div class="ring ring-scan"></div>
-          <div class="core-hud">
-            <div class="core-title">J.A.R.V.I.S.</div>
-            <div class="core-sub">SYSTEM OPERATOR</div>
-            <span id="core-status" class="core-badge online">ONLINE</span>
+        <div class="console-bar">
+          <h2 class="console-title">CONVERSATION CONSOLE</h2>
+          <button id="clearButton" class="clear-button">Clear</button>
+        </div>
+
+        <div id="chatLog" class="chat-log">
+
+          <div class="message jarvis">
+            Operator interface ready.<br><br>
+            How can I assist you today?
           </div>
+
         </div>
 
-        <div class="core-label label-monitor">
-          <div class="core-label-title">MONITOR</div>
-          <ul>
-            <li>DripVid Server</li>
-            <li>MCP Bridge</li>
-            <li>AI Engine</li>
-            <li>Operator Router</li>
-            <li>Memory Storage</li>
-          </ul>
+        <div id="composer" class="composer">
+
+          <button id="attachButton" class="attach-button" title="Attachments are not enabled in this release">＋</button>
+
+          <input id="message" type="text" placeholder="Type a message or press the mic to speak..." autocomplete="off">
+
+          <button id="micButton" class="mic-button" title="Click to speak">🎙</button>
+
+          <button id="sendButton" class="send-button" title="Transmit message">➤</button>
+
         </div>
 
-        <div class="core-label label-analyse">
-          <div class="core-label-title">ANALYSE</div>
-          <ul>
-            <li>Health Telemetry</li>
-            <li>Tool Discovery</li>
-            <li>Vault Index</li>
-            <li>Confirmations</li>
-            <li>Verify Cycle</li>
-          </ul>
-        </div>
-
-        <div class="core-label label-assist">
-          <div class="core-label-title">ASSIST</div>
-          <ul>
-            <li>System Status</li>
-            <li>Dashboard</li>
-            <li>Agent Console</li>
-            <li>Documentation</li>
-            <li>Configuration</li>
-          </ul>
-        </div>
-
-        <div class="core-label label-secure">
-          <div class="core-label-title">SECURE</div>
-          <ul>
-            <li>Read-Only</li>
-            <li>Approval Gate</li>
-            <li>Scope Control</li>
-            <li>Access Restriction</li>
-            <li>Owner-Only</li>
-          </ul>
-        </div>
-
-      </div>
+      </section>
 
       <div class="assist-prompt">
         <div class="prompt-line">HOW CAN I ASSIST YOU TODAY?</div>
@@ -328,36 +373,6 @@
 
   </main>
 
-  <section class="console">
-
-    <div class="console-bar">
-      <h2 class="console-title">CONVERSATION CONSOLE</h2>
-      <button id="clearButton" class="clear-button">Clear</button>
-    </div>
-
-    <div id="chatLog" class="chat-log">
-
-      <div class="message jarvis">
-        Operator interface ready.<br><br>
-        How can I assist you today?
-      </div>
-
-    </div>
-
-    <div id="composer" class="composer">
-
-      <button id="attachButton" class="attach-button" title="Attachments are not enabled in this release">＋</button>
-
-      <input id="message" type="text" placeholder="Type a message or press the mic to speak..." autocomplete="off">
-
-      <button id="micButton" class="mic-button" title="Click to speak">🎙</button>
-
-      <button id="sendButton" class="send-button" title="Transmit message">➤</button>
-
-    </div>
-
-  </section>
-
   <footer class="footer">
 
     <div>
@@ -377,6 +392,6 @@
 
 </div>
 
-<script src="jarvis.js?v=10"></script>
+<script src="jarvis.js?v=11"></script>
 </body>
 </html>
