@@ -881,6 +881,57 @@ button {
   padding: 18px 0;
 }
 
+/* VAULT SEARCH */
+
+.vault-results {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 180px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.vault-hint {
+  color: var(--muted);
+  font-size: 11.5px;
+  text-align: center;
+  padding: 14px 0;
+}
+
+.vault-result {
+  border: 1px solid rgba(120, 100, 255, .22);
+  border-radius: 10px;
+  padding: 9px 10px;
+  background: linear-gradient(180deg, rgba(32, 200, 255, .08), rgba(10, 20, 44, .65));
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.vault-result-meta {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #fff;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.vault-result-score {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--cyan);
+  flex: none;
+}
+
+.vault-result-excerpt {
+  font-size: 10.5px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .activity-list {
   display: flex;
   flex-direction: column;

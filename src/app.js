@@ -437,6 +437,7 @@ function createRuntime({
   return {
     config,
     jarvis,
+    brain,
     vault,
     tts
   };
@@ -510,6 +511,45 @@ function createApp(options = {}) {
         }
 
         if (
+          req.method === 'GET' &&
+          req.url.split('?')[0] ===
+            '/api/vault/search'
+        ) {
+          if (!runtime.vault) {
+            sendJson(res, 501, {
+              error: 'vault not enabled'
+            });
+            return;
+          }
+
+          const query =
+            new URL(
+              req.url,
+              'http://localhost'
+            ).searchParams.get('q') || '';
+
+          const limit =
+            Number(
+              new URL(
+                req.url,
+                'http://localhost'
+              ).searchParams.get('limit')
+            ) || undefined;
+
+          const notes =
+            await runtime.vault.search(
+              query,
+              { limit }
+            );
+
+          sendJson(res, 200, {
+            query,
+            notes
+          });
+          return;
+        }
+
+        if (
           req.method === 'POST' &&
           req.url === '/api/vault/reindex'
         ) {
@@ -522,6 +562,26 @@ function createApp(options = {}) {
 
           const result =
             await runtime.vault.reindex();
+          sendJson(res, 200, result);
+          return;
+        }
+
+        if (
+          req.method === 'POST' &&
+          req.url === '/api/vault/migrate'
+        ) {
+          if (!runtime.vault) {
+            sendJson(res, 501, {
+              error: 'vault not enabled'
+            });
+            return;
+          }
+
+          const result =
+            await runtime.vault
+              .migrateFromBrain(
+                runtime.brain.list()
+              );
           sendJson(res, 200, result);
           return;
         }

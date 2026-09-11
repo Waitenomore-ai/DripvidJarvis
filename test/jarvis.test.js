@@ -196,7 +196,7 @@ test('brain tools are always discovered', async () => {
   assert.deepEqual(
     tools.map((tool) => tool.name),
     [
-      'brain.remember',
+'brain.remember',
       'brain.recall',
       'brain.forget',
       'vault.search',
@@ -204,6 +204,7 @@ test('brain tools are always discovered', async () => {
       'vault.write',
       'vault.reindex',
       'vault.stats',
+      'vault.migrate',
       'dripvid.health'
     ]
   );
@@ -223,6 +224,7 @@ test('vault tools are discovered when a vault adapter is present', async () => {
       'vault.write',
       'vault.reindex',
       'vault.stats',
+      'vault.migrate',
       'dripvid.health'
     ]
   );
@@ -387,6 +389,7 @@ test('mutating MCP tools are discovered with their mutating flag', async () => {
       'vault.write',
       'vault.reindex',
       'vault.stats',
+      'vault.migrate',
       'dripvid.health',
       'mcp.restart-service',
       'mcp.server_info'

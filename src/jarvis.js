@@ -301,6 +301,18 @@ function createJarvis({
         properties: {},
         required: []
       }
+    },
+    {
+      name: 'vault.migrate',
+      source: 'vault',
+      description:
+        'Copy all stored JARVIS memories into the operator\'s vault as markdown notes under Memories/. Idempotent: memories already mirrored are skipped. Use this to preserve the brain as permanent vault notes.',
+      mutating: true,
+      inputSchema: {
+        type: 'object',
+        properties: {},
+        required: []
+      }
     }
   ];
 
@@ -336,10 +348,21 @@ function createJarvis({
           source: 'operator'
         });
 
+        if (memory && vault) {
+          try {
+            await vault.migrateFromBrain([
+              memory
+            ]);
+          } catch {
+            // Mirroring to the vault is best-effort.
+          }
+        }
+
         return {
           remembered: Boolean(memory),
           id: memory ? memory.id : null,
-          text: memory ? memory.text : null
+          text: memory ? memory.text : null,
+          vaultMirrored: Boolean(memory && vault)
         };
       }
 
@@ -407,6 +430,12 @@ function createJarvis({
 
       if (tool.name === 'vault.stats') {
         return vault.stats();
+      }
+
+      if (tool.name === 'vault.migrate') {
+        return await vault.migrateFromBrain(
+          brain.list()
+        );
       }
 
       throw new Error(

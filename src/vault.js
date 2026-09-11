@@ -94,6 +94,14 @@ function isSkippedSegment(segment) {
   );
 }
 
+function slugify(text) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48) || 'memory';
+}
+
 function collectMarkdownFiles(
   base,
   root,
@@ -349,6 +357,14 @@ function createVault({
     }
   }
 
+  function normalizeIds() {
+    notes.forEach(
+      (note, index) => {
+        note.id = index;
+      }
+    );
+  }
+
   function upsertNote(relPath, tokens, title, tags, mtimeMs, size) {
     const normalized =
       relPath.replace(/\\/g, '/');
@@ -376,6 +392,7 @@ function createVault({
       });
     }
 
+    normalizeIds();
     buildPostings();
     lastIndexedAt =
       new Date(now()).toISOString();
@@ -509,6 +526,144 @@ function createVault({
         indexed: false,
         error: buildError,
         noteCount: 0
+      };
+    }
+  }
+
+  async function buildIndexIncremental() {
+    ensureLoaded();
+
+    const previousById =
+      new Map(
+        notes.map(
+          (note) => [note.path, note]
+        )
+      );
+
+    const seen = new Set();
+    let added = 0;
+    let updated = 0;
+    let removed = 0;
+
+    try {
+      if (!fs.existsSync(root)) {
+        throw new Error(
+          `Vault path does not exist: ${root}`
+        );
+      }
+
+      const relFiles =
+        collectMarkdownFiles(root, root);
+
+      const rebuilt = [];
+
+      for (const rel of relFiles) {
+        const normalized =
+          rel.replace(/\\/g, '/');
+        const absolute =
+          path.join(root, rel);
+
+        let stat;
+        let raw;
+
+        try {
+          stat = fs.statSync(absolute);
+        } catch (error) {
+          continue;
+        }
+
+        const prior =
+          previousById.get(normalized);
+
+        if (
+          prior &&
+          prior.mtimeMs === stat.mtimeMs &&
+          prior.size === stat.size
+        ) {
+          rebuilt.push(prior);
+          seen.add(normalized);
+          continue;
+        }
+
+        try {
+          raw = fs.readFileSync(
+            absolute,
+            'utf8'
+          );
+        } catch (error) {
+          continue;
+        }
+
+        const parsed =
+          parseFrontmatter(raw);
+
+        const title =
+          parsed.title ||
+          titleFromBody(parsed.body) ||
+          path.basename(
+            rel,
+            '.md'
+          );
+
+        const note = {
+          id: rebuilt.length,
+          path: normalized,
+          title,
+          tags: parsed.tags,
+          tokens: [
+            ...new Set(
+              tokenize(parsed.body)
+            )
+          ],
+          mtimeMs:
+            stat.mtimeMs,
+          size: stat.size
+        };
+
+        if (prior) {
+          updated += 1;
+        } else {
+          added += 1;
+        }
+
+        rebuilt.push(note);
+        seen.add(normalized);
+      }
+
+      removed = notes.length - seen.size;
+
+      notes = rebuilt;
+      normalizeIds();
+      buildPostings();
+      lastIndexedAt =
+        new Date(now()).toISOString();
+      needsIndexing = false;
+      buildError = null;
+      persist();
+
+      return {
+        indexed: true,
+        incremental: true,
+        noteCount: notes.length,
+        indexedAt: lastIndexedAt,
+        error: null,
+        added,
+        updated,
+        removed
+      };
+    } catch (error) {
+      buildError =
+        error.message || String(error);
+      needsIndexing = true;
+
+      return {
+        indexed: false,
+        incremental: true,
+        error: buildError,
+        noteCount: 0,
+        added: 0,
+        updated: 0,
+        removed: 0
       };
     }
   }
@@ -734,12 +889,94 @@ function createVault({
   }
 
   async function reindex() {
-    const result = await buildIndex();
+    return await buildIndexIncremental();
+  }
+
+  async function migrateFromBrain(memories = []) {
+    ensureLoaded();
+
+    const created = [];
+    const skipped = [];
+
+    for (const memory of memories) {
+      const text = String(memory.text || '').trim();
+
+      if (!text) {
+        skipped.push({
+          reason: 'empty',
+          id: memory.id || null
+        });
+        continue;
+      }
+
+      const slug = slugify(text);
+      const safeId = String(memory.id || '')
+        .replace(/[^a-z0-9-]/gi, '')
+        .slice(0, 8);
+
+      const relPath = safeId
+        ? `Memories/${slug}-${safeId}.md`
+        : `Memories/${slug}.md`;
+
+      const absolute =
+        path.join(root, relPath);
+
+      if (fs.existsSync(absolute)) {
+        skipped.push({
+          reason: 'exists',
+          id: memory.id || null,
+          path: relPath.replace(/\\/g, '/')
+        });
+        continue;
+      }
+
+      const tags = Array.isArray(memory.tags)
+        ? [...memory.tags]
+        : [];
+
+      const frontmatter = [
+        '---',
+        ...(memory.createdAt
+          ? [
+              `created: ${new Date(memory.createdAt).toISOString()}`
+            ]
+          : []),
+        ...(memory.lastSeen
+          ? [
+              `lastSeen: ${new Date(memory.lastSeen).toISOString()}`
+            ]
+          : []),
+        ...(memory.source
+          ? [`source: ${String(memory.source)}`]
+          : []),
+        tags.length
+          ? `tags:\n${tags.map((tag) => `  - ${tag}`).join('\n')}`
+          : '',
+        '---',
+        '',
+        text
+      ].filter(Boolean);
+
+      const content =
+        frontmatter.join('\n');
+
+      write(relPath, content);
+
+      created.push({
+        id: memory.id || null,
+        path: relPath.replace(/\\/g, '/')
+      });
+    }
+
+    if (created.length > 0) {
+      await buildIndexIncremental();
+    }
+
     return {
-      indexed: result.indexed,
-      noteCount: result.noteCount,
-      indexedAt: lastIndexedAt,
-      error: result.error || null
+      migrated: created.length,
+      skipped,
+      created,
+      noteCount: notes.length
     };
   }
 
@@ -791,6 +1028,7 @@ function createVault({
     read,
     write,
     reindex,
+    migrateFromBrain,
     stats,
     health
   };

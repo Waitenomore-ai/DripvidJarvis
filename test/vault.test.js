@@ -350,3 +350,154 @@ test('missing vault path reports degraded', async () => {
     result.error.includes('missing')
   );
 });
+
+test('migrateFromBrain writes idempotent memory notes', async () => {
+  const { vault, vaultDir } = tempVault();
+
+  await vault.reindex();
+
+  const first = await vault.migrateFromBrain([
+    {
+      id: 'm1',
+      text: 'The operator prefers green tea at night.',
+      tags: ['preference'],
+      createdAt: '2026-09-10T00:00:00.000Z'
+    }
+  ]);
+
+  assert.equal(first.migrated, 1);
+  assert.equal(first.skipped.length, 0);
+  assert.equal(first.created.length, 1);
+  assert.ok(
+    first.created[0].path.startsWith('Memories/')
+  );
+  assert.ok(
+    first.created[0].path.endsWith('-m1.md')
+  );
+
+  const notePath = path.join(
+    vaultDir,
+    first.created[0].path
+  );
+
+  const content =
+    fs.readFileSync(notePath, 'utf8');
+
+  assert.ok(
+    content.includes('green tea')
+  );
+  assert.ok(
+    content.includes('created:')
+  );
+
+  const again = await vault.migrateFromBrain([
+    {
+      id: 'm1',
+      text: 'The operator prefers green tea at night.',
+      tags: ['preference']
+    }
+  ]);
+
+  assert.equal(again.migrated, 0);
+  assert.equal(again.skipped.length, 1);
+  assert.equal(
+    again.skipped[0].reason,
+    'exists'
+  );
+
+  const stats = vault.stats();
+
+  assert.equal(stats.noteCount, 4);
+});
+
+test('migrateFromBrain skips empty memories', async () => {
+  const { vault } = tempVault();
+
+  await vault.reindex();
+
+  const result = await vault.migrateFromBrain([
+    {
+      id: 'empty1',
+      text: '   '
+    }
+  ]);
+
+  assert.equal(result.migrated, 0);
+  assert.equal(result.skipped.length, 1);
+  assert.equal(
+    result.skipped[0].reason,
+    'empty'
+  );
+});
+
+test('incremental reindex reuses unchanged notes', async () => {
+  const { vault, vaultDir } = tempVault();
+
+  await vault.reindex();
+
+  const first = await vault.reindex();
+
+  assert.equal(first.incremental, true);
+  assert.equal(first.added, 0);
+  assert.equal(first.updated, 0);
+  assert.equal(first.removed, 0);
+  assert.equal(first.noteCount, 3);
+
+  fs.writeFileSync(
+    path.join(
+      vaultDir,
+      'NewNote.md'
+    ),
+    'A brand new note about orbital mechanics.'
+  );
+
+  const second = await vault.reindex();
+
+  assert.equal(second.added, 1);
+  assert.equal(second.updated, 0);
+  assert.equal(second.noteCount, 4);
+
+  fs.writeFileSync(
+    path.join(
+      vaultDir,
+      'Welcome.md'
+    ),
+    [
+      '---',
+      'title: Welcome',
+      'tags: [intro, home]',
+      '---',
+      '',
+      '# Welcome',
+      '',
+      'This home note was updated with extra content about tea.'
+    ].join('\n')
+  );
+
+  const third = await vault.reindex();
+
+  assert.equal(third.updated, 1);
+  assert.equal(third.added, 0);
+  assert.equal(third.noteCount, 4);
+
+  fs.rmSync(
+    path.join(
+      vaultDir,
+      'Cooking.md'
+    )
+  );
+
+  const fourth = await vault.reindex();
+
+  assert.equal(fourth.removed, 1);
+  assert.equal(fourth.noteCount, 3);
+
+  const notes = await vault.search('orbital mechanics');
+
+  assert.ok(
+    notes.some(
+      (note) =>
+        note.title === 'NewNote'
+    )
+  );
+});

@@ -969,6 +969,68 @@ async function refreshVerify() {
   } catch {}
 }
 
+async function refreshVaultSearch() {
+  const input = $('vaultQuery');
+
+  if (!input) {
+    return;
+  }
+
+  const query = input.value.trim();
+
+  const results = $('vaultResults');
+
+  if (!query) {
+    results.innerHTML =
+      '<div class="vault-hint">Type to search indexed notes</div>';
+    return;
+  }
+
+  try {
+    const data = await api(
+      apiPath(`/api/vault/search?q=${encodeURIComponent(query)}`)
+    );
+
+    const notes = data.notes || [];
+
+    if (notes.length === 0) {
+      results.innerHTML =
+        '<div class="vault-hint">No matching notes</div>';
+      return;
+    }
+
+    results.innerHTML = '';
+
+    for (const note of notes) {
+      const row = document.createElement('div');
+      row.className = 'vault-result';
+
+      const meta = document.createElement('div');
+      meta.className = 'vault-result-meta';
+      meta.textContent = `${note.title} · ${note.path}`;
+
+      const score = document.createElement('span');
+      score.className = 'vault-result-score';
+      score.textContent = `${Math.round(note.score * 10)}%`;
+
+      meta.append(score);
+
+      const excerpt = document.createElement('div');
+      excerpt.className = 'vault-result-excerpt';
+      excerpt.textContent = note.excerpt || '';
+
+      row.append(meta, excerpt);
+
+      results.appendChild(row);
+    }
+  } catch {
+    results.innerHTML =
+      '<div class="vault-hint">Search unavailable</div>';
+  }
+}
+
+$('vaultQuery').addEventListener('input', refreshVaultSearch);
+
 updateClock();
 
 setInterval(updateClock, 1000);
