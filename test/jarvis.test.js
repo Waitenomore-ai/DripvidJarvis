@@ -17,7 +17,9 @@ function setup({
   recallResult = [],
   rounds = 1,
   maxAgentIterations = 3,
-  now = () => 1000
+  now = () => 1000,
+  configOverride = {},
+  mcpResult = { executed: true }
 } = {}) {
   const calls = [];
   const chats = [];
@@ -50,7 +52,7 @@ function setup({
     listTools: async () => mcpTools,
     callTool: async (name, args) => {
       calls.push({ source: 'mcp', name, args });
-      return { executed: true };
+      return mcpResult;
     }
   };
 
@@ -102,7 +104,8 @@ function setup({
   const config = {
     confirmationTtlMs: 1000,
     maxAgentIterations,
-    brainRecallLimit: 5
+    brainRecallLimit: 5,
+    ...configOverride
   };
 
   return {
@@ -524,4 +527,189 @@ test('brain outage degrades chat instead of throwing', async () => {
 
   assert.equal(result.degraded, false);
   assert.equal(chats.length, 1);
+});
+
+test('large tool results are truncated in the message fed back to the model', async () => {
+  const bigOutput = 'x'.repeat(50000);
+
+  const { jarvis, chats } = setup({
+    mcpTools: [
+      {
+        name: 'mcp.disk_status',
+        source: 'mcp',
+        description: 'Disk status',
+        mutating: false
+      }
+    ],
+    mcpResult: {
+      ok: true,
+      output: bigOutput
+    },
+    toolCalls: [
+      {
+        name: 'mcp.disk_status',
+        arguments: {}
+      }
+    ],
+    configOverride: {
+      maxToolResultChars: 500
+    }
+  });
+
+  const result = await jarvis.conversation({
+    conversation: []
+  });
+
+  assert.equal(result.toolResults[0].ok, true);
+  assert.equal(
+    result.toolResults[0].result.output.length,
+    50000
+  );
+
+  const toolMessage =
+    chats[1].conversation.find(
+      (message) => message.role === 'tool'
+    );
+
+  assert.ok(toolMessage);
+  assert.match(
+    toolMessage.content,
+    /truncated \d+ chars/
+  );
+  assert.ok(
+    toolMessage.content.length < 600
+  );
+});
+
+test('rate-limited chat retries after backoff and succeeds', async () => {
+  let attempts = 0;
+  const chats = [];
+
+  const dripvid = {
+    health: async () => ({ status: 'online' }),
+    listTools: () => [],
+    callTool: async () => ({})
+  };
+
+  const mcp = {
+    health: async () => ({ status: 'online' }),
+    listTools: async () => [],
+    callTool: async () => ({})
+  };
+
+  const brain = {
+    health: async () => ({
+      status: 'online',
+      memoryCount: 0
+    }),
+    recall: async () => [],
+    remember: () => null,
+    forget: async () => false,
+    stats: () => ({ count: 0 })
+  };
+
+  const model = {
+    health: async () => ({ status: 'online' }),
+    chat: async (payload) => {
+      attempts += 1;
+      chats.push(payload);
+
+      if (attempts === 1) {
+        throw new Error(
+          'OpenAI returned HTTP 429 (Rate limit reached ... tokens per min ... Please try again in 30s. ...)'
+        );
+      }
+
+      return {
+        message: 'Recovered',
+        toolCalls: [],
+        suggestedActions: []
+      };
+    }
+  };
+
+  const jarvis = createJarvis({
+    config: {
+      confirmationTtlMs: 1000,
+      maxAgentIterations: 3,
+      brainRecallLimit: 5,
+      chatRetries: 2,
+      rateLimitBackoffMs: 5
+    },
+    dripvid,
+    mcp,
+    brain,
+    model,
+    now: () => 1000
+  });
+
+  const result = await jarvis.conversation({
+    conversation: [
+      { role: 'user', content: 'hi' }
+    ]
+  });
+
+  assert.equal(result.degraded, false);
+  assert.equal(result.message, 'Recovered');
+  assert.equal(attempts, 2);
+});
+
+test('persistent rate limit degrades after exhausting retries', async () => {
+  let attempts = 0;
+
+  const dripvid = {
+    health: async () => ({ status: 'online' }),
+    listTools: () => [],
+    callTool: async () => ({})
+  };
+
+  const mcp = {
+    health: async () => ({ status: 'online' }),
+    listTools: async () => [],
+    callTool: async () => ({})
+  };
+
+  const brain = {
+    health: async () => ({
+      status: 'online',
+      memoryCount: 0
+    }),
+    recall: async () => [],
+    remember: () => null,
+    forget: async () => false,
+    stats: () => ({ count: 0 })
+  };
+
+  const model = {
+    health: async () => ({ status: 'online' }),
+    chat: async () => {
+      attempts += 1;
+      throw new Error(
+        'OpenAI returned HTTP 429 (Rate limit reached ... requests per day ... Please try again in 10m. ...)'
+      );
+    }
+  };
+
+  const jarvis = createJarvis({
+    config: {
+      confirmationTtlMs: 1000,
+      maxAgentIterations: 3,
+      brainRecallLimit: 5,
+      chatRetries: 1,
+      rateLimitBackoffMs: 5
+    },
+    dripvid,
+    mcp,
+    brain,
+    model,
+    now: () => 1000
+  });
+
+  const result = await jarvis.conversation({
+    conversation: []
+  });
+
+  assert.equal(result.degraded, true);
+  assert.match(result.error, /HTTP 429/);
+  assert.equal(attempts, 2);
 });

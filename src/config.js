@@ -128,6 +128,24 @@ function loadConfig(env = process.env) {
       parsePositiveInteger(
         env.JARVIS_CONFIRMATION_TTL_MS,
         120000
+      ),
+
+    chatRetries:
+      parsePositiveInteger(
+        env.JARVIS_CHAT_RETRIES,
+        2
+      ),
+
+    rateLimitBackoffMs:
+      parsePositiveInteger(
+        env.JARVIS_RATE_LIMIT_BACKOFF_MS,
+        60000
+      ),
+
+    maxToolResultChars:
+      parsePositiveInteger(
+        env.JARVIS_MAX_TOOL_RESULT_CHARS,
+        4000
       )
   });
 }

@@ -33,6 +33,8 @@ JARVIS has its own server-side brain persisted to `JARVIS_BRAIN_PATH` (default `
 
 Memories survive restarts and are capped by `JARVIS_BRAIN_MAX_MEMORIES`.
 
+Large tool outputs are truncated before being fed back to the model (`JARVIS_MAX_TOOL_RESULT_CHARS`, default 4000) so verbose diagnostics such as `disk_status` cannot exhaust the provider's token/minute budget, and chat round trips retry when the provider reports a rate limit (`JARVIS_CHAT_RETRIES`, `JARVIS_RATE_LIMIT_BACKOFF_MS`).
+
 ## Voice
 
 With `JARVIS_ELEVENLABS_API_KEY` set, POST `/api/tts` with `{"text": "..."}` returns an mp3 for the configured voice (default: Daniel, a free british male voice). The operator's preferred voice `wDsJlOXPqcvIUKdLXjDs` requires a Creator-tier plan; set `JARVIS_ELEVENLABS_VOICE_ID` to switch. The HUD speaks replies through the API and falls back to the browser's Web Speech synthesis when ElevenLabs is unavailable. Voice output is toggled with the 🔊 button in the composer.

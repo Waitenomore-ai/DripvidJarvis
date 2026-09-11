@@ -60,6 +60,21 @@ test(
     );
 
     assert.equal(
+      config.chatRetries,
+      2
+    );
+
+    assert.equal(
+      config.rateLimitBackoffMs,
+      60000
+    );
+
+    assert.equal(
+      config.maxToolResultChars,
+      4000
+    );
+
+    assert.equal(
       config.elevenLabsVoiceId,
       'onwK4e9ZLuTAKqWW03F9'
     );

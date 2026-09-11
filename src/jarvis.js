@@ -2,6 +2,77 @@
 
 const crypto = require('node:crypto');
 
+function truncateContent(value, limit) {
+  const text =
+    typeof value === 'string'
+      ? value
+      : JSON.stringify(value);
+
+  const limitNum =
+    Number.isInteger(limit) && limit > 0
+      ? limit
+      : 4000;
+
+  if (text.length <= limitNum) {
+    return text;
+  }
+
+  return (
+    text.slice(0, limitNum) +
+    `\n...[truncated ${text.length - limitNum} chars]`
+  );
+}
+
+function rateLimitWaitMs(error, capMs) {
+  if (
+    !error ||
+    typeof error.message !== 'string'
+  ) {
+    return 0;
+  }
+
+  const match =
+    error.message.match(
+      /try again in\s+(\d+(?:\.\d+)?)\s*([smh])/i
+    );
+
+  if (!match) {
+    return 0;
+  }
+
+  const unitFactor =
+    match[2].toLowerCase() === 'h'
+      ? 3600
+      : match[2].toLowerCase() === 'm'
+        ? 60
+        : 1;
+
+  const waitMs =
+    Number(match[1]) *
+    unitFactor *
+    1000;
+
+  if (!Number.isFinite(waitMs)) {
+    return 0;
+  }
+
+  const capNum =
+    Number.isInteger(capMs) && capMs > 0
+      ? capMs
+      : 60000;
+
+  return Math.max(
+    0,
+    Math.min(waitMs + 250, capNum)
+  );
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 function createJarvis({
   config,
   dripvid,
@@ -373,9 +444,15 @@ function createJarvis({
     ) {
       let chatError = null;
 
+      const maxAttempts =
+        1 +
+        (Number.isInteger(config.chatRetries)
+          ? config.chatRetries
+          : 2);
+
       for (
         let attempt = 0;
-        attempt < 2;
+        attempt < maxAttempts;
         attempt++
       ) {
         try {
@@ -388,6 +465,21 @@ function createJarvis({
           break;
         } catch (error) {
           chatError = error;
+
+          const isLast =
+            attempt === maxAttempts - 1;
+
+          if (!isLast) {
+            const waitMs =
+              rateLimitWaitMs(
+                error,
+                config.rateLimitBackoffMs
+              );
+
+            if (waitMs > 0) {
+              await sleep(waitMs);
+            }
+          }
         }
       }
 
@@ -523,7 +615,10 @@ function createJarvis({
             role: 'tool',
             tool_call_id: callId,
             content:
-              JSON.stringify(result)
+              truncateContent(
+                result,
+                config.maxToolResultChars
+              )
           });
         } catch (error) {
           toolResults.push({
@@ -537,12 +632,15 @@ function createJarvis({
           toolMessages.push({
             role: 'tool',
             tool_call_id: callId,
-            content: JSON.stringify({
-              ok: false,
-              error:
-                error.message ||
-                String(error)
-            })
+            content: truncateContent(
+              {
+                ok: false,
+                error:
+                  error.message ||
+                  String(error)
+              },
+              config.maxToolResultChars
+            )
           });
         }
       }
