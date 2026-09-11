@@ -33,11 +33,19 @@ stamp_done() {
 }
 
 notify() {
-  local MSG="$1"
+  local MSG="$1" PRIO="3" TAGS="white_check_mark"
+  if printf '%s' "$MSG" | grep -q 'FAILED'; then
+    PRIO="4"
+    TAGS="warning"
+  fi
   if [ -n "${JARVIS_VERIFY_WEBHOOK_URL:-}" ]; then
-    curl -sS --max-time 10 -X POST "$JARVIS_VERIFY_WEBHOOK_URL" \
-      -H "content-type: application/json" \
-      -d "{\"text\":\"$MSG\"}" >/dev/null 2>&1 || true
+    if ! curl -sS --max-time 10 -X POST "$JARVIS_VERIFY_WEBHOOK_URL" \
+      -H "Title: JARVIS auto-verify" \
+      -H "Priority: $PRIO" \
+      -H "Tags: $TAGS" \
+      -d "$MSG" >/dev/null 2>&1; then
+      log "notify webhook publish failed"
+    fi
   fi
   if command -v pterm >/dev/null 2>&1; then
     pterm push "$MSG" >/dev/null 2>&1 || true
