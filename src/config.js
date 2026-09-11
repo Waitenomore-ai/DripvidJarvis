@@ -162,6 +162,18 @@ function loadConfig(env = process.env) {
         5
       ),
 
+    maxDiagnosticRounds:
+      parsePositiveInteger(
+        env.JARVIS_MAX_DIAGNOSTIC_ROUNDS,
+        4
+      ),
+
+    maxDiagnosticCalls:
+      parsePositiveInteger(
+        env.JARVIS_MAX_DIAGNOSTIC_CALLS,
+        8
+      ),
+
     confirmationTtlMs:
       parsePositiveInteger(
         env.JARVIS_CONFIRMATION_TTL_MS,
