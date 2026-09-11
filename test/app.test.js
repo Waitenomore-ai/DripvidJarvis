@@ -61,7 +61,7 @@ test(
 
     assert.equal(
       config.elevenLabsVoiceId,
-      'wDsJlOXPqcvIUKdLXjDs'
+      'onwK4e9ZLuTAKqWW03F9'
     );
 
     assert.equal(

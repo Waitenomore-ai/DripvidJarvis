@@ -148,12 +148,12 @@ Live server discovery established the actual dependency topology:
 - DripVid protected endpoints returning HTTP 401 are reachable/auth-required, not offline.
 - MCP remains at http://127.0.0.1:8788/mcp and requires MCP_BEARER_TOKEN.
 - JARVIS receives the MCP credential only through JARVIS_MCP_BEARER environment configuration.
-- Tech-AI at http://127.0.0.1:3100 replaces standalone AI-HQ as the primary AI backend.
-- Tech-AI health endpoint is GET /health.
-- Tech-AI conversation endpoint is POST /chat and responds using server-sent events.
-- Tech-AI currently routes among OpenAI, Anthropic and Gemini.
-- No standalone AI-HQ service on port 9001 is required for this milestone.
-- Native HQ functionality remains part of the DripVid application architecture.
+- The JARVIS brain talks DIRECTLY to OpenAI (`JARVIS_OPENAI_BASE_URL` / `JARVIS_OPENAI_API_KEY` / `JARVIS_OPENAI_MODEL`), replacing the standalone Tech-AI dependency. Tech-AI (port 3100) is a separate project and is not used.
+- OpenAI tool-call contract via /v1/chat/completions requires sanitized tool names (`[a-zA-Z0-9_-]+`) and `reasoning_effort: "none"` for gpt-5.6-luna.
+- A model router (`src/adapters/router.js`) provides automatic fallback to a secondary OpenAI-compatible agent with a cooldown (`JARVIS_FALLBACK_*`, `JARVIS_MODEL_FALLBACK_COOLDOWN_MS`). OmniRoute will occupy this slot when it becomes available.
+- JARVIS has a persistent server-side memory (`data/brain.json`) via `brain.remember` / `brain.recall` / `brain.forget`, capped and recalled contextually.
+- Voice replies are synthesized server-side via ElevenLabs (`/api/tts`, `JARVIS_ELEVENLABS_*`); default voice is Daniel (free british male). The operator's preferred voice `wDsJlOXPqcvIUKdLXjDs` requires a Creator-tier plan; browser Web Speech is the fallback.
+- Exposed through nginx `/jarvis/` (HTTP basic auth + no-store caching), bound to 127.0.0.1:3342.
 
 Safety requirements remain unchanged:
 

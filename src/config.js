@@ -79,7 +79,7 @@ function loadConfig(env = process.env) {
 
     elevenLabsVoiceId:
       env.JARVIS_ELEVENLABS_VOICE_ID ||
-      'wDsJlOXPqcvIUKdLXjDs',
+      'onwK4e9ZLuTAKqWW03F9',
 
     elevenLabsModel:
       env.JARVIS_ELEVENLABS_MODEL ||

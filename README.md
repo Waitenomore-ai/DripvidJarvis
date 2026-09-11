@@ -35,7 +35,7 @@ Memories survive restarts and are capped by `JARVIS_BRAIN_MAX_MEMORIES`.
 
 ## Voice
 
-With `JARVIS_ELEVENLABS_API_KEY` set, POST `/api/tts` with `{"text": "..."}` returns an mp3 for the configured voice. The HUD speaks replies through it and automatically falls back to the browser's Web Speech synthesis when ElevenLabs is unavailable. Voice output is toggled with the 🔊 button in the composer.
+With `JARVIS_ELEVENLABS_API_KEY` set, POST `/api/tts` with `{"text": "..."}` returns an mp3 for the configured voice (default: Daniel, a free british male voice). The operator's preferred voice `wDsJlOXPqcvIUKdLXjDs` requires a Creator-tier plan; set `JARVIS_ELEVENLABS_VOICE_ID` to switch. The HUD speaks replies through the API and falls back to the browser's Web Speech synthesis when ElevenLabs is unavailable. Voice output is toggled with the 🔊 button in the composer.
 
 ## Safety
 
