@@ -90,12 +90,18 @@ function validateDiagnosticCall(
     };
   }
 
-  const args =
-    call.arguments &&
-    typeof call.arguments === 'object' &&
-    !Array.isArray(call.arguments)
-      ? call.arguments
-      : {};
+  if (
+    !call.arguments ||
+    typeof call.arguments !== 'object' ||
+    Array.isArray(call.arguments)
+  ) {
+    return {
+      ok: false,
+      error: 'Diagnostic tool arguments must be an object'
+    };
+  }
+
+  const args = call.arguments;
 
   const required =
     tool.inputSchema &&
@@ -154,6 +160,19 @@ function isDiagnosticRequest(text) {
   return false;
 }
 
+function boundFallbackText(value, limit = 1200) {
+  const text = String(value || '');
+
+  if (text.length <= limit) {
+    return text;
+  }
+
+  return (
+    text.slice(0, limit) +
+    `...[truncated ${text.length - limit} chars]`
+  );
+}
+
 function formatDiagnosticFallback(
   toolResults,
   reason
@@ -163,15 +182,22 @@ function formatDiagnosticFallback(
   ];
 
   if (reason) {
-    lines.push(`Reason: ${reason}`);
+    lines.push(
+      `Reason: ${boundFallbackText(reason, 500)}`
+    );
   }
 
   for (const item of toolResults || []) {
-    const detail = item.ok
+    const rawDetail = item.ok
       ? JSON.stringify(
           sanitizeDiagnosticValue(item.result)
         )
       : String(item.error || 'failed');
+
+    const detail = boundFallbackText(
+      rawDetail,
+      1200
+    );
 
     lines.push(
       `- ${item.name || 'diagnostic'}: ${item.ok ? 'OK' : 'FAILED'} — ${detail}`
