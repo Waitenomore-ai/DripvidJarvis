@@ -106,6 +106,35 @@ function loadConfig(env = process.env) {
         5
       ),
 
+    vaultPath:
+      env.JARVIS_VAULT_PATH ||
+      path.resolve(
+        __dirname,
+        '..',
+        'vault'
+      ),
+
+    vaultIndexPath:
+      env.JARVIS_VAULT_INDEX_PATH ||
+      path.resolve(
+        __dirname,
+        '..',
+        'data',
+        'vault-index.json'
+      ),
+
+    vaultSearchLimit:
+      parsePositiveInteger(
+        env.JARVIS_VAULT_SEARCH_LIMIT,
+        5
+      ),
+
+    vaultReadMaxChars:
+      parsePositiveInteger(
+        env.JARVIS_VAULT_READ_MAX_CHARS,
+        16000
+      ),
+
     verifyResultPath:
       env.JARVIS_VERIFY_RESULT_PATH ||
       path.resolve(

@@ -2,17 +2,28 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 
 const {
   createApp
 } = require('../src/app');
 
+const {
+  createVault
+} = require('../src/vault');
+
 async function withServer(
   jarvis,
-  callback
+  callback,
+  runtime
 ) {
   const server =
-    createApp({ jarvis });
+    createApp({
+      jarvis,
+      runtime
+    });
 
   await new Promise(
     (resolve) =>
@@ -213,6 +224,128 @@ test(
           /J\.A\.R\.V\.I\.S\./
         );
       }
+    );
+  }
+);
+
+function tempVaultRuntime() {
+  const dir =
+    fs.mkdtempSync(
+      path.join(
+        os.tmpdir(),
+        'jarvis-app-vault-'
+      )
+    );
+
+  const vaultDir =
+    path.join(dir, 'vault');
+
+  fs.mkdirSync(vaultDir, {
+    recursive: true
+  });
+
+  fs.writeFileSync(
+    path.join(
+      vaultDir,
+      'Welcome.md'
+    ),
+    [
+      '---',
+      'title: Welcome',
+      'tags: [intro]',
+      '---',
+      '',
+      'Welcome to the vault.'
+    ].join('\n')
+  );
+
+  fs.mkdirSync(
+    path.join(vaultDir, 'Projects'),
+    { recursive: true }
+  );
+
+  fs.writeFileSync(
+    path.join(
+      vaultDir,
+      'Projects',
+      'Idea.md'
+    ),
+    '# Idea\n\nA promising project.'
+  );
+
+  const runtime = {
+    config: {
+      verifyResultPath:
+        path.join(dir, 'verify.result')
+    },
+    vault: createVault({
+      config: {
+        vaultPath: vaultDir,
+        vaultIndexPath: path.join(
+          dir,
+          'data',
+          'vault-index.json'
+        ),
+        vaultSearchLimit: 5,
+        vaultReadMaxChars: 16000
+      }
+    })
+  };
+
+  return { runtime, dir };
+}
+
+test(
+  'POST /api/vault/reindex then GET /api/vault return vault stats',
+  async () => {
+    const { runtime } =
+      tempVaultRuntime();
+
+    await withServer(
+      stubJarvis(),
+      async (base) => {
+        const reindexResponse =
+          await fetch(
+            `${base}/api/vault/reindex`,
+            { method: 'POST' }
+          );
+
+        assert.equal(
+          reindexResponse.status,
+          200
+        );
+
+        const reindexBody =
+          await reindexResponse.json();
+
+        assert.equal(
+          reindexBody.noteCount,
+          2
+        );
+
+        const statsResponse =
+          await fetch(
+            `${base}/api/vault`
+          );
+
+        assert.equal(
+          statsResponse.status,
+          200
+        );
+
+        const statsBody =
+          await statsResponse.json();
+
+        assert.equal(
+          statsBody.noteCount,
+          2
+        );
+        assert.equal(
+          statsBody.ready,
+          true
+        );
+      },
+      runtime
     );
   }
 );

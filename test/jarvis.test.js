@@ -12,6 +12,7 @@ function setup({
   mcpStatus = 'online',
   brainStatus = 'online',
   modelStatus = 'online',
+  vaultStatus = 'online',
   mcpTools = [],
   toolCalls = [],
   recallResult = [],
@@ -19,11 +20,39 @@ function setup({
   maxAgentIterations = 3,
   now = () => 1000,
   configOverride = {},
-  mcpResult = { executed: true }
+  mcpResult = { executed: true },
+  vault = null
 } = {}) {
   const calls = [];
   const chats = [];
   const remembered = [];
+  const vaultSearchCalls = [];
+  const vaultWriteCalls = [];
+
+  const vaultAdapter = vault || {
+    health: async () => ({
+      name: 'vault',
+      status: vaultStatus,
+      noteCount: 0
+    }),
+    search: async (query, opts) => {
+      vaultSearchCalls.push({ query, opts });
+      return [];
+    },
+    read: () => ({ path: 'Note.md', content: 'x' }),
+    write: (relPath, content) => {
+      vaultWriteCalls.push({ relPath, content });
+      return { path: relPath, size: content.length };
+    },
+    reindex: async () => ({
+      noteCount: 0,
+      error: null
+    }),
+    stats: () => ({
+      noteCount: 0,
+      ready: false
+    })
+  };
 
   const dripvid = {
     health: async () => ({
@@ -114,12 +143,15 @@ function setup({
       dripvid,
       mcp,
       brain,
+      vault: vaultAdapter,
       model,
       now
     }),
     calls,
     chats,
-    remembered
+    remembered,
+    vaultSearchCalls,
+    vaultWriteCalls
   };
 }
 
@@ -140,7 +172,8 @@ test('health reports offline when every dependency is offline', async () => {
     dripvidStatus: 'offline',
     mcpStatus: 'offline',
     brainStatus: 'offline',
-    modelStatus: 'offline'
+    modelStatus: 'offline',
+    vaultStatus: 'offline'
   });
   const result = await jarvis.health();
   assert.equal(result.status, 'offline');
@@ -166,8 +199,100 @@ test('brain tools are always discovered', async () => {
       'brain.remember',
       'brain.recall',
       'brain.forget',
+      'vault.search',
+      'vault.read',
+      'vault.write',
+      'vault.reindex',
+      'vault.stats',
       'dripvid.health'
     ]
+  );
+});
+
+test('vault tools are discovered when a vault adapter is present', async () => {
+  const { jarvis } = setup();
+  const tools = await jarvis.tools();
+  assert.deepEqual(
+    tools.map((tool) => tool.name),
+    [
+      'brain.remember',
+      'brain.recall',
+      'brain.forget',
+      'vault.search',
+      'vault.read',
+      'vault.write',
+      'vault.reindex',
+      'vault.stats',
+      'dripvid.health'
+    ]
+  );
+
+  const write = tools.find(
+    (tool) => tool.name === 'vault.write'
+  );
+  assert.equal(write.mutating, true);
+});
+
+test('health includes the vault dependency when a vault adapter is present', async () => {
+  const { jarvis } = setup();
+  const result = await jarvis.health();
+  assert.equal(result.dependencies.vault.name, 'vault');
+  assert.equal(result.dependencies.vault.status, 'online');
+});
+
+test('vault.search is executed as a read-only tool', async () => {
+  const { jarvis, vaultSearchCalls } = setup({
+    toolCalls: [
+      {
+        name: 'vault.search',
+        arguments: { query: 'coffee' }
+      }
+    ],
+    vault: {
+      health: async () => ({ name: 'vault', status: 'online', noteCount: 1 }),
+      search: async (query, opts) => {
+        vaultSearchCalls.push({ query, opts });
+        return [{ path: 'Welcome.md', title: 'Welcome' }];
+      },
+      read: () => ({ path: 'Note.md', content: 'x' }),
+      write: () => ({ path: 'Note.md' }),
+      reindex: async () => ({ noteCount: 1, error: null }),
+      stats: () => ({ noteCount: 1, ready: true })
+    }
+  });
+
+  const result = await jarvis.conversation({ conversation: [] });
+  assert.equal(vaultSearchCalls.length, 1);
+  assert.equal(
+    vaultSearchCalls[0].query,
+    'coffee'
+  );
+  assert.equal(result.confirmations.length, 0);
+  assert.equal(
+    result.toolResults[0].result.notes[0].path,
+    'Welcome.md'
+  );
+});
+
+test('vault.write is queued for approval instead of executing', async () => {
+  const { jarvis, vaultWriteCalls } = setup({
+    toolCalls: [
+      {
+        name: 'vault.write',
+        arguments: {
+          path: 'Journal/Now.md',
+          content: '# Today'
+        }
+      }
+    ]
+  });
+
+  const result = await jarvis.conversation({ conversation: [] });
+  assert.equal(vaultWriteCalls.length, 0);
+  assert.equal(result.confirmations.length, 1);
+  assert.equal(
+    result.confirmations[0].tool,
+    'vault.write'
   );
 });
 
@@ -257,6 +382,11 @@ test('mutating MCP tools are discovered with their mutating flag', async () => {
       'brain.remember',
       'brain.recall',
       'brain.forget',
+      'vault.search',
+      'vault.read',
+      'vault.write',
+      'vault.reindex',
+      'vault.stats',
       'dripvid.health',
       'mcp.restart-service',
       'mcp.server_info'

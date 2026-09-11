@@ -34,6 +34,10 @@ const {
 } = require('./brain');
 
 const {
+  createVault
+} = require('./vault');
+
+const {
   createJarvis
 } = require('./jarvis');
 
@@ -282,12 +286,16 @@ function createRuntime({
   const brain =
     createBrain({ config });
 
+  const vault =
+    createVault({ config });
+
   const jarvis =
     createJarvis({
       config,
       dripvid,
       mcp,
       brain,
+      vault,
       model,
       now
     });
@@ -295,6 +303,7 @@ function createRuntime({
   return {
     config,
     jarvis,
+    vault,
     tts
   };
 }
@@ -343,6 +352,43 @@ function createApp(options = {}) {
             200,
             gatherServerMetrics()
           );
+          return;
+        }
+
+        if (
+          req.method === 'GET' &&
+          req.url === '/api/vault'
+        ) {
+          if (!runtime.vault) {
+            sendJson(res, 501, {
+              status: 'enabled',
+              error: 'vault not enabled'
+            });
+            return;
+          }
+
+          sendJson(
+            res,
+            200,
+            runtime.vault.stats()
+          );
+          return;
+        }
+
+        if (
+          req.method === 'POST' &&
+          req.url === '/api/vault/reindex'
+        ) {
+          if (!runtime.vault) {
+            sendJson(res, 501, {
+              error: 'vault not enabled'
+            });
+            return;
+          }
+
+          const result =
+            await runtime.vault.reindex();
+          sendJson(res, 200, result);
           return;
         }
 

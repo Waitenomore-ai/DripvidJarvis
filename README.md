@@ -35,6 +35,19 @@ Memories survive restarts and are capped by `JARVIS_BRAIN_MAX_MEMORIES`.
 
 Large tool outputs are truncated before being fed back to the model (`JARVIS_MAX_TOOL_RESULT_CHARS`, default 4000) so verbose diagnostics such as `disk_status` cannot exhaust the provider's token/minute budget, and chat round trips retry when the provider reports a rate limit (`JARVIS_CHAT_RETRIES`, `JARVIS_RATE_LIMIT_BACKOFF_MS`).
 
+## Vault
+
+JARVIS can read and write an Obsidian markdown vault so it can remember and understand the operator through their own notes. The vault lives at `JARVIS_VAULT_PATH` (default `vault/` next to the repo) and is indexed to `JARVIS_VAULT_INDEX_PATH` (default `data/vault-index.json`). The service runs under `ReadWritePaths=/opt/dripvid-jarvis`, so the production vault must live there (e.g. `/opt/dripvid-jarvis/vault`).
+
+- `vault.search` — find notes by query, ranked by title, tags, and body tokens.
+- `vault.read` — read a note by relative path (`Projects/Note.md`).
+- `vault.write` — create or overwrite a markdown note (mutating: queues an operator approval).
+- `vault.reindex` — rebuild the index after editing notes outside JARVIS.
+- `vault.stats` — note count and index freshness.
+- Before answering, JARVIS automatically searches the vault for notes relevant to the message and lists them as hints it can read with `vault.read`.
+
+YAML frontmatter (`title`, `tags`) is honored. Hidden folders (`.obsidian`, `.trash`, `.git`) and paths outside the vault root are never accessed. Search results are bounded by `JARVIS_VAULT_SEARCH_LIMIT` (default 5) and note reads by `JARVIS_VAULT_READ_MAX_CHARS` (default 16000).
+
 ## Voice
 
 With `JARVIS_ELEVENLABS_API_KEY` set, POST `/api/tts` with `{"text": "..."}` returns an mp3 for the configured voice (default: Daniel, a free british male voice). The operator's preferred voice `wDsJlOXPqcvIUKdLXjDs` requires a Creator-tier plan; set `JARVIS_ELEVENLABS_VOICE_ID` to switch. The HUD speaks replies through the API and falls back to the browser's Web Speech synthesis when ElevenLabs is unavailable. Voice output is toggled with the 🔊 button in the composer.
@@ -50,11 +63,14 @@ Secrets must only be supplied through environment variables.
 ## API
 
 - GET /api/health
+- GET /api/metrics
 - GET /api/tools
 - GET /api/confirmations
 - POST /api/conversation
 - POST /api/confirm
 - POST /api/tts — returns mp3 audio for a given `text` using the configured voice
+- GET /api/vault — vault statistics (`noteCount`, `indexedAt`, `path`)
+- POST /api/vault/reindex — rebuild the vault search index (`{"noteCount": N, "indexedAt": "..."}`)
 
 ## Deployment
 
@@ -65,7 +81,8 @@ No production deployment or nginx modification is automatic.
 
 Optional daily auto-verification: `scripts/auto-verify.sh` polls POST /api/conversation
 until the model replies non-degraded (covers the OpenAI quota reset window), then checks a
-real tool call (disk usage), teaches one brain fact (guarded to once), and runs a recall.
+real tool call (disk usage), teaches one brain fact (guarded to once), runs a recall, and
+refreshes the vault search index.
 Deploy it with the bundled units:
 
 ```

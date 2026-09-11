@@ -122,12 +122,22 @@ else
   fi
 fi
 
+VAULT_OK="false"
+VAULT_RESP="$(curl -sS --max-time 120 -X POST "$BASE/api/vault/reindex" 2>/dev/null || echo '{}')"
+echo "$VAULT_RESP" >> "$LOG"
+if printf '%s' "$VAULT_RESP" | grep -q '"indexed"[[:space:]]*:[[:space:]]*true'; then
+  VAULT_OK="true"
+  log "vault reindex leg passed"
+else
+  log "vault reindex leg failed"
+fi
+
 RECALL_RESP="$(chat 'Recall anything you remember about a daily automated verification pass.')"
 echo "$RECALL_RESP" >> "$LOG"
 RECALL_OK="false"
 if printf '%s' "$RECALL_RESP" | grep -q '"degraded"[[:space:]]*:[[:space:]]*true'; then
   log "recall leg degraded"
-  write_result "failed" "$ATTEMPTS" "\"chat\":true,\"tool\":$TOOL_OK,\"teach\":\"$TEACH_OK\",\"recall\":false"
+  write_result "failed" "$ATTEMPTS" "\"chat\":true,\"tool\":$TOOL_OK,\"teach\":\"$TEACH_OK\",\"vault\":$VAULT_OK,\"recall\":false"
   notify "JARVIS auto-verify FAILED: recall leg degraded"
   stamp_done
   exit 1
@@ -136,6 +146,6 @@ RECALL_OK="true"
 log "recall leg returned non-degraded reply"
 
 stamp_done
-write_result "ok" "$ATTEMPTS" "\"chat\":true,\"tool\":$TOOL_OK,\"teach\":\"$TEACH_OK\",\"recall\":true"
+write_result "ok" "$ATTEMPTS" "\"chat\":true,\"tool\":$TOOL_OK,\"teach\":\"$TEACH_OK\",\"vault\":$VAULT_OK,\"recall\":true"
 log "auto-verify completed successfully"
-notify "JARVIS auto-verify OK: tool=$TOOL_OK teach=$TEACH_OK recall=true attempts=$ATTEMPTS"
+notify "JARVIS auto-verify OK: tool=$TOOL_OK teach=$TEACH_OK vault=$VAULT_OK recall=true attempts=$ATTEMPTS"

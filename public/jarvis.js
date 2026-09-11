@@ -167,6 +167,23 @@ async function refreshHealth() {
       dependencies.brain?.status
     );
 
+    const vaultHealth =
+      dependencies.vault;
+
+    setBadge(
+      'vault-status',
+      vaultHealth?.status
+    );
+
+    const vaultNotes =
+      $('vault-notes');
+
+    vaultNotes.textContent =
+      vaultHealth && vaultHealth.noteCount !==
+      undefined
+        ? `${vaultHealth.noteCount} notes`
+        : '—';
+
     const brainModel =
       $('brain-model');
 

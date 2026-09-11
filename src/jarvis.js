@@ -78,6 +78,7 @@ function createJarvis({
   dripvid,
   mcp,
   brain,
+  vault,
   model,
   now = () => Date.now()
 }) {
@@ -111,12 +112,16 @@ function createJarvis({
       dripvidStatus,
       mcpStatus,
       brainStatus,
-      modelStatus
+      modelStatus,
+      vaultStatus
     ] = await Promise.all([
       dripvid.health(),
       mcp.health(),
       brain.health(),
-      model.health()
+      model.health(),
+      vault
+        ? vault.health()
+        : Promise.resolve(null)
     ]);
 
     const dependencies = {
@@ -125,6 +130,10 @@ function createJarvis({
       brain: brainStatus,
       model: modelStatus
     };
+
+    if (vaultStatus) {
+      dependencies.vault = vaultStatus;
+    }
 
     return {
       name: 'jarvis',
@@ -204,11 +213,107 @@ function createJarvis({
     }
   ];
 
+  const VAULT_TOOLS = [
+    {
+      name: 'vault.search',
+      source: 'vault',
+      description:
+        'Search the operator\'s Obsidian vault for notes matching a query. Use this to recall personal context, preferences, or anything the operator has written down before answering or making assumptions about them.',
+      mutating: false,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description:
+              'What to search the vault for.'
+          },
+          limit: {
+            type: 'number',
+            description:
+              'Maximum number of notes to return (default 5).'
+          }
+        },
+        required: ['query']
+      }
+    },
+    {
+      name: 'vault.read',
+      source: 'vault',
+      description:
+        'Read the full contents of a markdown note in the operator\'s vault by its relative path. Use after vault.search when you need the complete note.',
+      mutating: false,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description:
+              'Relative path of the note inside the vault (for example "Projects/MyNote.md").'
+          }
+        },
+        required: ['path']
+      }
+    },
+    {
+      name: 'vault.write',
+      source: 'vault',
+      description:
+        'Create or overwrite a markdown note in the operator\'s vault. Include YAML frontmatter (title, tags) when helpful. The note becomes searchable immediately.',
+      mutating: true,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          path: {
+            type: 'string',
+            description:
+              'Relative path of the note inside the vault (for example "Projects/MyNote.md").'
+          },
+          content: {
+            type: 'string',
+            description:
+              'Full markdown content of the note.'
+          }
+        },
+        required: ['path', 'content']
+      }
+    },
+    {
+      name: 'vault.reindex',
+      source: 'vault',
+      description:
+        'Rebuild the vault search index so notes that were edited with Obsidian (not via JARVIS) become searchable. Run this when the operator says they updated their vault.',
+      mutating: false,
+      inputSchema: {
+        type: 'object',
+        properties: {},
+        required: []
+      }
+    },
+    {
+      name: 'vault.stats',
+      source: 'vault',
+      description:
+        'Get vault statistics such as note count, index freshness, and location.',
+      mutating: false,
+      inputSchema: {
+        type: 'object',
+        properties: {},
+        required: []
+      }
+    }
+  ];
+
   async function tools() {
     const discovered = [
-      ...BRAIN_TOOLS,
-      ...dripvid.listTools()
+      ...BRAIN_TOOLS
     ];
+
+    if (vault) {
+      discovered.push(...VAULT_TOOLS);
+    }
+
+    discovered.push(...dripvid.listTools());
 
     try {
       const mcpTools = await mcp.listTools();
@@ -264,6 +369,48 @@ function createJarvis({
       return dripvid.callTool(
         tool.name,
         args
+      );
+    }
+
+    if (tool.source === 'vault') {
+      if (!vault) {
+        throw new Error(
+          'Vault adapter is not configured'
+        );
+      }
+
+      if (tool.name === 'vault.search') {
+        return {
+          notes: await vault.search(
+            String(args.query || ''),
+            { limit: args.limit }
+          )
+        };
+      }
+
+      if (tool.name === 'vault.read') {
+        return vault.read(
+          String(args.path || '')
+        );
+      }
+
+      if (tool.name === 'vault.write') {
+        return vault.write(
+          String(args.path || ''),
+          String(args.content || '')
+        );
+      }
+
+      if (tool.name === 'vault.reindex') {
+        return await vault.reindex();
+      }
+
+      if (tool.name === 'vault.stats') {
+        return vault.stats();
+      }
+
+      throw new Error(
+        `Unsupported vault tool: ${tool.name}`
       );
     }
 
@@ -402,15 +549,31 @@ function createJarvis({
           }
         );
 
+      const relevantNotes = [];
+
+      if (vault && userText) {
+        try {
+          const found =
+            await vault.search(
+              userText,
+              { limit: 3 }
+            );
+
+          relevantNotes.push(...found);
+        } catch {
+          // Vault hints are best-effort.
+        }
+      }
+
       const conversation = [
         ...messages
       ];
 
+      const systemHints = [];
+
       if (remembered.length) {
-        conversation.unshift({
-          role: 'system',
-          content:
-            'You have these memories from previous conversations:\n' +
+        systemHints.push(
+          'You have these memories from previous conversations:\n' +
             remembered
               .map(
                 (memory) =>
@@ -418,7 +581,29 @@ function createJarvis({
               )
               .join('\n') +
             '\n\nUse them to answer the operator when they are helpful.'
-        });
+        );
+      }
+
+      if (relevantNotes.length) {
+        systemHints.push(
+          'These notes in the operator\'s vault may be relevant:\n' +
+            relevantNotes
+              .map(
+                (note) =>
+                  `- ${note.path} (${note.title})`
+              )
+              .join('\n') +
+            '\n\nRead them with vault.read when they would help you answer or understand the operator better.'
+        );
+      }
+
+      if (systemHints.length) {
+        conversation.unshift(
+          ...systemHints.map((hint) => ({
+            role: 'system',
+            content: hint
+          }))
+        );
       }
 
       return {
