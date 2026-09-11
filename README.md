@@ -19,8 +19,8 @@ Default interface: http://127.0.0.1:3342/
 - DripVid: http://127.0.0.1:3000
 - MCP: http://127.0.0.1:8788/mcp
 - OpenAI API (direct): configured via `JARVIS_OPENAI_API_KEY` / `JARVIS_OPENAI_MODEL`
-- Optional fallback agent (OpenAI-compatible): `JARVIS_FALLBACK_BASE_URL` / `JARVIS_FALLBACK_API_KEY` / `JARVIS_FALLBACK_MODEL`; used automatically when the primary provider is rate-limited or failing, with a `JARVIS_MODEL_FALLBACK_COOLDOWN_MS` cooldown.
-- Optional voice (ElevenLabs): `JARVIS_ELEVENLABS_API_KEY` / `JARVIS_ELEVENLABS_VOICE_ID` (default `wDsJlOXPqcvIUKdLXjDs`)
+- Optional fallback agent (OpenAI-compatible): `JARVIS_FALLBACK_BASE_URL` / `JARVIS_FALLBACK_API_KEY` / `JARVIS_FALLBACK_MODEL`; used automatically when the primary provider is rate-limited or failing, with a `JARVIS_MODEL_FALLBACK_COOLDOWN_MS` cooldown. To wire in an OmniRoute-style endpoint now: set all three fallback vars to your OpenAI-compatible base URL (`.../v1`), key, and model; the router health endpoint reports `fallback.online` when the slot is usable.
+- Optional voice (ElevenLabs): `JARVIS_ELEVENLABS_API_KEY` / `JARVIS_ELEVENLABS_VOICE_ID` (default `onwK4e9ZLuTAKqWW03F9`, Daniel)
 
 ## Brain
 
@@ -42,8 +42,8 @@ With `JARVIS_ELEVENLABS_API_KEY` set, POST `/api/tts` with `{"text": "..."}` ret
 ## Safety
 
 JARVIS remains bound to localhost during this milestone.
-Read-only operations may execute directly.
-Mutating operations require an expiring single-use confirmation.
+Diagnostic (read-only) tools may execute directly.
+Mutating tools are listed in the HUD as "REQUIRES APPROVAL" and queue an expiring single-use confirmation (TTL `JARVIS_CONFIRMATION_TTL_MS`) instead of executing; confirm them from the Pending Confirmations panel or via POST /api/confirm.
 Unknown AI tool requests are rejected.
 Secrets must only be supplied through environment variables.
 
@@ -62,3 +62,20 @@ Planned production directory: /opt/dripvid-jarvis
 Example systemd unit: deploy/dripvid-jarvis.service
 Do not expose port 3342 publicly.
 No production deployment or nginx modification is automatic.
+
+Optional daily auto-verification: `scripts/auto-verify.sh` polls POST /api/conversation
+until the model replies non-degraded (covers the OpenAI quota reset window), then checks a
+real tool call (disk usage), teaches one brain fact (guarded to once), and runs a recall.
+Deploy it with the bundled units:
+
+```
+sudo install -m 0755 scripts/auto-verify.sh /opt/dripvid-jarvis/scripts/auto-verify.sh
+sudo install -m 0644 deploy/dripvid-jarvis-verify.service /etc/systemd/system/
+sudo install -m 0644 deploy/dripvid-jarvis-verify.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now dripvid-jarvis-verify.timer
+```
+
+The timer fires at 00:20 UTC daily and skips another run if a pass already succeeded
+that day. Results go to `/opt/dripvid-jarvis/data/auto-verify.log` and
+`auto-verify.state`. CI for the repo is provided by `.github/workflows/ci.yml`.

@@ -1,0 +1,25 @@
+[Unit]
+Description=DripVid JARVIS auto-verify pass
+After=network.target dripvid-jarvis.service
+
+[Service]
+Type=oneshot
+User=dripvid-jarvis
+Group=dripvid-jarvis
+EnvironmentFile=/etc/dripvid-jarvis.env
+ExecStart=/usr/bin/bash /opt/dripvid-jarvis/scripts/auto-verify.sh
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+ReadWritePaths=/opt/dripvid-jarvis
+
+[Install]
+WantedBy=multi-user.target

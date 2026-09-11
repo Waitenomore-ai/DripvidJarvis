@@ -299,8 +299,8 @@ function renderTools(tools) {
           )}
         </div>
 
-        <span class="tool-tag">
-          READ ONLY
+        <span class="tool-tag ${tool.mutating ? 'mutating' : ''}">
+          ${tool.mutating ? 'REQUIRES APPROVAL' : 'READ ONLY'}
         </span>
       </div>
     `;
@@ -807,14 +807,87 @@ async function refreshConfirmations() {
         apiPath('/api/confirmations')
       );
 
-    for (
-      const confirmation of
-      data.confirmations || []
-    ) {
-      addActivity(
-        `Pending confirmation: ${confirmation.tool}`
-      );
+    const confirmations =
+      data.confirmations || [];
+
+    const panel = $('confirmPanel');
+    const list = $('confirmList');
+
+    if (!confirmations.length) {
+      if (panel) {
+        panel.style.display = 'none';
+      }
+      return;
     }
+
+    if (panel) {
+      panel.style.display = '';
+    }
+
+    list.textContent = '';
+
+    for (
+      const confirmation of confirmations
+    ) {
+      const row =
+        document.createElement('div');
+
+      row.className = 'confirm-row';
+
+      row.innerHTML = `
+        <div class="confirm-meta">
+          <div class="confirm-tool">
+            ${escapeHtml(confirmation.tool)}
+          </div>
+          <div class="confirm-args">
+            ${escapeHtml(
+              JSON.stringify(
+                confirmation.args || {}
+              )
+            )}
+          </div>
+        </div>
+        <button class="action-button confirm-button"
+          data-id="${confirmation.id}">
+          CONFIRM
+        </button>
+      `;
+
+      row
+        .querySelector('.confirm-button')
+        .addEventListener('click', async () => {
+          try {
+            const result =
+              await api(
+                apiPath('/api/confirm'),
+                {
+                  method: 'POST',
+                  body: JSON.stringify({
+                    id: confirmation.id
+                  })
+                }
+              );
+
+            addActivity(
+              `Confirmed: ${result.tool}`
+            );
+
+            refreshConfirmations();
+            refreshHealth();
+          } catch (error) {
+            addActivity(
+              `Confirmation failed: ${error.message}`
+            );
+            refreshConfirmations();
+          }
+        });
+
+      list.appendChild(row);
+    }
+
+    addActivity(
+      `Pending confirmation: ${confirmations[0].tool}`
+    );
   } catch {}
 }
 

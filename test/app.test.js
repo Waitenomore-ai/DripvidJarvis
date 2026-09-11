@@ -55,6 +55,16 @@ test(
     );
 
     assert.equal(
+      config.fallbackApiKey,
+      ''
+    );
+
+    assert.equal(
+      config.fallbackModel,
+      'gpt-5.6-luna'
+    );
+
+    assert.equal(
       config.modelFallbackCooldownMs,
       600000
     );
@@ -87,6 +97,46 @@ test(
         'data',
         'brain.json'
       )
+    );
+  }
+);
+
+test(
+  'OmniRoute fallback slot loads from environment when configured',
+  () => {
+    const config = loadConfig({
+      JARVIS_FALLBACK_BASE_URL:
+        'https://omniroute.example/v1',
+      JARVIS_FALLBACK_API_KEY:
+        'omni-test-key',
+      JARVIS_FALLBACK_MODEL:
+        'omniroute-1'
+    });
+
+    assert.equal(
+      config.fallbackBaseUrl,
+      'https://omniroute.example/v1'
+    );
+
+    assert.equal(
+      config.fallbackApiKey,
+      'omni-test-key'
+    );
+
+    assert.equal(
+      config.fallbackModel,
+      'omniroute-1'
+    );
+
+    const fallbackReady =
+      Boolean(
+        config.fallbackBaseUrl &&
+        config.fallbackApiKey
+      );
+
+    assert.equal(
+      fallbackReady,
+      true
     );
   }
 );

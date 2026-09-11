@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the DripVid JARVIS auto-verify pass once daily
+Requires=dripvid-jarvis-verify.service
+
+[Timer]
+OnCalendar=*-*-* 00:20:00 UTC
+Persistent=true
+RandomizedDelaySec=0
+
+[Install]
+WantedBy=timers.target

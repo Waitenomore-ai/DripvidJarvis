@@ -232,7 +232,7 @@ test('read-only tool executes immediately', async () => {
   assert.equal(result.toolResults[0].ok, true);
 });
 
-test('mutating MCP tools are hidden from first-release discovery', async () => {
+test('mutating MCP tools are discovered with their mutating flag', async () => {
   const { jarvis } = setup({
     mcpTools: [
       {
@@ -258,12 +258,18 @@ test('mutating MCP tools are hidden from first-release discovery', async () => {
       'brain.recall',
       'brain.forget',
       'dripvid.health',
+      'mcp.restart-service',
       'mcp.server_info'
     ]
   );
+
+  const mutating = tools.find(
+    (tool) => tool.name === 'mcp.restart-service'
+  );
+  assert.equal(mutating.mutating, true);
 });
 
-test('mutating MCP tool calls are blocked instead of queued for confirmation', async () => {
+test('mutating MCP tool calls are queued as expiring confirmations instead of executing', async () => {
   const mutatingTool = {
     name: 'mcp.restart-service',
     source: 'mcp',
@@ -283,9 +289,60 @@ test('mutating MCP tool calls are blocked instead of queued for confirmation', a
 
   const result = await jarvis.conversation({ conversation: [] });
   assert.equal(calls.length, 0);
-  assert.equal(result.confirmations.length, 0);
-  assert.equal(result.toolResults[0].ok, false);
-  assert.equal(result.toolResults[0].error, 'Unknown tool');
+  assert.equal(result.toolResults.length, 0);
+  assert.equal(result.confirmations.length, 1);
+  assert.equal(
+    result.confirmations[0].tool,
+    'mcp.restart-service'
+  );
+  assert.equal(
+    result.confirmations[0].source,
+    'mcp'
+  );
+  assert.deepEqual(
+    result.confirmations[0].args,
+    { service: 'example' }
+  );
+});
+
+test('queued mutating tool executes only after confirmation', async () => {
+  const mutatingTool = {
+    name: 'mcp.restart-service',
+    source: 'mcp',
+    description: 'Restart a service',
+    mutating: true
+  };
+
+  const { jarvis, calls } = setup({
+    mcpTools: [mutatingTool],
+    mcpResult: { restarted: true },
+    toolCalls: [
+      {
+        name: mutatingTool.name,
+        arguments: { service: 'example' }
+      }
+    ]
+  });
+
+  const result = await jarvis.conversation({ conversation: [] });
+  assert.equal(calls.length, 0);
+  assert.equal(result.confirmations.length, 1);
+
+  const confirmationId =
+    result.confirmations[0].id;
+
+  const confirmed =
+    await jarvis.confirm(confirmationId);
+
+  assert.equal(confirmed.confirmed, true);
+  assert.equal(confirmed.tool, 'mcp.restart-service');
+  assert.deepEqual(confirmed.result, { restarted: true });
+  assert.equal(calls.length, 1);
+
+  await assert.rejects(
+    jarvis.confirm(confirmationId),
+    /invalid or already used/
+  );
 });
 
 test('confirmation endpoint rejects an unknown confirmation id', async () => {

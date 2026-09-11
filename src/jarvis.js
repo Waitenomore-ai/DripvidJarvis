@@ -218,7 +218,7 @@ function createJarvis({
     }
 
     return discovered.filter(
-      (tool) => tool && tool.mutating === false
+      (tool) => Boolean(tool)
     );
   }
 
@@ -579,11 +579,14 @@ function createJarvis({
             : {};
 
         if (tool.mutating) {
-          confirmations.push(
+          const confirmation =
             createConfirmation(
               tool,
               args
-            )
+            );
+
+          confirmations.push(
+            confirmation
           );
 
           toolMessages.push({
@@ -591,8 +594,12 @@ function createJarvis({
             tool_call_id: callId,
             content: JSON.stringify({
               ok: false,
+              requiresConfirmation:
+                true,
+              confirmationId:
+                confirmation.id,
               error:
-                'Mutation blocked in first release'
+                'Pending operator confirmation'
             })
           });
           continue;

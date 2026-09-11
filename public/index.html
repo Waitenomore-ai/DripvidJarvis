@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>DripVid J.A.R.V.I.S.</title>
-  <link rel="stylesheet" href="jarvis.css?v=7">
+  <link rel="stylesheet" href="jarvis.css?v=8">
 </head>
 <body>
 
@@ -159,7 +159,10 @@
       <section class="panel tools-panel">
 
         <div class="panel-title">
-          Available Tools &nbsp; (Read Only)
+          Available Tools &nbsp;
+          <span style="color:var(--muted);font-size:11px">
+            (READ ONLY · Mutating Require Approval)
+          </span>
         </div>
 
         <div class="panel-body">
@@ -258,6 +261,16 @@
 
         </section>
 
+        <section class="panel" id="confirmPanel" style="display:none">
+
+          <div class="panel-title">
+            Pending Confirmations
+          </div>
+
+          <div class="panel-body" id="confirmList"></div>
+
+        </section>
+
         <section class="panel">
 
           <div class="panel-title">
@@ -316,11 +329,12 @@
 
           <div class="panel-body">
 
-            <strong class="safety">🛡 READ ONLY</strong>
+            <strong class="safety">🛡 READ ONLY + APPROVAL</strong>
 
             <div style="color:var(--muted);font-size:11px;margin-top:8px">
-              System-changing commands are disabled
-              in this release. JARVIS may save facts
+              Diagnostic tools run directly. System-changing
+              tools require your one-time confirmation from the
+              Pending Confirmations panel. JARVIS may save facts
               to its own server-side brain.
             </div>
 
@@ -353,6 +367,6 @@
 
 </div>
 
-<script src="jarvis.js?v=7"></script>
+<script src="jarvis.js?v=8"></script>
 </body>
 </html>
