@@ -128,7 +128,13 @@ test('diagnostic request exposes only approved read-only tools and explains real
 
   assert.deepEqual(
     harness.chats[0].tools.map((tool) => tool.name),
-    ['dripvid.health', 'mcp.disk_status', 'mcp.network_status']
+    [
+      'dripvid.health',
+      'mcp.disk_status',
+      'mcp.network_status',
+      'mcp.service_status',
+      'mcp.service_logs'
+    ]
   );
   assert.deepEqual(
     harness.calls.map((call) => call.name),
