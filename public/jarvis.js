@@ -326,45 +326,115 @@ $('toolSearch').addEventListener(
   }
 );
 
-function refreshMetrics() {
-  $('cpu').textContent =
-    navigator.hardwareConcurrency
-      ? `${navigator.hardwareConcurrency} cores`
-      : '—';
-
-  $('memory').textContent =
-    navigator.deviceMemory
-      ? `${navigator.deviceMemory} GB`
-      : '—';
-
-  $('network').textContent =
-    navigator.onLine
-      ? 'Online'
-      : 'Offline';
-
+function formatBytes(bytes) {
   if (
-    navigator.storage &&
-    navigator.storage.estimate
+    typeof bytes !== 'number' ||
+    !Number.isFinite(bytes)
   ) {
-    navigator.storage.estimate()
-      .then((estimate) => {
-        const usage = estimate.usage;
-        const quota = estimate.quota;
+    return '—';
+  }
 
-        $('storage').textContent =
-          usage && quota &&
-          quota !==
-            Number.MAX_SAFE_INTEGER
-            ? `${(usage / 1024 ** 3)
-                .toFixed(1)} / ${(quota / 1024 ** 3)
-                .toFixed(0)} GB`
-            : '—';
-      })
-      .catch(() => {
-        $('storage').textContent = '—';
-      });
-  } else {
+  if (bytes >= 1024 ** 4) {
+    return `${(bytes / 1024 ** 4)
+      .toFixed(2)} TB`;
+  }
+
+  return `${(bytes / 1024 ** 3)
+    .toFixed(1)} GB`;
+}
+
+function formatDuration(seconds) {
+  if (
+    typeof seconds !== 'number' ||
+    !Number.isFinite(seconds)
+  ) {
+    return '—';
+  }
+
+  const days = Math.floor(
+    seconds / 86400
+  );
+  const hours = Math.floor(
+    (seconds % 86400) / 3600
+  );
+  const minutes = Math.floor(
+    (seconds % 3600) / 60
+  );
+
+  if (days > 0) {
+    return `up ${days}d ${hours}h`;
+  }
+
+  if (hours > 0) {
+    return `up ${hours}h ${minutes}m`;
+  }
+
+  return `up ${minutes}m`;
+}
+
+async function refreshMetrics() {
+  const hostline = $('hostline');
+
+  try {
+    const metrics =
+      await api(
+        apiPath('/api/metrics')
+      );
+
+    const memoryTotal =
+      metrics.memory &&
+      metrics.memory.total;
+    const memoryFree =
+      metrics.memory &&
+      metrics.memory.free;
+    const memoryUsed =
+      memoryTotal && memoryFree
+        ? memoryTotal - memoryFree
+        : null;
+
+    $('cpu').textContent =
+      metrics.cpu &&
+      metrics.cpu.cores
+        ? `${metrics.cpu.cores} cores`
+        : '—';
+
+    $('memory').textContent =
+      memoryTotal && memoryUsed
+        ? `${formatBytes(memoryUsed)} / ${formatBytes(memoryTotal)}`
+        : '—';
+
+    const storage =
+      metrics.storage;
+
+    $('storage').textContent =
+      storage &&
+      storage.total
+        ? `${formatBytes(storage.total - storage.avail)} / ${formatBytes(storage.total)}`
+        : '—';
+
+    $('uptime').textContent =
+      formatDuration(
+        metrics.uptimeSec
+      );
+
+    hostline.textContent =
+      `Host: ${
+        metrics.hostname || '—'
+      } · ${
+        metrics.platform || ''
+      }${
+        metrics.osRelease
+          ? ` · ${metrics.osRelease}`
+          : ''
+      }`;
+  } catch (error) {
+    $('cpu').textContent = '—';
+    $('memory').textContent = '—';
     $('storage').textContent = '—';
+    $('uptime').textContent = '—';
+
+    hostline.textContent =
+      `Host: unavailable (${error.message})`;
   }
 }
 

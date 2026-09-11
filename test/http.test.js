@@ -121,6 +121,49 @@ test(
 );
 
 test(
+  'GET /api/metrics returns server telemetry',
+  async () => {
+    await withServer(
+      stubJarvis(),
+      async (base) => {
+        const response =
+          await fetch(
+            `${base}/api/metrics`
+          );
+
+        assert.equal(
+          response.status,
+          200
+        );
+
+        const body =
+          await response.json();
+
+        assert.equal(
+          typeof body.hostname,
+          'string'
+        );
+        assert.equal(
+          typeof body.platform,
+          'string'
+        );
+        assert.ok(
+          body.cpu &&
+            body.cpu.cores >= 1,
+          'cpu cores present'
+        );
+        assert.ok(
+          Number.isFinite(
+            body.memory.total
+          ),
+          'memory total present'
+        );
+      }
+    );
+  }
+);
+
+test(
   'malformed conversation JSON returns 400',
   async () => {
     await withServer(

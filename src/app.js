@@ -4,6 +4,8 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const os = require('node:os');
+
 const { loadConfig } =
   require('./config');
 
@@ -115,6 +117,55 @@ function readJson(
       req.on('error', reject);
     }
   );
+}
+
+function gatherServerMetrics() {
+  const cpuInfo = os.cpus();
+
+  const rootPath =
+    os.platform() === 'win32'
+      ? 'C:\\'
+      : '/';
+
+  let storage = null;
+
+  try {
+    const stat =
+      fs.statfsSync(rootPath);
+
+    storage = {
+      path: rootPath,
+      total:
+        stat.blocks * stat.bsize,
+      free:
+        stat.bfree * stat.bsize,
+      avail:
+        stat.bavail * stat.bsize
+    };
+  } catch {
+    // storage stays null
+  }
+
+  return {
+    hostname: os.hostname(),
+    platform: `${os.platform()}-${os.arch()}`,
+    osType: os.type(),
+    osRelease: os.release(),
+    uptimeSec:
+      Math.floor(os.uptime()),
+    cpu: {
+      cores: cpuInfo.length,
+      model:
+        (cpuInfo[0] || {}).model ||
+        null,
+      loadAvg: os.loadavg()
+    },
+    memory: {
+      total: os.totalmem(),
+      free: os.freemem()
+    },
+    storage
+  };
 }
 
 function serveStatic(req, res) {
@@ -280,6 +331,18 @@ function createApp(options = {}) {
           }
 
           sendJson(res, 200, health);
+          return;
+        }
+
+        if (
+          req.method === 'GET' &&
+          req.url === '/api/metrics'
+        ) {
+          sendJson(
+            res,
+            200,
+            gatherServerMetrics()
+          );
           return;
         }
 
