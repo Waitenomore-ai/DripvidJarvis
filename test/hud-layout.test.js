@@ -11,6 +11,7 @@ const css = [
   fs.readFileSync(path.join(ROOT, 'public', 'jarvis.css'), 'utf8'),
   fs.readFileSync(path.join(ROOT, 'public', 'hud.css'), 'utf8')
 ].join('\n');
+const js = fs.readFileSync(path.join(ROOT, 'public', 'jarvis.js'), 'utf8');
 
 test('HUD keeps the home workspace on one desktop screen', () => {
   assert.match(css, /height:\s*100vh/);
@@ -59,4 +60,14 @@ test('HOME carries console, tools tiles and vault search in the rail', () => {
 test('HUD drops the removed compact stylesheet', () => {
   assert.doesNotMatch(html, /compact-hud\.css/);
   assert.ok(fs.existsSync(path.join(ROOT, 'public', 'hud.css')));
+});
+
+test('HUD renders the memory and vault context JARVIS used per answer', () => {
+  assert.match(js, /recallFooter/);
+  assert.match(js, /context ·/);
+  assert.match(js, /recall-context/);
+  assert.match(css, /\.recall-context/);
+  assert.match(css, /\.recall-note/);
+  assert.match(html, /What do you remember about me\?/);
+  assert.match(html, /Search my vault/);
 });

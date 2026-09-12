@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createJarvis } = require('../src/jarvis');
 
-function makeHarness({ responses, mcpTools, mcpCall, config = {}, dripvidHealthNaked = false }) {
+function makeHarness({ responses, mcpTools, mcpCall, config = {}, dripvidHealthNaked = false, recallResults = [], vaultNotes = [] }) {
   const chats = [];
   const calls = [];
   let responseIndex = 0;
@@ -44,7 +44,7 @@ function makeHarness({ responses, mcpTools, mcpCall, config = {}, dripvidHealthN
 
   const brain = {
     health: async () => ({ name: 'brain', status: 'online' }),
-    recall: async () => [],
+    recall: async () => recallResults,
     remember: async () => null,
     forget: async () => false,
     stats: () => ({ count: 0 })
@@ -52,7 +52,7 @@ function makeHarness({ responses, mcpTools, mcpCall, config = {}, dripvidHealthN
 
   const vault = {
     health: async () => ({ name: 'vault', status: 'online' }),
-    search: async () => [],
+    search: async () => vaultNotes,
     read: async () => ({ path: 'x', content: 'x' }),
     write: async () => ({ path: 'x' }),
     reindex: async () => ({ noteCount: 0 }),
@@ -312,6 +312,36 @@ test('provider failure after diagnostics returns deterministic partial results',
   assert.match(result.message, /mcp\.disk_status/);
   assert.match(result.message, /1 TB/);
   assert.match(result.message, /model unavailable/);
+});
+
+test('conversation answer exposes the memory and vault context JARVIS used', async () => {
+  const harness = makeHarness({
+    mcpTools: readOnlyTools,
+    recallResults: [
+      { id: 'm1', text: 'Operator prefers backups before 02:00.' }
+    ],
+    vaultNotes: [
+      { path: 'memory/current-state.md', title: 'Current DripVid State' }
+    ],
+    responses: [
+      {
+        message: 'Noted.',
+        toolCalls: [],
+        suggestedActions: []
+      }
+    ]
+  });
+
+  const result = await harness.jarvis.conversation({
+    conversation: [{ role: 'user', content: 'Check system health' }]
+  });
+
+  assert.deepEqual(result.context.memories, [
+    { id: 'm1', text: 'Operator prefers backups before 02:00.' }
+  ]);
+  assert.deepEqual(result.context.notes, [
+    { path: 'memory/current-state.md', title: 'Current DripVid State' }
+  ]);
 });
 
 test('diagnostic answer without tool results warns that no live check ran', async () => {

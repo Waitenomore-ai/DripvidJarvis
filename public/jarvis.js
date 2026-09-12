@@ -918,6 +918,62 @@ function renderMonitorFromLast() {
 
 /* ============ CONVERSATION ============ */
 
+function recallFooter(item) {
+  const context =
+    item && item.context
+      ? item.context
+      : null;
+
+  const memories =
+    context && Array.isArray(context.memories)
+      ? context.memories
+      : [];
+
+  const notes =
+    context && Array.isArray(context.notes)
+      ? context.notes
+      : [];
+
+  const memoryCount = memories.length;
+  const noteCount = notes.length;
+
+  if (!memoryCount && !noteCount) {
+    return '';
+  }
+
+  const parts = [];
+
+  if (memoryCount) {
+    parts.push(
+      `${memoryCount} memory${memoryCount === 1 ? '' : 'ies'}`
+    );
+  }
+
+  if (noteCount) {
+    parts.push(
+      `${noteCount} note${noteCount === 1 ? '' : 's'}`
+    );
+  }
+
+  const items = [
+    ...memories.map(
+      (memory) =>
+        `<li>${escapeHtml(memory.text || '')}</li>`
+    ),
+    ...notes.map(
+      (note) =>
+        `<li class="recall-note">&nbsp;${escapeHtml(note.title || note.path || '')} — ${escapeHtml(note.path || '')}</li>`
+    )
+  ];
+
+  return `
+    <details class="recall-context">
+      <summary>context · ${parts.join(' · ')}</summary>
+      <ul>${items.join('')}</ul>
+    </details>
+  `;
+}
+
 function renderChat(log) {
   if (!log) {
     return;
@@ -933,6 +989,7 @@ function renderChat(log) {
     el.innerHTML = `
       ${item.role === 'user' ? 'YOU' : 'JARVIS'}<br><br>
       ${escapeHtml(item.content)}
+      ${item.role === 'user' ? '' : recallFooter(item)}
     `;
 
     log.appendChild(el);
@@ -969,7 +1026,8 @@ async function sendConversation(text) {
 
   conversationHistory.push({
     role: 'assistant',
-    content: message
+    content: message,
+    context: response.context || null
   });
 
   renderChat(activeLog());

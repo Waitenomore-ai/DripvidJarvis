@@ -500,6 +500,8 @@ function createJarvis({
     let diagnosticCallCount = 0;
     let limitReason = null;
     let endedWithToolCalls = false;
+    let lastRecalledMemories = [];
+    let lastRelevantNotes = [];
 
     async function buildChatRequest() {
       const userText = messages
@@ -511,6 +513,7 @@ function createJarvis({
         userText,
         { limit: config.brainRecallLimit || 5 }
       );
+      lastRecalledMemories = remembered;
 
       const relevantNotes = [];
 
@@ -522,6 +525,7 @@ function createJarvis({
           // Vault hints are best-effort.
         }
       }
+      lastRelevantNotes = relevantNotes;
 
       const outboundConversation = [...messages];
       const systemHints = [];
@@ -967,6 +971,20 @@ function createJarvis({
       suggestedActions:
         response && response.suggestedActions,
       memoryCount: brain.stats().count,
+      context: {
+        memories: lastRecalledMemories.map(
+          (memory) => ({
+            id: memory.id,
+            text: memory.text || ''
+          })
+        ),
+        notes: lastRelevantNotes.map(
+          (note) => ({
+            path: note.path,
+            title: note.title || note.path
+          })
+        )
+      },
       degraded: false
     };
   }
