@@ -1,0 +1,55 @@
+{
+    "name":  "jarvis",
+    "status":  "degraded",
+    "dependencies":  {
+                         "dripvid":  {
+                                         "name":  "dripvid",
+                                         "status":  "offline",
+                                         "endpoint":  "http://127.0.0.1:3000/api/health",
+                                         "error":  "fetch failed",
+                                         "latencyMs":  2
+                                     },
+                         "mcp":  {
+                                     "name":  "mcp",
+                                     "status":  "offline",
+                                     "endpoint":  "http://127.0.0.1:8788/mcp",
+                                     "error":  "fetch failed",
+                                     "latencyMs":  2
+                                 },
+                         "brain":  {
+                                       "name":  "brain",
+                                       "status":  "online",
+                                       "memoryCount":  6,
+                                       "path":  "C:\\pinokio\\api\\dripvid-jarvis\\app\\data\\brain.json",
+                                       "error":  null
+                                   },
+                         "model":  {
+                                       "name":  "model",
+                                       "status":  "online",
+                                       "provider":  "openai",
+                                       "model":  "qwen2.5-coder-7b-instruct",
+                                       "fallback":  null,
+                                       "error":  null,
+                                       "latencyMs":  3
+                                   },
+                         "vault":  {
+                                       "name":  "vault",
+                                       "status":  "online",
+                                       "noteCount":  12,
+                                       "indexedAt":  "2026-09-12T14:21:33.403Z",
+                                       "path":  "C:\\pinokio\\api\\dripvid-jarvis\\app\\vault",
+                                       "error":  null
+                                   },
+                         "tts":  {
+                                     "name":  "voice",
+                                     "status":  "offline",
+                                     "provider":  "elevenlabs",
+                                     "mode":  "browser-fallback",
+                                     "voiceId":  "onwK4e9ZLuTAKqWW03F9",
+                                     "model":  "eleven_turbo_v2_5",
+                                     "error":  "ElevenLabs API key is not configured; HUD uses browser voice",
+                                     "latencyMs":  0
+                                 }
+                     },
+    "timestamp":  "2026-09-12T14:47:26.059Z"
+}

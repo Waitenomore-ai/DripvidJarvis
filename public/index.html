@@ -6,7 +6,7 @@
   <title>DripVid J.A.R.V.I.S.</title>
   <link rel="icon" type="image/svg+xml" href="dripvid-icon.svg">
   <link rel="stylesheet" href="jarvis.css?v=14">
-  <link rel="stylesheet" href="hud.css?v=4">
+  <link rel="stylesheet" href="hud.css?v=5">
 </head>
 <body>
 <div class="app">
@@ -206,6 +206,7 @@
               <div>
                 <strong id="overallHealth">Checking systems...</strong>
                 <div id="healthDetail" class="overall-detail">Awaiting telemetry</div>
+                <div id="recoveryList" class="recovery-list" hidden></div>
               </div>
             </div>
 
@@ -426,6 +427,34 @@
             <button id="sendButtonAssist" class="send-button" title="Transmit message">➤</button>
           </div>
         </section>
+
+        <aside class="assist-rail" aria-label="Assist session context">
+          <section class="panel assist-panel">
+            <h2 class="panel-heading">ASSIST ENGINE</h2>
+            <div class="assist-meta">
+              <span class="assist-key">Provider</span>
+              <span class="assist-val" id="assistProvider">—</span>
+              <span class="assist-key">Model</span>
+              <span class="assist-val" id="assistModel">—</span>
+              <span class="assist-key">Last reply</span>
+              <span class="assist-val" id="assistLatency">—</span>
+              <span class="assist-key">Session turns</span>
+              <span class="assist-val" id="assistTurns">0</span>
+            </div>
+          </section>
+
+          <section class="panel assist-panel">
+            <h2 class="panel-heading">CONTEXT BASE</h2>
+            <div class="assist-meta">
+              <span class="assist-key">Brain</span>
+              <span class="assist-val" id="assistBrain">— memories</span>
+              <span class="assist-key">Vault</span>
+              <span class="assist-val" id="assistVault">— notes</span>
+              <span class="assist-key">Recall last</span>
+              <span class="assist-val" id="assistRecall">none</span>
+            </div>
+          </section>
+        </aside>
       </div>
     </section>
 
@@ -489,6 +518,33 @@
               <strong>JARVIS voice replies</strong> read assistant responses aloud when enabled.
               Speech input is always opt-in through the console microphone button.
             </div>
+            <div class="voice-provider">
+              <span class="voice-provider-key">Provider</span>
+              <span class="voice-provider-val" id="voiceProvider">—</span>
+              <span class="voice-provider-key">Mode</span>
+              <span class="voice-provider-val" id="voiceModeName">browser</span>
+            </div>
+            <div id="voiceAction" class="voice-missing" hidden></div>
+          </section>
+
+          <section class="panel page-panel">
+            <h2 class="panel-heading">REQUIRED ACTIONS</h2>
+            <div class="safety-detail">
+              Actions the operator must take before the system can report
+              <strong>fully healthy</strong>.
+            </div>
+            <div id="secureActions" class="recovery-list" hidden></div>
+          </section>
+
+          <section class="panel page-panel page-gl">
+            <h2 class="panel-heading">MUTATING TOOLS <small>CONFIRMATION-GATED</small></h2>
+            <div class="safety-detail">
+              These operators change system state. Each call pauses for explicit
+              approval before being forwarded.
+            </div>
+            <div id="secureMutateList" class="confirm-list">
+              <div class="vault-hint">Loading gated tools...</div>
+            </div>
           </section>
 
           <section class="panel page-panel page-gl">
@@ -516,6 +572,6 @@
   </footer>
 </div>
 
-<script src="jarvis.js?v=17"></script>
+<script src="jarvis.js?v=19"></script>
 </body>
 </html>

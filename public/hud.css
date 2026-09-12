@@ -454,6 +454,25 @@ input {
   font-size: 10px;
 }
 
+.recovery-list {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 170, 90, .35);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 72px;
+  overflow: auto;
+}
+
+.recovery-line {
+  font-size: 10px;
+  line-height: 1.45;
+  color: #ffcf9e;
+  letter-spacing: .03em;
+  overflow-wrap: anywhere;
+}
+
 .open-status {
   padding: 8px 10px;
   font-size: 11px;
@@ -971,10 +990,48 @@ input {
 
 .page-assist {
   padding: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 272px;
+  gap: 10px;
+  align-items: start;
 }
 
 .assist-console {
   height: 100%;
+}
+
+.assist-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.assist-panel {
+  min-height: 0;
+}
+
+.assist-meta {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 6px 10px;
+  font-size: 11px;
+  align-items: center;
+}
+
+.assist-key {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.assist-val {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .chat-log .message.you {
@@ -1001,6 +1058,63 @@ input {
 
 .tool-loading {
   font-size: 12px;
+}
+
+.voice-provider {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 6px 10px;
+  font-size: 11px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(120, 100, 255, .2);
+}
+
+.voice-provider-key {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.voice-provider-val {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.voice-missing {
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #ffcf9e;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 170, 90, .4);
+  border-radius: 8px;
+  background: rgba(64, 42, 10, .28);
+}
+
+.security-item {
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 170, 64, .38);
+  border-radius: 10px;
+  background: rgba(64, 42, 10, .28);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.security-gated {
+  flex-shrink: 0;
+  font-size: 10px;
+  letter-spacing: .14em;
+  color: #ffcf9e;
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 170, 90, .45);
+  border-radius: 999px;
+  white-space: nowrap;
 }
 
 .confirm-list {
@@ -1130,6 +1244,10 @@ input {
 }
 
 @media (max-width: 900px) {
+  .page-assist {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .topbar {
     flex-wrap: wrap;
   }

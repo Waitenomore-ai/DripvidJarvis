@@ -121,11 +121,12 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now dripvid-jarvis-verify.timer
 ```
 
-Manual operator smoke check (health, metrics, tools, vault search, confirmations,
-optional conversation recall):
+Manual operator smoke check (health, metrics, tools flight check, vault search,
+confirmations, optional conversation recall):
 
 ```
-BASE=http://127.0.0.1:3342 scripts/smoke-check.sh
+BASE=http://127.0.0.1:3342 npm run smoke        # against the real server
+npm run smoke:dry                               # offline, uses test/fixtures/smoke
 ```
 
 The timer fires at 00:20 UTC daily and skips another run if a pass already succeeded

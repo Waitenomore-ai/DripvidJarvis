@@ -422,6 +422,9 @@ async function refreshHealth() {
     refreshTopHealth(data);
     renderMonitorHealth(data);
 
+    setVoiceProvider(deps.tts);
+    renderRecovery(deps);
+
     const brain = deps.brain || {};
     setBadge('brain-status', brain.status);
 
@@ -483,6 +486,185 @@ async function refreshHealth() {
     card.classList.add('offline');
 
     addActivity(`Health failure: ${error.message}`);
+  }
+}
+
+/* ============ RECOVERY ACTIONS ============ */
+
+function recoveryLines(deps) {
+  const lines = [];
+
+  if (!deps.brain || deps.brain.status !== 'online') {
+    lines.push('Brain offline — check data/brain.json and the API log');
+  }
+
+  if (!deps.vault || deps.vault.status !== 'online') {
+    lines.push('Vault offline — check the vault path in app/.env and reindex');
+  }
+
+  if (deps.dripvid && deps.dripvid.status !== 'online') {
+    lines.push(
+      `DripVid offline — start the backend expected at ${deps.dripvid.endpoint || 'its health endpoint'}`
+    );
+  }
+
+  if (deps.mcp && deps.mcp.status !== 'online') {
+    lines.push(
+      `MCP offline — start the tool server expected at ${deps.mcp.endpoint || 'its MCP endpoint'}`
+    );
+  }
+
+  if (deps.model && deps.model.status !== 'online') {
+    lines.push(
+      'LLM provider offline — check the local model server (app/.env JARVIS_OPENAI_BASE_URL) and restart it'
+    );
+  }
+
+  if (deps.tts && deps.tts.status !== 'online') {
+    lines.push(
+      deps.tts.mode === 'browser-fallback'
+        ? 'Voice key missing — set JARVIS_ELEVENLABS_API_KEY in app/.env, then restart the app'
+        : `Voice offline — ${deps.tts.error || 'provider unavailable'}`
+    );
+  }
+
+  return lines;
+}
+
+function renderRecovery(deps) {
+  const lines = recoveryLines(deps || {});
+  const html = lines
+    .map((line) => `<div class="recovery-line">▶ ${escapeHtml(line)}</div>`)
+    .join('');
+
+  for (const el of [$('recoveryList'), $('secureActions')]) {
+    if (!el) {
+      continue;
+    }
+
+    el.innerHTML = html;
+    el.hidden = html.length === 0;
+  }
+
+  const lastReply = lastReplyMs === null
+    ? null
+    : ` · ${lastReplyMs} ms`;
+
+  updateAssistMeta(deps, lastReply);
+}
+
+/* ============ VOICE PROVIDER (SECURE) ============ */
+
+function setVoiceProvider(ttsDep) {
+  const dep = ttsDep || {};
+  const providerEl = $('voiceProvider');
+  const modeEl = $('voiceModeName');
+  const actionEl = $('voiceAction');
+
+  if (providerEl) {
+    providerEl.textContent = dep.provider || 'browser';
+  }
+
+  if (modeEl) {
+    modeEl.textContent = dep.mode || 'browser-fallback';
+  }
+
+  if (actionEl) {
+    const missing =
+      dep.status !== 'online' &&
+      dep.mode === 'browser-fallback'
+        ? 'Missing server voice key — set JARVIS_ELEVENLABS_API_KEY in app/.env, then restart the app.'
+        : null;
+
+    actionEl.textContent = missing || '';
+    actionEl.hidden = !missing;
+  }
+}
+
+/* ============ MUTATING TOOLS (SECURE) ============ */
+
+async function renderMutatingTools() {
+  const root = $('secureMutateList');
+
+  if (!root) {
+    return;
+  }
+
+  try {
+    if (!allTools.length) {
+      const data = await api(apiPath('/api/tools'));
+
+      allTools = Array.isArray(data) ? data : data.tools || [];
+    }
+
+    const gated = allTools.filter((tool) => tool.mutating);
+
+    root.textContent = '';
+
+    if (!gated.length) {
+      root.textContent = 'No mutating tools exposed.';
+      return;
+    }
+
+    for (const tool of gated) {
+      const item = document.createElement('div');
+
+      item.className = 'security-item';
+
+      item.innerHTML = `
+        <div>
+          <div class="tool-name">${escapeHtml(tool.name || '')}</div>
+          <div class="tool-desc">${escapeHtml(tool.description || '')}</div>
+        </div>
+        <span class="security-gated">GATED ▸ APPROVAL</span>
+      `;
+
+      root.appendChild(item);
+    }
+  } catch (error) {
+    root.textContent = `Tool discovery unavailable: ${error.message}`;
+  }
+}
+
+/* ============ ASSIST META ============ */
+
+let sessionTurns = 0;
+let lastReplyMs = null;
+let lastRecallSummary = 'none';
+
+function updateAssistMeta(deps, latency) {
+  const dep = deps || {};
+  const model = dep.model || {};
+
+  for (const [id, value] of [
+    ['assistProvider', model.provider || '—'],
+    ['assistModel', model.model || '—'],
+    [
+      'assistBrain',
+      `${dep.brain && dep.brain.memoryCount !== undefined ? dep.brain.memoryCount : '—'} memories`
+    ],
+    [
+      'assistVault',
+      `${dep.vault && dep.vault.noteCount !== undefined ? dep.vault.noteCount : '—'} notes`
+    ],
+    ['assistRecall', lastRecallSummary]
+  ]) {
+    const el = $(id);
+
+    if (el) {
+      el.textContent = value;
+    }
+  }
+
+  const latencyEl = $('assistLatency');
+  const turnsEl = $('assistTurns');
+
+  if (latencyEl) {
+    latencyEl.textContent = latency || (lastReplyMs === null ? '—' : `${lastReplyMs} ms`);
+  }
+
+  if (turnsEl) {
+    turnsEl.textContent = String(sessionTurns);
   }
 }
 
@@ -1032,18 +1214,29 @@ async function sendConversation(text) {
 
   renderChat(activeLog());
 
+  const started = performance.now();
   const response = await api(apiPath('/api/conversation'), {
     method: 'POST',
     body: JSON.stringify({
       conversation: conversationHistory
     })
   });
+  lastReplyMs = Math.round(performance.now() - started);
+  sessionTurns += 1;
 
   const message =
     response.message ||
     (response.degraded
       ? 'Artificial intelligence engine unavailable.'
       : 'Command processed.');
+
+  const context = response.context || {};
+  const memoryCount = Array.isArray(context.memories) ? context.memories.length : 0;
+  const noteCount = Array.isArray(context.notes) ? context.notes.length : 0;
+
+  lastRecallSummary = [memoryCount && `${memoryCount} memory`, noteCount && `${noteCount} note`]
+    .filter(Boolean)
+    .join(', ') || 'none';
 
   conversationHistory.push({
     role: 'assistant',
@@ -1962,6 +2155,7 @@ setInterval(refreshMetrics, 15000);
 
 refreshHealth();
 refreshTools();
+renderMutatingTools();
 refreshConfirmations();
 refreshVerify();
 

@@ -7,6 +7,8 @@
   "scripts": {
     "start": "node src/app.js",
     "test": "node --test",
+    "smoke": "bash scripts/smoke-check.sh",
+    "smoke:dry": "bash scripts/smoke-check.sh --dry-run",
     "check": "node --check src/app.js && node --check src/config.js && node --check src/jarvis.js && node --check src/diagnostic-policy.js && node --check src/brain.js && node --check src/vault.js && node --check src/adapters/http.js && node --check src/adapters/dripvid.js && node --check src/adapters/mcp.js && node --check src/adapters/openai.js && node --check src/adapters/router.js && node --check src/adapters/elevenlabs.js && node --check public/jarvis.js"
   },
   "engines": {

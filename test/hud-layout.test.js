@@ -79,6 +79,27 @@ test('HUD surfaces probed endpoints on DripVid and MCP service cards', () => {
   assert.match(js, /setServiceDetail/);
 });
 
+test('HUD renders inline recovery actions, assist rail, and secure voice depth', () => {
+  assert.match(html, /id="recoveryList"/);
+  assert.match(html, /id="secureActions"/);
+  assert.match(html, /id="assistProvider"/);
+  assert.match(html, /id="assistBrain"/);
+  assert.match(html, /id="assistRecall"/);
+  assert.match(html, /id="voiceProvider"/);
+  assert.match(html, /id="voiceAction"/);
+  assert.match(html, /id="secureMutateList"/);
+  assert.match(css, /\.page-assist\s*\{/);
+  assert.match(css, /\.assist-meta/);
+  assert.match(css, /\.recovery-line/);
+  assert.match(css, /\.voice-missing/);
+  assert.match(css, /\.security-gated/);
+  assert.match(js, /function recoveryLines/);
+  assert.match(js, /function setVoiceProvider/);
+  assert.match(js, /function renderMutatingTools/);
+  assert.match(js, /function updateAssistMeta/);
+  assert.match(js, /renderMutatingTools\(\);/);
+});
+
 test('HUD exposes an admin layout-arrange control with persisted positions', () => {
   assert.match(html, /id="layoutBar"/);
   assert.match(html, /id="layoutArrange"/);

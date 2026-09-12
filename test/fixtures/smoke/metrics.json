@@ -1,0 +1,32 @@
+{
+    "hostname":  "Chris_PC",
+    "platform":  "win32-x64",
+    "osType":  "Windows_NT",
+    "osRelease":  "10.0.26200",
+    "uptimeSec":  283489,
+    "cpu":  {
+                "cores":  16,
+                "model":  "AMD Ryzen 7 3800X 8-Core Processor             ",
+                "loadAvg":  [
+                                0,
+                                0,
+                                0
+                            ],
+                "percent":  26
+            },
+    "memory":  {
+                   "total":  34272935936,
+                   "free":  11530006528
+               },
+    "storage":  {
+                    "path":  "C:\\",
+                    "total":  999267758080,
+                    "free":  275058315264,
+                    "avail":  275058315264
+                },
+    "network":  {
+                    "rxBytes":  391919184,
+                    "txBytes":  1459058567,
+                    "ts":  1789224446086
+                }
+}

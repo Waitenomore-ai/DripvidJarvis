@@ -1,0 +1,36 @@
+{
+    "query":  "deploy",
+    "notes":  [
+                  {
+                      "path":  "operations/jarvis-deploy-checklist.md",
+                      "title":  "JARVIS deploy checklist",
+                      "tags":  [
+                                   "jarvis",
+                                   "deploy",
+                                   "ops"
+                               ],
+                      "score":  4.5,
+                      "excerpt":  "# JARVIS deploy checklist (dripvid.uk) Intended source of truth for a server rollout. Files live in `deploy/`. - Systemd unit: `deploy/dripvid-jarvis.service` (user `dripvid-jarvis`, `ReadWritePaths=/opt/d"
+                  },
+                  {
+                      "path":  "ai/jarvis-role.md",
+                      "title":  "JARVIS Role for DripVid",
+                      "tags":  [
+
+                               ],
+                      "score":  1,
+                      "excerpt":  "eguards - edit DripVid source code - create Git branches - create commits - run tests - create pull requests - prepare deployments ## JARVIS must use approval for - production deployment - destructive database changes - deletion of media - deletion of users - firewall changes - credential rotation - operating-system"
+                  },
+                  {
+                      "path":  "services/local-llm-provider.md",
+                      "title":  "Local LLM provider (LM Studio)",
+                      "tags":  [
+                                   "llm",
+                                   "provider",
+                                   "dev"
+                               ],
+                      "score":  1,
+                      "excerpt":  "Embeddings: `text-embedding-nomic-embed-text-v1.5`. Production replaces this with a cloud OpenAI-compatible endpoint (`deploy/dripvid-jarvis.env.example`)."
+                  }
+              ]
+}
