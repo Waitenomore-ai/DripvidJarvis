@@ -1105,6 +1105,18 @@ input {
   }
 }
 
+@media (max-width: 1280px) {
+  .topbar {
+    flex-wrap: wrap;
+  }
+
+  .topbar-right {
+    order: 3;
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
 @media (max-width: 900px) {
   .topbar {
     flex-wrap: wrap;

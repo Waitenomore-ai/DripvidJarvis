@@ -78,6 +78,7 @@ test('HUD exposes an admin layout-arrange control with persisted positions', () 
   assert.match(html, /id="layoutReset"/);
   assert.match(css, /\.layout-bar\s*\{/);
   assert.match(css, /\.layout-arrange \[data-view\]/);
+  assert.match(css, /@media \(max-width: 1280px\) \{/);
   assert.match(js, /enterArrangeMode/);
   assert.match(js, /exitArrangeMode/);
   assert.match(js, /resetLayout/);
