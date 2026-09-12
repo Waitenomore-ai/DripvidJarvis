@@ -72,6 +72,13 @@ test('HUD renders the memory and vault context JARVIS used per answer', () => {
   assert.match(html, /Search my vault/);
 });
 
+test('HUD surfaces probed endpoints on DripVid and MCP service cards', () => {
+  assert.match(html, /id="dripvid-detail"/);
+  assert.match(html, /id="mcp-detail"/);
+  assert.match(css, /\.service-detail/);
+  assert.match(js, /setServiceDetail/);
+});
+
 test('HUD exposes an admin layout-arrange control with persisted positions', () => {
   assert.match(html, /id="layoutBar"/);
   assert.match(html, /id="layoutArrange"/);

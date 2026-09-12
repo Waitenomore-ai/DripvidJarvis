@@ -81,6 +81,17 @@ function setBadge(id, status) {
     (normalized || 'offline').toUpperCase();
 }
 
+function setServiceDetail(id, detail) {
+  const element = $(id);
+
+  if (!element) {
+    return;
+  }
+
+  element.textContent = detail || '';
+  element.style.display = detail ? '' : 'none';
+}
+
 function setCore(status) {
   const normalized = setStatusClass($('reactor'), status);
   const badge = $('core-status');
@@ -401,6 +412,9 @@ async function refreshHealth() {
     setBadge('jarvis-status', data.status);
     setBadge('dripvid-status', (deps.dripvid || {}).status);
     setBadge('mcp-status', (deps.mcp || {}).status);
+
+    setServiceDetail('dripvid-detail', (deps.dripvid || {}).endpoint);
+    setServiceDetail('mcp-detail', (deps.mcp || {}).endpoint);
 
     setCore(data.status);
 

@@ -395,6 +395,18 @@ input {
   font-size: 10px;
 }
 
+.service-detail {
+  font-size: 9px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  opacity: 0.55;
+  letter-spacing: 0.02em;
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+
 .badge,
 .chip {
   font-size: 10px;
