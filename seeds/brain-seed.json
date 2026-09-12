@@ -1,0 +1,26 @@
+[
+  {
+    "text": "DripVid JARVIS runs as a standalone localhost-only operator service. Production deployment targets /opt/dripvid-jarvis on the DripVid host, fronted by an nginx /jarvis/ prefix on dripvid.uk.",
+    "tags": ["deploy", "installation", "dripvid", "nginx"]
+  },
+  {
+    "text": "The operator is the DripVid Admin/Owner account. The HUD is never exposed publicly without an auth gate, and every mutating operation is confirmation-gated before it is forwarded.",
+    "tags": ["operator", "security", "policy", "confirmations"]
+  },
+  {
+    "text": "Local development uses LM Studio at http://127.0.0.1:1234/v1 with the qwen2.5-coder-7b-instruct model. Production must switch to a cloud OpenAI-compatible endpoint via JARVIS_OPENAI_* environment variables.",
+    "tags": ["llm", "lm-studio", "provider", "configuration"]
+  },
+  {
+    "text": "JARVIS keeps long-term memory in the brain store (data/brain.json) and an Obsidian-style markdown vault (vault/). Memory is capped at JARVIS_BRAIN_MAX_MEMORIES entries and recalled by keyword and recency scoring.",
+    "tags": ["memory", "brain", "vault", "architecture"]
+  },
+  {
+    "text": "The operator prefers clear, concise answers with no filler, and wants the HUD to surface exactly which services and tools were used to reach each conclusion.",
+    "tags": ["operator", "communication", "preferences"]
+  },
+  {
+    "text": "DripVid services are launched and monitored through Pinokio on this machine. JARVIS health probes DripVid at /api/health and the MCP endpoint /mcp; those report offline when the services are not running on this host.",
+    "tags": ["dripvid", "mcp", "health", "pinokio"]
+  }
+]
