@@ -22,6 +22,17 @@ function parsePort(value, fallback) {
   return parsed;
 }
 
+function parseList(value) {
+  if (!value) {
+    return [];
+  }
+
+  return String(value)
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 function loadConfig(env = process.env) {
   const dripvidBaseUrl =
     env.JARVIS_DRIPVID_BASE_URL ||
@@ -63,6 +74,11 @@ function loadConfig(env = process.env) {
     fallbackModel:
       env.JARVIS_FALLBACK_MODEL ||
       'gpt-5.6-luna',
+
+    localFallbackModels:
+      parseList(
+        env.JARVIS_LOCAL_FALLBACK_MODELS
+      ),
 
     modelFallbackCooldownMs:
       parsePositiveInteger(

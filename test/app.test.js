@@ -65,6 +65,11 @@ test(
       'gpt-5.6-luna'
     );
 
+    assert.deepEqual(
+      config.localFallbackModels,
+      []
+    );
+
     assert.equal(
       config.modelFallbackCooldownMs,
       600000
@@ -148,6 +153,24 @@ test(
     assert.equal(
       fallbackReady,
       true
+    );
+  }
+);
+
+test(
+  'local free-agent fallbacks parse from a comma list',
+  () => {
+    const config = loadConfig({
+      JARVIS_LOCAL_FALLBACK_MODELS:
+        ' qwen/qwen3.8-27b ,deepseek/deepseek-r1-0528-qwen3-8b,'
+    });
+
+    assert.deepEqual(
+      config.localFallbackModels,
+      [
+        'qwen/qwen3.8-27b',
+        'deepseek/deepseek-r1-0528-qwen3-8b'
+      ]
     );
   }
 );

@@ -426,7 +426,23 @@ function createRuntime({
       fetchImpl
     });
 
-  const fallback =
+  const localFallbacks =
+    config.localFallbackModels.map(
+      (model) =>
+        createOpenAiAdapter({
+          config: {
+            ...config,
+            openAiModel: model,
+            requestTimeoutMs:
+              config.requestTimeoutMs,
+            chatTimeoutMs:
+              config.chatTimeoutMs
+          },
+          fetchImpl
+        })
+    );
+
+  const remoteFallback =
     config.fallbackBaseUrl &&
     config.fallbackApiKey
       ? createOpenAiAdapter({
@@ -450,7 +466,14 @@ function createRuntime({
   const model =
     createModelRouter({
       primary,
-      fallback,
+      fallbacks: [
+        ...localFallbacks,
+        ...(
+          remoteFallback
+            ? [remoteFallback]
+            : []
+        )
+      ],
       cooldownMs:
         config.modelFallbackCooldownMs,
       now

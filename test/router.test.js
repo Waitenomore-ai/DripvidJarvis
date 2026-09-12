@@ -279,11 +279,125 @@ test(
       null
     );
 
+    assert.equal(
+      health.fallbacks.length,
+      0
+    );
+
     await assert.rejects(
       router.chat({
         conversation: []
       }),
       /down/
+    );
+  }
+);
+
+test(
+  'router walks the free-agent chain in order',
+  async () => {
+    const primary = adapter({
+      provider: 'p',
+      chatError: 'rate limited'
+    });
+    const first = adapter({
+      provider: 'f1',
+      chatError: 'oom'
+    });
+    const last = adapter({
+      provider: 'f2',
+      chatResult: {
+        message: 'last agent ok',
+        toolCalls: []
+      }
+    });
+
+    const router =
+      createModelRouter({
+        primary,
+        fallbacks: [first, last]
+      });
+
+    const result =
+      await router.chat({
+        conversation: []
+      });
+
+    assert.equal(
+      result.message,
+      'last agent ok'
+    );
+
+    assert.equal(
+      primary.chatCalls,
+      1
+    );
+
+    assert.equal(
+      first.chatCalls,
+      1
+    );
+
+    assert.equal(
+      last.chatCalls,
+      1
+    );
+  }
+);
+
+test(
+  'router reports every free agent in health',
+  async () => {
+    const primary = adapter({
+      provider: 'p',
+      status: 'offline'
+    });
+    const first = adapter({
+      provider: 'f1'
+    });
+    const last = adapter({
+      provider: 'f2',
+      status: 'offline'
+    });
+
+    const router =
+      createModelRouter({
+        primary,
+        fallbacks: [first, last]
+      });
+
+    const health =
+      await router.health();
+
+    assert.equal(
+      health.status,
+      'online'
+    );
+
+    assert.equal(
+      health.fallbacks.length,
+      2
+    );
+
+    assert.equal(
+      health.fallbacks[0].model,
+      'f1-model'
+    );
+
+    assert.equal(
+      health.fallbacks[0].status,
+      'online'
+    );
+
+    assert.equal(
+      health.fallbacks[1].status,
+      'offline'
+    );
+
+    assert.equal(
+      health.fallback.status,
+      'online',
+      'primary fallback slot points at the first online agent'
     );
   }
 );

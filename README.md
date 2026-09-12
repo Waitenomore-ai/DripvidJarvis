@@ -20,6 +20,7 @@ Default interface: http://127.0.0.1:3342/
 - MCP: http://127.0.0.1:8788/mcp
 - OpenAI API (direct): configured via `JARVIS_OPENAI_API_KEY` / `JARVIS_OPENAI_MODEL`
 - Optional fallback agent (OpenAI-compatible): `JARVIS_FALLBACK_BASE_URL` / `JARVIS_FALLBACK_API_KEY` / `JARVIS_FALLBACK_MODEL`; used automatically when the primary provider is rate-limited or failing, with a `JARVIS_MODEL_FALLBACK_COOLDOWN_MS` cooldown. To wire in an OmniRoute-style endpoint now: set all three fallback vars to your OpenAI-compatible base URL (`.../v1`), key, and model; the router health endpoint reports `fallback.online` when the slot is usable.
+- Optional free-agent fallback chain: `JARVIS_LOCAL_FALLBACK_MODELS` as a comma-separated list of model names served by the **same** OpenAI-compatible server as the primary (e.g. local LM Studio agents `qwen/qwen3.8-27b,deepseek/deepseek-r1-0528-qwen3-8b,qwen2.5-coder-7b-instruct-abliterated`). Each model becomes an ordered fallback adapter sharing the primary base URL and key; health reports every agent in `model.fallbacks[]` (HUD shows them under ASSIST → FREE AGENT FALLBACKS). Free agents apply before the single OmniRoute slot.
 - Optional voice (ElevenLabs): `JARVIS_ELEVENLABS_API_KEY` / `JARVIS_ELEVENLABS_VOICE_ID` (default `onwK4e9ZLuTAKqWW03F9`, Daniel)
 
 ## Brain

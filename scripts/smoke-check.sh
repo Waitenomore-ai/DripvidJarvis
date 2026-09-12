@@ -55,6 +55,17 @@ api_fetch() {
   fi
 }
 
+api_post() {
+  local key="$1" url="$2"
+  if [ -n "$MOCK_DIR" ] && [ -f "$MOCK_DIR/$key.json" ]; then
+    cat "$MOCK_DIR/$key.json"
+  else
+    curl -fsS --max-time 120 -X POST "$url" \
+      -H 'content-type: application/json' \
+      -d '{"conversation":[{"role":"user","content":"Anything to remember? Keep it brief."}]}'
+  fi
+}
+
 # ── 1/6 health ───────────────────────────────────────────────────────
 note "1/6 health: core deps online, engine detail visible"
 HEALTH="$(api_fetch health "$BASE/api/health")"
@@ -89,6 +100,9 @@ m=deps.get("model",{})
 t=deps.get("tts",{})
 print("  model provider=" + str(m.get("provider")) + " model=" + str(m.get("model")) + " latencyMs=" + str(m.get("latencyMs")))
 print("  voice   mode=" + str(t.get("mode")) + " provider=" + str(t.get("provider")) + " error=" + repr(t.get("error")))
+fbs=m.get("fallbacks") or []
+for fb in fbs:
+    print("  fallback model=" + str(fb.get("model")) + " status=" + str(fb.get("status")) + " error=" + repr(fb.get("error")))
 ' || warn "could not print engine detail"
 
 # ── 2/6 metrics ──────────────────────────────────────────────────────
@@ -153,7 +167,7 @@ note "6/6 conversation recall (optional): prompt asks for remembered context"
 if [ "${SMOKE_SKIP_CONVERSATION:-0}" = "1" ] || [ "$DRY" -gt 0 ]; then
   note "conversation check skipped (SMOKE_SKIP_CONVERSATION=1 or dry-run)"
 else
-  REPLY="$(api_fetch conversation "$BASE/api/conversation")"
+  REPLY="$(api_post conversation "$BASE/api/conversation")"
   MEMORIES="$(printf '%s' "$REPLY" | jq_path "len(d.get('context',{}).get('memories',[]))" 2>/dev/null)"
   if [ -n "$MEMORIES" ] && [ "$MEMORIES" -gt 0 ]; then
     good "conversation returned $MEMORIES memory/memories from the brain"

@@ -3,10 +3,22 @@
 function createModelRouter({
   primary,
   fallback = null,
+  fallbacks = [],
   cooldownMs = 600000,
   now = Date.now
 }) {
   const cooldownUntil = new Map();
+
+  const chain =
+    fallbacks && fallbacks.length
+      ? fallbacks
+      : (fallback ? [fallback] : []);
+
+  const providers =
+    chain.map((adapter, index) => ({
+      name: `fallback.${index}`,
+      adapter
+    }));
 
   function inCooldown(name) {
     return (
@@ -28,18 +40,48 @@ function createModelRouter({
   async function health() {
     const startedAt = now();
 
+    const fallbackHealths =
+      await Promise.all(
+        providers.map((provider) =>
+          provider.adapter
+            .health()
+            .catch((error) => ({
+              name: 'model',
+              status: 'offline',
+              provider: null,
+              model: null,
+              error:
+                error &&
+                error.message,
+              latencyMs: 0
+            }))
+        )
+      );
+
     const primaryHealth =
       await primary.health();
 
-    const fallbackHealth =
-      fallback
-        ? await fallback.health()
-        : null;
+    const fallbackSummaries =
+      fallbackHealths.map(
+        (health) => ({
+          provider:
+            health.provider,
+          model: health.model,
+          status: health.status,
+          error:
+            health.error || null
+        })
+      );
+
+    const firstOnline =
+      fallbackSummaries.find(
+        (summary) =>
+          summary.status === 'online'
+      );
 
     const available =
       primaryHealth.status === 'online' ||
-      (fallbackHealth &&
-       fallbackHealth.status === 'online');
+      Boolean(firstOnline);
 
     return {
       name: 'model',
@@ -49,18 +91,13 @@ function createModelRouter({
       provider: primaryHealth.provider,
       model: primaryHealth.model,
       fallback:
-        fallbackHealth
-          ? {
-              provider:
-                fallbackHealth.provider,
-              model: fallbackHealth.model,
-              status:
-                fallbackHealth.status,
-              error:
-                fallbackHealth.error ||
-                null
-            }
+        fallbackSummaries.length
+          ? (
+              firstOnline ||
+              fallbackSummaries[0]
+            )
           : null,
+      fallbacks: fallbackSummaries,
       error: available
         ? null
         : primaryHealth.error ||
@@ -70,36 +107,37 @@ function createModelRouter({
   }
 
   async function chat(payload) {
-    const providers = [
+    const candidates = [
       {
         name: 'primary',
         adapter: primary,
         usable: !inCooldown('primary')
       },
-      ...(fallback
-        ? [
+      ...providers.map((provider) => ({
+        ...provider,
+        usable:
+          !inCooldown(
+            provider.name
+          )
+      }))
+    ].filter(
+      (provider) => provider.usable
+    );
+
+    const attempt =
+      candidates.length
+        ? candidates
+        : [
             {
-              name: 'fallback',
-              adapter: fallback,
-              usable: true
-            }
-          ]
-        : [])
-    ];
-
-    const usable =
-      providers.filter(
-        (provider) => provider.usable
-      );
-
-    const candidates =
-      usable.length
-        ? usable
-        : providers;
+              name: 'primary',
+              adapter: primary
+            },
+            ...providers
+          ];
 
     let lastError = null;
 
-    for (const provider of candidates) {
+    for (const provider of attempt) {
       try {
         const result =
           await provider.adapter.chat(

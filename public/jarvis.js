@@ -666,6 +666,59 @@ function updateAssistMeta(deps, latency) {
   if (turnsEl) {
     turnsEl.textContent = String(sessionTurns);
   }
+
+  renderFallbackAgents(model);
+}
+
+function renderFallbackAgents(modelDep) {
+  const el = $('assistFallbacks');
+
+  if (!el) {
+    return;
+  }
+
+  const agents =
+    modelDep &&
+    Array.isArray(modelDep.fallbacks) &&
+    modelDep.fallbacks.length
+      ? modelDep.fallbacks
+      : null;
+
+  el.textContent = '';
+
+  if (!agents) {
+    const label = document.createElement('span');
+    label.className = 'assist-key';
+    label.textContent = 'Chain';
+    el.appendChild(label);
+
+    const value = document.createElement('span');
+    value.className = 'assist-val';
+    value.textContent = 'none';
+    el.appendChild(value);
+    return;
+  }
+
+  const label = document.createElement('span');
+  label.className = 'assist-key';
+  label.textContent = 'Chain';
+  el.appendChild(label);
+
+  const list = document.createElement('span');
+  list.className = 'assist-agent-list';
+  list.id = 'assistAgentList';
+
+  for (const agent of agents) {
+    const chip = document.createElement('span');
+    chip.className =
+      `assist-chip assist-chip-${agent.status === 'online' ? 'online' : 'offline'}`;
+    chip.textContent =
+      `${agent.status === 'online' ? '●' : '○'} ${agent.model || agent.provider || 'agent'} · ${agent.status}`;
+    list.appendChild(chip);
+  }
+
+  el.appendChild(label);
+  el.appendChild(list);
 }
 
 /* ============ TOOLS ============ */
