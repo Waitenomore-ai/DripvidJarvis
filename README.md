@@ -91,9 +91,21 @@ Secrets must only be supplied through environment variables.
 ## Deployment
 
 Planned production directory: /opt/dripvid-jarvis
-Example systemd unit: deploy/dripvid-jarvis.service
+Runbook: `deploy/README.md` (push → env → systemd → nginx → verify).
+Example systemd unit: `deploy/dripvid-jarvis.service` (reads `/etc/dripvid-jarvis.env`).
+Server env template: `deploy/dripvid-jarvis.env.example` (cloud LLM key, vault path, ports).
+Public exposure: `deploy/nginx-jarvis.conf` adds `https://dripvid.uk/jarvis/` behind
+nginx (prefix-stripping `proxy_pass http://127.0.0.1:3342/`), gated by HTTP basic auth
+(recommended) or Cloudflare Access.
 Do not expose port 3342 publicly.
 No production deployment or nginx modification is automatic.
+
+First-run knowledge (brain memories + vault notes) is reproducible via committed seeds:
+
+```
+node scripts/seed-brain.js   # +N added, skipped when already present
+node scripts/seed-vault.js   # merges seeds/vault notes that are missing, then reindexes
+```
 
 Optional daily auto-verification: `scripts/auto-verify.sh` polls POST /api/conversation
 until the model replies non-degraded (covers the OpenAI quota reset window), then checks a
