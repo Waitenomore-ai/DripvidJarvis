@@ -255,8 +255,52 @@ function readNetworkCounters() {
   return null;
 }
 
+function sampleCpuTimes() {
+  const cpuInfo = os.cpus();
+
+  let idle = 0;
+  let total = 0;
+
+  for (const core of cpuInfo) {
+    const t = core.times;
+    idle += t.idle;
+    total +=
+      (t.user || 0) +
+      (t.nice || 0) +
+      (t.sys || 0) +
+      (t.idle || 0) +
+      (t.irq || 0);
+  }
+
+  return { idle, total };
+}
+
+let lastCpuSample = null;
+
+try {
+  lastCpuSample = sampleCpuTimes();
+} catch {
+  // CPU sampling unavailable
+}
+
 function gatherServerMetrics() {
   const cpuInfo = os.cpus();
+
+  const currentCpuSample = sampleCpuTimes();
+
+  let cpuPercent = null;
+
+  if (lastCpuSample && currentCpuSample.total > lastCpuSample.total) {
+    const idleDelta = currentCpuSample.idle - lastCpuSample.idle;
+    const totalDelta = currentCpuSample.total - lastCpuSample.total;
+
+    cpuPercent = Math.max(
+      0,
+      Math.min(100, Math.round(((totalDelta - idleDelta) / totalDelta) * 100))
+    );
+  }
+
+  lastCpuSample = currentCpuSample;
 
   const rootPath =
     os.platform() === 'win32'
@@ -294,7 +338,8 @@ function gatherServerMetrics() {
       model:
         (cpuInfo[0] || {}).model ||
         null,
-      loadAvg: os.loadavg()
+      loadAvg: os.loadavg(),
+      percent: cpuPercent
     },
     memory: {
       total: os.totalmem(),
