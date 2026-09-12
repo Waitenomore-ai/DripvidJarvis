@@ -75,7 +75,7 @@ function toOpenAiTools(tools) {
       parameters:
         tool.parameters || {
           type: 'object',
-          additionalProperties: true
+          properties: {}
         }
     }
   }));

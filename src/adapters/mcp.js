@@ -180,7 +180,7 @@ function createMcpAdapter({
       inputSchema:
         tool.inputSchema || {
           type: 'object',
-          additionalProperties: true
+          properties: {}
         },
       mutating:
         !isExplicitReadOnlyTool(tool)

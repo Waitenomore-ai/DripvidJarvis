@@ -4,20 +4,28 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createJarvis } = require('../src/jarvis');
 
-function makeHarness({ responses, mcpTools, mcpCall, config = {} }) {
+function makeHarness({ responses, mcpTools, mcpCall, config = {}, dripvidHealthNaked = false }) {
   const chats = [];
   const calls = [];
   let responseIndex = 0;
 
   const dripvid = {
     health: async () => ({ name: 'dripvid', status: 'online' }),
-    listTools: () => [{
-      name: 'dripvid.health',
-      source: 'dripvid',
-      description: 'Check DripVid health',
-      mutating: false,
-      inputSchema: { type: 'object', properties: {} }
-    }],
+    listTools: () => {
+      const tool = {
+        name: 'dripvid.health',
+        source: 'dripvid',
+        description: 'Check DripVid health',
+        mutating: false
+      };
+      if (!dripvidHealthNaked) {
+        tool.inputSchema = {
+          type: 'object',
+          properties: {}
+        };
+      }
+      return [tool];
+    },
     callTool: async (name, args) => {
       calls.push({ source: 'dripvid', name, args });
       return { reachable: true };
@@ -144,6 +152,36 @@ test('diagnostic request exposes only approved read-only tools and explains real
   assert.match(JSON.stringify(harness.chats[1].conversation), /up/);
   assert.equal(result.message, 'Storage and network are healthy.');
   assert.equal(result.confirmations.length, 0);
+});
+
+test('diagnostic tool without an inputSchema gets a strict-compatible default schema', async () => {
+  const harness = makeHarness({
+    mcpTools: [],
+    dripvidHealthNaked: true,
+    responses: [
+      {
+        message: 'Checked.',
+        toolCalls: [],
+        suggestedActions: []
+      }
+    ]
+  });
+
+  await harness.jarvis.conversation({
+    conversation: [{ role: 'user', content: 'Check DripVid health' }]
+  });
+
+  const health = harness.chats[0].tools.find(
+    (tool) => tool.name === 'dripvid.health'
+  );
+  assert.deepEqual(health.parameters, {
+    type: 'object',
+    properties: {}
+  });
+  assert.equal(
+    JSON.stringify(health).includes('additionalProperties'),
+    false
+  );
 });
 
 test('diagnostic mode blocks a model-requested mutating tool without confirmation or execution', async () => {
@@ -274,4 +312,51 @@ test('provider failure after diagnostics returns deterministic partial results',
   assert.match(result.message, /mcp\.disk_status/);
   assert.match(result.message, /1 TB/);
   assert.match(result.message, /model unavailable/);
+});
+
+test('diagnostic answer without tool results warns that no live check ran', async () => {
+  const harness = makeHarness({
+    mcpTools: readOnlyTools,
+    responses: [
+      {
+        message: 'Everything looks healthy.',
+        toolCalls: [],
+        suggestedActions: []
+      }
+    ]
+  });
+
+  const result = await harness.jarvis.conversation({
+    conversation: [{ role: 'user', content: 'Check system health' }]
+  });
+
+  assert.equal(result.toolResults.length, 0);
+  assert.match(result.message, /no live diagnostic checks were actually run/);
+});
+
+test('clear diagnostic answers without tool calls still use prior tool results without the caveat', async () => {
+  const harness = makeHarness({
+    mcpTools: readOnlyTools,
+    responses: [
+      {
+        message: '',
+        toolCalls: [{ id: 'd', name: 'mcp.disk_status', arguments: {} }],
+        suggestedActions: []
+      },
+      {
+        message: 'Storage fine.',
+        toolCalls: [],
+        suggestedActions: []
+      }
+    ],
+    mcpCall: async () => ({ free: '1 TB' })
+  });
+
+  const result = await harness.jarvis.conversation({
+    conversation: [{ role: 'user', content: 'Check disk storage' }]
+  });
+
+  assert.ok(result.toolResults.length > 0);
+  assert.match(result.message, /Storage fine\./);
+  assert.doesNotMatch(result.message, /no live diagnostic checks/);
 });

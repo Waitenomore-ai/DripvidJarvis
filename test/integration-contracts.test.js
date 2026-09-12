@@ -502,6 +502,57 @@ test(
 );
 
 test(
+  'OpenAI chat uses a strict-compatible default schema for tools without parameters',
+  async () => {
+    let requestBody = null;
+
+    const adapter = createOpenAiAdapter({
+      config: openAIconfig(),
+      fetchImpl: async (url, options) => {
+        requestBody =
+          JSON.parse(options.body);
+
+        return response(
+          200,
+          openAiChatBody({
+            role: 'assistant',
+            content: ''
+          }),
+          {
+            'content-type':
+              'application/json'
+          }
+        );
+      }
+    });
+
+    await adapter.chat({
+      conversation: [],
+      tools: [
+        {
+          name: 'dripvid.health',
+          description: 'Check health'
+        }
+      ]
+    });
+
+    assert.deepEqual(
+      requestBody.tools[0]
+        .function.parameters,
+      {
+        type: 'object',
+        properties: {}
+      }
+    );
+    assert.equal(
+      JSON.stringify(requestBody)
+        .includes('additionalProperties'),
+      false
+    );
+  }
+);
+
+test(
   'MCP advertises JSON and SSE response support',
   async () => {
     let accept = null;

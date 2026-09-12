@@ -490,7 +490,7 @@ function createJarvis({
       description: tool.description || tool.name,
       parameters: tool.inputSchema || {
         type: 'object',
-        additionalProperties: true
+        properties: {}
       }
     }));
 
@@ -952,8 +952,16 @@ function createJarvis({
       };
     }
 
+    let reply = response ? response.message : '';
+
+    if (diagnosticMode && toolResults.length === 0) {
+      reply +=
+        (reply ? '\n\n' : '') +
+        '_Note: no live diagnostic checks were actually run by JARVIS, so this answer was not verified against the current system._';
+    }
+
     return {
-      message: response ? response.message : '',
+      message: reply,
       toolResults,
       confirmations,
       suggestedActions:
