@@ -9,13 +9,24 @@ const ROOT = path.resolve(__dirname, '..');
 const html = fs.readFileSync(path.join(ROOT, 'public', 'index.html'), 'utf8');
 const css = [
   fs.readFileSync(path.join(ROOT, 'public', 'jarvis.css'), 'utf8'),
-  fs.readFileSync(path.join(ROOT, 'public', 'compact-hud.css'), 'utf8')
+  fs.readFileSync(path.join(ROOT, 'public', 'hud.css'), 'utf8')
 ].join('\n');
 
 test('HUD keeps the home workspace on one desktop screen', () => {
   assert.match(css, /height:\s*100vh/);
   assert.match(css, /overflow:\s*hidden/);
-  assert.match(css, /grid-template-areas:[^;]*status[^;]*console[^;]*tools[^;]*ops/i);
+  assert.match(css, /grid-template-areas:[^;]*status[^;]*console[^;]*rail/i);
+  assert.match(css, /\.home-view\.active\s*\{\s*display:\s*grid/s);
+});
+
+test('HUD top band has no hardcoded health claims', () => {
+  assert.doesNotMatch(html, /SYSTEM READY/i);
+  assert.doesNotMatch(html, />HEALTHY</i);
+  assert.doesNotMatch(html, />ONLINE</i);
+  assert.match(html, /id="topHealth"/);
+  assert.match(html, /id="quick-jarvis"/);
+  assert.match(html, /id="quick-dripvid"/);
+  assert.match(html, /id="quick-mcp"/);
 });
 
 test('HUD removes Tech-AI from operator status', () => {
@@ -23,15 +34,29 @@ test('HUD removes Tech-AI from operator status', () => {
   assert.doesNotMatch(html, /techai-status/i);
 });
 
-test('HUD exposes navigation links for detail pages', () => {
-  for (const label of ['MONITOR', 'ANALYSE', 'ASSIST', 'TOOLS', 'SECURE']) {
+test('HUD exposes navigation links for every page including HOME', () => {
+  for (const label of ['HOME', 'MONITOR', 'ANALYSE', 'ASSIST', 'TOOLS', 'SECURE']) {
     assert.match(html, new RegExp(`<a[^>]+>${label}</a>`, 'i'));
   }
 });
 
-test('tools and vault live beside the conversation console', () => {
-  assert.match(html, /class="column tools-column"/);
-  assert.match(html, /class="column ops-column"/);
-  assert.match(html, /AVAILABLE TOOLS/);
+test('HUD defines hash-routed detail views', () => {
+  for (const view of ['home', 'monitor', 'analyse', 'assist', 'tools', 'secure']) {
+    assert.match(html, new RegExp(`data-view="${view}"`));
+  }
+});
+
+test('HOME carries console, tools tiles and vault search in the rail', () => {
+  assert.match(html, /CONVERSATION CONSOLE/);
+  assert.match(html, /id="chatLog"/);
+  assert.match(html, /QUICK TOOLS/);
+  assert.match(html, /id="toolTiles"/);
   assert.match(html, /VAULT SEARCH/);
+  assert.match(html, /id="vaultResults"/);
+  assert.match(html, /id="messageAssist"/);
+});
+
+test('HUD drops the removed compact stylesheet', () => {
+  assert.doesNotMatch(html, /compact-hud\.css/);
+  assert.ok(fs.existsSync(path.join(ROOT, 'public', 'hud.css')));
 });
