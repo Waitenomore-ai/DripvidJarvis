@@ -71,3 +71,17 @@ test('HUD renders the memory and vault context JARVIS used per answer', () => {
   assert.match(html, /What do you remember about me\?/);
   assert.match(html, /Search my vault/);
 });
+
+test('HUD exposes an admin layout-arrange control with persisted positions', () => {
+  assert.match(html, /id="layoutBar"/);
+  assert.match(html, /id="layoutArrange"/);
+  assert.match(html, /id="layoutReset"/);
+  assert.match(css, /\.layout-bar\s*\{/);
+  assert.match(css, /\.layout-arrange \[data-view\]/);
+  assert.match(js, /enterArrangeMode/);
+  assert.match(js, /exitArrangeMode/);
+  assert.match(js, /resetLayout/);
+  assert.match(js, /pointerdown/);
+  assert.match(js, /localStorage/);
+  assert.match(js, /layoutStore/);
+});

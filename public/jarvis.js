@@ -226,6 +226,10 @@ function navigate() {
   if (view === 'secure') {
     renderConfirmations();
   }
+
+  if (arrangeMode) {
+    arrangePanels();
+  }
 }
 
 window.addEventListener('hashchange', navigate);
@@ -1569,6 +1573,287 @@ async function refreshVaultSearch() {
 }
 
 $('vaultQuery').addEventListener('input', refreshVaultSearch);
+
+/* ============ LAYOUT ARRANGE (admin) ============ */
+
+const LAYOUT_KEY = 'jarvis.layout.v1';
+const PANEL_SELECTOR =
+  '[data-view] .panel, [data-view] .page-panel';
+
+let arrangeMode = false;
+let dragContext = null;
+
+function loadLayoutStore() {
+  try {
+    return JSON.parse(
+      localStorage.getItem(LAYOUT_KEY) || '{}'
+    );
+  } catch {
+    return {};
+  }
+}
+
+let layoutStore = loadLayoutStore();
+
+function ensurePanelIds() {
+  let fallbackIndex = 0;
+
+  for (const panel of document.querySelectorAll(PANEL_SELECTOR)) {
+    if (!panel.dataset.layoutId) {
+      fallbackIndex += 1;
+      panel.dataset.layoutId =
+        panel.id || `panel-${fallbackIndex}`;
+    }
+  }
+}
+
+function snap(value) {
+  return Math.round(value / 16) * 16;
+}
+
+function clampPanel(panel, left, top) {
+  const view = panel.closest('[data-view]');
+  if (!view) {
+    return { left, top };
+  }
+
+  const maxLeft = Math.max(
+    0,
+    view.clientWidth - panel.offsetWidth
+  );
+  const maxTop = Math.max(
+    0,
+    view.clientHeight - panel.offsetHeight
+  );
+
+  return {
+    left: Math.min(maxLeft, Math.max(0, left)),
+    top: Math.min(maxTop, Math.max(0, top))
+  };
+}
+
+function panelPosition(panel) {
+  const view = panel.closest('[data-view]');
+  const viewRect = view
+    ? view.getBoundingClientRect()
+    : { left: 0, top: 0 };
+  const panelRect = panel.getBoundingClientRect();
+
+  return {
+    left: panelRect.left - viewRect.left,
+    top: panelRect.top - viewRect.top
+  };
+}
+
+function applyPanelPosition(panel, left, top) {
+  panel.style.transform = `translate(${left}px, ${top}px)`;
+}
+
+function savePanelPosition(panel) {
+  const view = panel.closest('[data-view]');
+  if (!view) {
+    return;
+  }
+
+  layoutStore[view.dataset.view] =
+    layoutStore[view.dataset.view] || {};
+
+  layoutStore[view.dataset.view][panel.dataset.layoutId] =
+    panelPosition(panel);
+
+  try {
+    localStorage.setItem(
+      LAYOUT_KEY,
+      JSON.stringify(layoutStore)
+    );
+  } catch {
+    // Storing the layout is best-effort.
+  }
+}
+
+function positionPanelFromStore(panel) {
+  const view = panel.closest('[data-view]');
+  if (!view) {
+    return;
+  }
+
+  const saved =
+    (layoutStore[view.dataset.view] || {})[
+      panel.dataset.layoutId
+    ];
+
+  const pos = saved || panelPosition(panel);
+
+  applyPanelPosition(panel, pos.left, pos.top);
+}
+
+function bindPanelDrag(panel) {
+  const handle =
+    panel.querySelector('.panel-heading, h2') || panel;
+
+  if (handle.dataset.layoutBound) {
+    return;
+  }
+  handle.dataset.layoutBound = '1';
+  handle.classList.add('arrange-handle');
+
+  let startX = 0;
+  let startY = 0;
+  let baseLeft = 0;
+  let baseTop = 0;
+
+  handle.addEventListener('pointerdown', (event) => {
+    if (!arrangeMode || event.button !== 0) {
+      return;
+    }
+
+    if (
+      event.target.closest(
+        'button, a, input, select, textarea, summary'
+      )
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const pos = panelPosition(panel);
+    baseLeft = pos.left;
+    baseTop = pos.top;
+    startX = event.clientX;
+    startY = event.clientY;
+    dragContext = {
+      panel,
+      handle,
+      pointerId: event.pointerId
+    };
+
+    panel.classList.add('dragging');
+    handle.setPointerCapture(event.pointerId);
+  });
+
+  handle.addEventListener('pointermove', (event) => {
+    if (
+      !dragContext ||
+      dragContext.panel !== panel ||
+      dragContext.pointerId !== event.pointerId
+    ) {
+      return;
+    }
+
+    const next = clampPanel(
+      panel,
+      snap(baseLeft + event.clientX - startX),
+      snap(baseTop + event.clientY - startY)
+    );
+
+    applyPanelPosition(panel, next.left, next.top);
+  });
+
+  handle.addEventListener('pointerup', (event) => {
+    if (
+      !dragContext ||
+      dragContext.panel !== panel ||
+      dragContext.pointerId !== event.pointerId
+    ) {
+      return;
+    }
+
+    dragContext = null;
+    panel.classList.remove('dragging');
+    savePanelPosition(panel);
+  });
+
+  handle.addEventListener('pointercancel', (event) => {
+    if (
+      !dragContext ||
+      dragContext.panel !== panel ||
+      dragContext.pointerId !== event.pointerId
+    ) {
+      return;
+    }
+
+    dragContext = null;
+    panel.classList.remove('dragging');
+  });
+}
+
+function arrangePanels() {
+  const view =
+    document.querySelector('[data-view].active') ||
+    document.querySelector('[data-view]');
+
+  if (!view) {
+    return;
+  }
+
+  for (const panel of view.querySelectorAll(
+    '.panel, .page-panel'
+  )) {
+    positionPanelFromStore(panel);
+    bindPanelDrag(panel);
+  }
+}
+
+function enterArrangeMode() {
+  if (window.innerWidth < 900) {
+    $('layoutHint').textContent = 'WINDOW TOO NARROW';
+    return;
+  }
+
+  arrangeMode = true;
+  document.body.classList.add('layout-arrange');
+  $('layoutArrange').textContent = '◱ LOCK';
+  $('layoutArrange').classList.add('arranging');
+  $('layoutReset').hidden = false;
+  $('layoutHint').textContent = 'DRAG PANEL HEADINGS · SAVED';
+  ensurePanelIds();
+  arrangePanels();
+}
+
+function exitArrangeMode() {
+  arrangeMode = false;
+  dragContext = null;
+  document.body.classList.remove('layout-arrange');
+  $('layoutArrange').textContent = '◱ ARRANGE';
+  $('layoutArrange').classList.remove('arranging');
+  $('layoutReset').hidden = true;
+  $('layoutHint').textContent = 'PANELS';
+
+  for (const panel of document.querySelectorAll(PANEL_SELECTOR)) {
+    panel.style.transform = '';
+    const handle = panel.querySelector('.arrange-handle');
+    if (handle) {
+      handle.classList.remove('arrange-handle');
+    }
+  }
+}
+
+function resetLayout() {
+  layoutStore = {};
+
+  try {
+    localStorage.removeItem(LAYOUT_KEY);
+  } catch {
+    // Best-effort.
+  }
+
+  if (arrangeMode) {
+    arrangePanels();
+  }
+
+  addActivity('Panel layout reset');
+}
+
+$('layoutArrange').addEventListener('click', () => {
+  if (arrangeMode) {
+    exitArrangeMode();
+  } else {
+    enterArrangeMode();
+  }
+});
+
+$('layoutReset').addEventListener('click', resetLayout);
 
 /* ============ WIRING ============ */
 
