@@ -13,6 +13,27 @@ function createDripVidAdapter({
     throw new TypeError('fetch implementation is required');
   }
 
+  function authHeaders() {
+    const headers = {};
+
+    if (config.dripvidCookie) {
+      headers.cookie = config.dripvidCookie;
+    }
+
+    if (
+      config.dripvidUsername &&
+      config.dripvidPassword
+    ) {
+      const token = Buffer.from(
+        `${config.dripvidUsername}:${config.dripvidPassword}`
+      ).toString('base64');
+
+      headers.authorization = `Basic ${token}`;
+    }
+
+    return headers;
+  }
+
   async function health() {
     const startedAt = Date.now();
 
@@ -20,7 +41,10 @@ function createDripVidAdapter({
       const result = await requestJson(
         fetchImpl,
         config.dripvidHealthUrl,
-        { method: 'GET' },
+        {
+          method: 'GET',
+          headers: authHeaders()
+        },
         config.requestTimeoutMs
       );
 
@@ -49,6 +73,8 @@ function createDripVidAdapter({
         name: 'dripvid',
         status: 'offline',
         endpoint: config.dripvidHealthUrl,
+        reachable: false,
+        authRequired: false,
         error: normalizeError(error),
         latencyMs: Date.now() - startedAt
       };

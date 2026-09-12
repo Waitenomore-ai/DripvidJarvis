@@ -47,6 +47,14 @@ function escapeHtml(value) {
     .replaceAll("'", '&#039;');
 }
 
+function redactUrl(value) {
+  return String(value)
+    .replace(
+      /(\/\/)([^/@\s]+)@/,
+      '$1***@'
+    );
+}
+
 function setStatusClass(element, status) {
   if (!element) {
     return;
@@ -503,9 +511,19 @@ function recoveryLines(deps) {
   }
 
   if (deps.dripvid && deps.dripvid.status !== 'online') {
-    lines.push(
-      `DripVid offline — start the backend expected at ${deps.dripvid.endpoint || 'its health endpoint'}`
-    );
+    const where =
+      deps.dripvid.endpoint ||
+      'its health endpoint';
+
+    if (deps.dripvid.authRequired) {
+      lines.push(
+        `DripVid reachable but auth required — log in at ${redactUrl(where)} or set JARVIS_DRIPVID_USERNAME/PASSWORD (or COOKIE) in app/.env, then restart`
+      );
+    } else {
+      lines.push(
+        `DripVid offline — start the backend expected at ${redactUrl(where)}`
+      );
+    }
   }
 
   if (deps.mcp && deps.mcp.status !== 'online') {

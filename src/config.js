@@ -47,6 +47,15 @@ function loadConfig(env = process.env) {
       env.JARVIS_DRIPVID_HEALTH_URL ||
       `${dripvidBaseUrl}/api/health`,
 
+    dripvidUsername:
+      env.JARVIS_DRIPVID_USERNAME || '',
+
+    dripvidPassword:
+      env.JARVIS_DRIPVID_PASSWORD || '',
+
+    dripvidCookie:
+      env.JARVIS_DRIPVID_COOKIE || '',
+
     mcpEndpoint:
       env.JARVIS_MCP_ENDPOINT ||
       'http://127.0.0.1:8788/mcp',
