@@ -176,6 +176,11 @@ input {
   height: 96px;
 }
 
+.core-hud {
+  inset: 0;
+  gap: 4px;
+}
+
 .core-hud .core-title {
   font-size: 12px;
 }
