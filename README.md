@@ -37,7 +37,7 @@ Large tool outputs are truncated before being fed back to the model (`JARVIS_MAX
 
 ## Vault
 
-JARVIS can read and write an Obsidian markdown vault so it can remember and understand the operator through their own notes. The vault lives at `JARVIS_VAULT_PATH` (default `vault/` next to the repo) and is indexed to `JARVIS_VAULT_INDEX_PATH` (default `data/vault-index.json`). The service runs under `ReadWritePaths=/opt/dripvid-jarvis`, so the production vault must live there (e.g. `/opt/dripvid-jarvis/vault`).
+JARVIS can read and write an Obsidian markdown vault so it can remember and understand the operator through their own notes. The vault lives at `JARVIS_VAULT_PATH` (default `vault/` next to the repo) and is indexed to `JARVIS_VAULT_INDEX_PATH` (default `data/vault-index.json`). When the path is left unset, the default `vault/` folder is created automatically on first run with a `Welcome.md` note; an explicitly configured path is never auto-created. The service runs under `ReadWritePaths=/opt/dripvid-jarvis`, so the production vault must live there (e.g. `/opt/dripvid-jarvis/vault`).
 
 - `vault.search` — find notes by query, ranked by title, tags, and body tokens.
 - `vault.read` — read a note by relative path (`Projects/Note.md`).
