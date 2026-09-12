@@ -636,7 +636,7 @@ function createJarvis({
         }
 
         return {
-          message: 'JARVIS brain is currently unavailable.',
+          message: 'The AI engine is currently unavailable or rate-limited. Your query was not processed; please try again shortly.',
           toolResults,
           confirmations,
           degraded: true,
