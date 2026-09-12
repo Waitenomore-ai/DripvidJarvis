@@ -121,6 +121,13 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now dripvid-jarvis-verify.timer
 ```
 
+Manual operator smoke check (health, metrics, tools, vault search, confirmations,
+optional conversation recall):
+
+```
+BASE=http://127.0.0.1:3342 scripts/smoke-check.sh
+```
+
 The timer fires at 00:20 UTC daily and skips another run if a pass already succeeded
 that day. Results go to `/opt/dripvid-jarvis/data/auto-verify.log` and
 `auto-verify.state`. CI for the repo is provided by `.github/workflows/ci.yml`.
