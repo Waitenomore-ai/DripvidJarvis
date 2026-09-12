@@ -114,6 +114,9 @@ function loadConfig(env = process.env) {
         'vault'
       ),
 
+    vaultPathConfigured:
+      Boolean(env.JARVIS_VAULT_PATH),
+
     vaultIndexPath:
       env.JARVIS_VAULT_INDEX_PATH ||
       path.resolve(
