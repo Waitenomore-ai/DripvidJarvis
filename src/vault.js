@@ -13,6 +13,22 @@ const FRONTMATTER_RE =
 
 const HEADING_RE = /^#\s+(.+)$/m;
 
+const WELCOME_PATH = 'Welcome.md';
+const WELCOME_CONTENT = [
+  '---',
+  'title: Welcome',
+  'tags: [jarvis, memory]',
+  '---',
+  '',
+  '# Welcome',
+  '',
+  'This vault was created by JARVIS so it can remember and understand the operator.',
+  '',
+  '- Facts you ask JARVIS to remember are mirrored here as notes under `Memories/`.',
+  '- Edit notes in Obsidian or any markdown editor; JARVIS re-indexes automatically.',
+  '- JARVIS searches this vault before answering to bring relevant notes into context.'
+].join('\n') + '\n';
+
 function parseFrontmatter(raw) {
   const text = String(raw || '');
   const match =
@@ -669,12 +685,26 @@ function createVault({
   }
 
   let loaded = false;
+  let bootstrapping = false;
+
+  function ensureBootstrap() {
+    if (config.vaultPathConfigured !== false) return;
+    if (fs.existsSync(root)) return;
+    if (bootstrapping) return;
+    bootstrapping = true;
+    try {
+      write(WELCOME_PATH, WELCOME_CONTENT);
+    } finally {
+      bootstrapping = false;
+    }
+  }
 
   function ensureLoaded() {
     if (!loaded) {
       loaded = true;
       loadIndex();
     }
+    ensureBootstrap();
   }
 
   async function search(query, { limit } = {}) {
