@@ -18,10 +18,11 @@ function createElevenLabsAdapter({
         name: 'voice',
         status: 'offline',
         provider: 'elevenlabs',
+        mode: 'browser-fallback',
         voiceId: config.elevenLabsVoiceId,
         model: config.elevenLabsModel,
         error:
-          'ElevenLabs API key is not configured',
+          'ElevenLabs API key is not configured; HUD uses browser voice',
         latencyMs: Date.now() - startedAt
       };
     }
@@ -43,6 +44,7 @@ function createElevenLabsAdapter({
         status:
           result.ok ? 'online' : 'offline',
         provider: 'elevenlabs',
+        mode: 'elevenlabs',
         voiceId: config.elevenLabsVoiceId,
         model: config.elevenLabsModel,
         httpStatus: result.status,
@@ -54,6 +56,7 @@ function createElevenLabsAdapter({
         name: 'voice',
         status: 'offline',
         provider: 'elevenlabs',
+        mode: 'elevenlabs',
         voiceId: config.elevenLabsVoiceId,
         model: config.elevenLabsModel,
         error:

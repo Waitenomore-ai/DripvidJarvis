@@ -395,6 +395,9 @@ async function refreshHealth() {
 
     const deps = data.dependencies || {};
 
+    const ttsDep = deps.tts || {};
+    voiceMode = ttsDep.mode || 'browser-fallback';
+
     setBadge('jarvis-status', data.status);
     setBadge('dripvid-status', (deps.dripvid || {}).status);
     setBadge('mcp-status', (deps.mcp || {}).status);
@@ -1118,6 +1121,8 @@ const voiceSupported =
 let voiceEnabled =
   localStorage.getItem('jarvis-voice-output') === '1';
 
+let voiceMode = 'browser-fallback';
+
 function setEqualizerLive() {}
 
 let currentAudio = null;
@@ -1236,7 +1241,11 @@ function setVoiceButtonState() {
   }
 
   if (label) {
-    label.textContent = voiceEnabled ? 'VOICE ON' : 'VOICE OFF';
+    label.textContent = voiceEnabled
+      ? (voiceMode === 'elevenlabs'
+          ? 'VOICE ON'
+          : 'VOICE ON · BROWSER')
+      : 'VOICE OFF';
   }
 }
 

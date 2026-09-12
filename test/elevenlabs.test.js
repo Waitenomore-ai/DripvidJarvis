@@ -69,6 +69,11 @@ test(
       'offline'
     );
 
+    assert.equal(
+      health.mode,
+      'browser-fallback'
+    );
+
     assert.match(
       health.error,
       /API key is not configured/
@@ -103,6 +108,11 @@ test(
     assert.equal(
       health.status,
       'online'
+    );
+
+    assert.equal(
+      health.mode,
+      'elevenlabs'
     );
 
     assert.equal(

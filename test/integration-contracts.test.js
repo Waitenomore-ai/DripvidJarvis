@@ -132,6 +132,10 @@ test(
       health.authRequired,
       true
     );
+    assert.equal(
+      health.endpoint,
+      'http://127.0.0.1:3000/api/health'
+    );
   }
 );
 
@@ -590,6 +594,42 @@ test(
     assert.equal(
       accept,
       'application/json, text/event-stream'
+    );
+  }
+);
+
+test(
+  'MCP health reports the configured endpoint it probes',
+  async () => {
+    const adapter = createMcpAdapter({
+      config: {
+        mcpEndpoint:
+          'http://127.0.0.1:8788/mcp',
+        mcpBearer:
+          'test-bearer-value',
+        requestTimeoutMs: 1000
+      },
+      fetchImpl: async () =>
+        response(
+          200,
+          {
+            jsonrpc: '2.0',
+            id: 1,
+            result: { tools: [] }
+          },
+          {
+            'content-type':
+              'application/json'
+          }
+        )
+    });
+
+    const health = await adapter.health();
+
+    assert.equal(health.status, 'online');
+    assert.equal(
+      health.endpoint,
+      'http://127.0.0.1:8788/mcp'
     );
   }
 );

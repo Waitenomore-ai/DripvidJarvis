@@ -33,6 +33,7 @@ function createDripVidAdapter({
               result.status === 403
               ? 'auth-required'
               : 'offline',
+        endpoint: config.dripvidHealthUrl,
         reachable:
           result.ok ||
           result.status === 401 ||
@@ -47,6 +48,7 @@ function createDripVidAdapter({
       return {
         name: 'dripvid',
         status: 'offline',
+        endpoint: config.dripvidHealthUrl,
         error: normalizeError(error),
         latencyMs: Date.now() - startedAt
       };

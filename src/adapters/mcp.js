@@ -151,12 +151,14 @@ function createMcpAdapter({
       return {
         name: 'mcp',
         status: 'online',
+        endpoint: config.mcpEndpoint,
         latencyMs: Date.now() - startedAt
       };
     } catch (error) {
       return {
         name: 'mcp',
         status: 'offline',
+        endpoint: config.mcpEndpoint,
         error: normalizeError(error),
         latencyMs: Date.now() - startedAt
       };
