@@ -595,3 +595,37 @@ test('incremental reindex reuses unchanged notes', async () => {
     )
   );
 });
+
+test('list returns recent note metadata without body content', async () => {
+  const { vault } = tempVault();
+  await vault.reindex();
+
+  const notes = vault.list({ limit: 10 });
+
+  assert.equal(notes.length, 3);
+  assert.ok(
+    notes.some(
+      (note) => note.title === 'Welcome'
+    )
+  );
+  assert.ok(
+    notes.some(
+      (note) =>
+        note.path === 'Projects/Blog.md'
+    )
+  );
+  assert.ok(
+    notes.every(
+      (note) =>
+        note.body === undefined &&
+        typeof note.path === 'string' &&
+        typeof note.title === 'string' &&
+        Array.isArray(note.tags)
+    )
+  );
+
+  const limited = vault.list({ limit: 2 });
+
+  assert.equal(limited.length, 2);
+  assert.equal(vault.list().length, 3);
+});

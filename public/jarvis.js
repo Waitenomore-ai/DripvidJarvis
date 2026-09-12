@@ -1400,6 +1400,60 @@ function stopSpeaking() {
   setEqualizerLive(false);
 }
 
+const BRITISH_MALE_HINTS = /ryan|george|daniel|oliver|edward|arthur|male/i;
+const MALE_HINTS = /ryan|george|daniel|oliver|edward|arthur|david|james|michael|male/i;
+const NATURAL_HINTS = /natural|neural|online/i;
+
+let cachedVoices = [];
+
+function refreshVoices() {
+  if (speechSupported) {
+    cachedVoices = window.speechSynthesis.getVoices() || cachedVoices;
+  }
+
+  return cachedVoices;
+}
+
+function pickBrowserVoice() {
+  const voices = refreshVoices();
+
+  if (!voices.length) {
+    return null;
+  }
+
+  const rank = (voice, hints) => (
+    (NATURAL_HINTS.test(voice.name) ? 1 : 0) +
+    (hints.test(voice.name) ? 2 : 0)
+  );
+
+  const british = voices
+    .filter((voice) => /^en(-|_)?GB/i.test(voice.lang))
+    .slice()
+    .sort((left, right) => (
+      rank(right, BRITISH_MALE_HINTS) -
+      rank(left, BRITISH_MALE_HINTS) ||
+      left.name.localeCompare(right.name)
+    ));
+
+  if (british.length) {
+    return british[0];
+  }
+
+  const englishMale = voices
+    .filter((voice) => /^en/i.test(voice.lang))
+    .slice()
+    .sort((left, right) => (
+      rank(right, MALE_HINTS) -
+      rank(left, MALE_HINTS)
+    ));
+
+  if (englishMale.length) {
+    return englishMale[0];
+  }
+
+  return voices[0];
+}
+
 function browserSpeak(text) {
   if (!speechSupported) {
     return;
@@ -1407,26 +1461,29 @@ function browserSpeak(text) {
 
   const utterance = new SpeechSynthesisUtterance(text);
 
-  utterance.lang = navigator.language || 'en-GB';
+  const preferred = pickBrowserVoice();
+
+  utterance.lang = preferred
+    ? preferred.lang
+    : (navigator.language || 'en-GB');
   utterance.rate = 1.05;
-  utterance.pitch = 1;
-
-  const voices = window.speechSynthesis.getVoices();
-
-  const preferred =
-    voices.find((voice) =>
-      /en(-|_)?(GB|US)/i.test(voice.lang) &&
-      /natural|neural|online/i.test(voice.name)
-    ) ||
-    voices.find((voice) =>
-      voice.lang.startsWith('en')
-    );
+  utterance.pitch = preferred && /^en(-|_)?GB/i.test(preferred.lang)
+    ? 0.95
+    : 1;
 
   if (preferred) {
     utterance.voice = preferred;
   }
 
   window.speechSynthesis.speak(utterance);
+}
+
+if (speechSupported) {
+  refreshVoices();
+
+  if (window.speechSynthesis.onvoiceschanged === null) {
+    window.speechSynthesis.onvoiceschanged = refreshVoices;
+  }
 }
 
 async function speakAnswer(text) {

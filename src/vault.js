@@ -1053,6 +1053,29 @@ function createVault({
     };
   }
 
+  function list({ limit } = {}) {
+    ensureLoaded();
+
+    const requestedLimit =
+      Number(limit);
+
+    const maxResults =
+      Number.isInteger(requestedLimit) &&
+      requestedLimit >= 1
+        ? requestedLimit
+        : 20;
+
+    return notes
+      .map((note, id) => ({
+        id,
+        path: note.path,
+        title: note.title || note.path,
+        tags: note.tags || []
+      }))
+      .reverse()
+      .slice(0, maxResults);
+  }
+
   return {
     search,
     read,
@@ -1060,6 +1083,7 @@ function createVault({
     reindex,
     migrateFromBrain,
     stats,
+    list,
     health
   };
 }

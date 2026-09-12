@@ -68,6 +68,34 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function isKnowledgeSummaryRequest(text) {
+  const value = String(
+    text || ''
+  ).trim().toLowerCase();
+
+  if (
+    /(what do you (know|remember)|what have you (got|learned)|what do you have stored)\b/.test(
+      value
+    )
+  ) {
+    if (/\sabout\s/.test(value)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  if (
+    /(what('|i)?s in your (brain|memory|vault)|show me your (memories|notes)|list your memories|summari[sz]e your (knowledge|notes|memories)|recap what you know)\b/.test(
+      value
+    )
+  ) {
+    return true;
+  }
+
+  return /(tell|show|list|recap) me what you know/.test(value);
+}
+
 function createJarvis({
   config,
   dripvid,
@@ -477,6 +505,13 @@ function createJarvis({
       latestUserText ? latestUserText.content : ''
     );
 
+    const knowledgeSummaryMode =
+      isKnowledgeSummaryRequest(
+        latestUserText
+          ? latestUserText.content
+          : ''
+      );
+
     const modelTools = diagnosticMode
       ? selectAutomaticDiagnosticTools(availableTools)
       : availableTools;
@@ -557,6 +592,49 @@ function createJarvis({
           (diagnosticMode
             ? '\n\nUse these note references only as context; live system state must come from diagnostic tools.'
             : '\n\nRead them with vault.read when they would help you answer or understand the operator better.')
+        );
+      }
+
+      if (knowledgeSummaryMode) {
+        const allMemories =
+          typeof brain.list === 'function'
+            ? brain.list()
+            : [];
+
+        const noteList =
+          vault &&
+          typeof vault.list === 'function'
+            ? vault.list({ limit: 15 })
+            : [];
+
+        const memoryLines =
+          Array.isArray(allMemories) &&
+          allMemories.length
+            ? allMemories.map(
+                (memory) =>
+                  `- ${memory.text}${Array.isArray(memory.tags) && memory.tags.length ? ` [tags: ${memory.tags.join(', ')}]` : ''}`
+              ).join('\n')
+            : '(no memories yet)';
+
+        const noteLines =
+          Array.isArray(noteList) &&
+          noteList.length
+            ? noteList
+                .map(
+                  (note) =>
+                    `- ${note.path}${note.title && note.title !== note.path ? ` (${note.title})` : ''}`
+                )
+                .join('\n')
+            : '(no notes yet)';
+
+        systemHints.push(
+          'The operator asked what you know. ' +
+          'You are JARVIS: an operator AI with a brain memory store and an Obsidian vault. ' +
+          'Do not hedge with disclaimers about real-time knowledge — you do have these materials. ' +
+          'Summarize what you manage (DripVid, MCP, brain, vault) and name the memories and vault areas below.\n\n' +
+          `Your brain has ${Array.isArray(allMemories) ? allMemories.length : 0} memories:\n${memoryLines}\n\n` +
+          `Your vault has ${Array.isArray(noteList) ? noteList.length : 0} indexed notes:\n${noteLines}\n\n` +
+          'If you read a note with vault.read you can quote its content; otherwise mention only the titles.'
         );
       }
 

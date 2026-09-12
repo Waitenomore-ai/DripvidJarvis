@@ -21,7 +21,9 @@ function setup({
   now = () => 1000,
   configOverride = {},
   mcpResult = { executed: true },
-  vault = null
+  vault = null,
+  listResult = [],
+  vaultList = []
 } = {}) {
   const calls = [];
   const chats = [];
@@ -51,7 +53,8 @@ function setup({
     stats: () => ({
       noteCount: 0,
       ready: false
-    })
+    }),
+    list: () => vaultList
   };
 
   const dripvid = {
@@ -101,6 +104,7 @@ function setup({
       };
     },
     forget: async () => true,
+    list: () => listResult,
     stats: () => ({
       count: remembered.length
     })
@@ -902,4 +906,60 @@ test('persistent rate limit degrades after exhausting retries', async () => {
   assert.equal(result.degraded, true);
   assert.match(result.error, /HTTP 429/);
   assert.equal(attempts, 2);
+});
+
+test('knowledge summary injects brain memories and vault notes into the model hint', async () => {
+  const { jarvis, chats } = setup({
+    listResult: [
+      {
+        text: 'Operator prefers morning deploys',
+        tags: ['deploy']
+      },
+      {
+        text: 'DripVid health lives at 127.0.0.1:3000',
+        tags: []
+      }
+    ],
+    vaultList: [
+      { path: 'Projects/Ops.md', title: 'Ops' },
+      { path: 'Welcome.md', title: 'Welcome' }
+    ]
+  });
+
+  const response = await jarvis.conversation({
+    conversation: [
+      { role: 'user', content: 'what do you know' }
+    ]
+  });
+
+  assert.ok(response.message);
+
+  const lastChat = chats[chats.length - 1];
+  const hints = (lastChat.conversation || [])
+    .filter((message) => message.role === 'system')
+    .map((message) => message.content)
+    .join('\n');
+
+  assert.match(hints, /asked what you know/i);
+  assert.match(hints, /Operator prefers morning deploys/);
+  assert.match(hints, /Projects\/Ops\.md/);
+  assert.match(hints, /Welcome\.md/);
+});
+
+test('knowledge summary is not triggered by a specific knowledge query', async () => {
+  const { jarvis, chats } = setup();
+
+  await jarvis.conversation({
+    conversation: [
+      { role: 'user', content: 'what do you know about dripvid' }
+    ]
+  });
+
+  const lastChat = chats[chats.length - 1];
+  const hints = (lastChat.conversation || [])
+    .filter((message) => message.role === 'system')
+    .map((message) => message.content)
+    .join('\n');
+
+  assert.doesNotMatch(hints, /asked what you know/i);
 });
