@@ -351,6 +351,100 @@ test('missing vault path reports degraded', async () => {
   );
 });
 
+test('default vault bootstraps root, welcome note, and health on first run', async () => {
+  const dir =
+    fs.mkdtempSync(
+      path.join(
+        os.tmpdir(),
+        'jarvis-vault-bootstrap-'
+      )
+    );
+
+  const vaultDir =
+    path.join(dir, 'vault');
+
+  const vault = createVault({
+    config: {
+      vaultPath: vaultDir,
+      vaultIndexPath: path.join(
+        dir,
+        'data',
+        'index.json'
+      ),
+      vaultSearchLimit: 5,
+      vaultReadMaxChars: 16000,
+      vaultPathConfigured: false
+    }
+  });
+
+  assert.equal(
+    fs.existsSync(vaultDir),
+    false
+  );
+
+  const health = vault.health();
+
+  assert.equal(
+    health.status,
+    'online'
+  );
+  assert.equal(
+    health.noteCount,
+    1
+  );
+  assert.ok(
+    fs.existsSync(
+      path.join(vaultDir, 'Welcome.md')
+    )
+  );
+
+  const notes =
+    await vault.search('remember');
+
+  assert.ok(
+    notes.some(
+      (note) =>
+        note.path === 'Welcome.md'
+    )
+  );
+});
+
+test('explicitly configured missing vault path is never auto-created', async () => {
+  const dir =
+    fs.mkdtempSync(
+      path.join(
+        os.tmpdir(),
+        'jarvis-vault-configured-'
+      )
+    );
+
+  const vaultDir =
+    path.join(dir, 'does-not-exist');
+
+  const vault = createVault({
+    config: {
+      vaultPath: vaultDir,
+      vaultIndexPath: path.join(
+        dir,
+        'data',
+        'index.json'
+      ),
+      vaultPathConfigured: true
+    }
+  });
+
+  const result = vault.health();
+
+  assert.equal(
+    result.status,
+    'degraded'
+  );
+  assert.equal(
+    fs.existsSync(vaultDir),
+    false
+  );
+});
+
 test('migrateFromBrain writes idempotent memory notes', async () => {
   const { vault, vaultDir } = tempVault();
 
