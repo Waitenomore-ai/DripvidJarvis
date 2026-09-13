@@ -7,10 +7,13 @@ voice="${JARVIS_PIPER_VOICE_ID:-en_GB-alan-medium}"
 
 case "$(uname -m)" in
   x86_64|amd64)
-    archive="piper_linux_x86_64.tar.gz"
+    archive="piper_amd64.tar.gz"
     ;;
   aarch64|arm64)
-    archive="piper_linux_aarch64.tar.gz"
+    archive="piper_arm64.tar.gz"
+    ;;
+  armv7l|armv7)
+    archive="piper_armv7.tar.gz"
     ;;
   *)
     echo "Unsupported architecture for Piper binary: $(uname -m)" >&2
