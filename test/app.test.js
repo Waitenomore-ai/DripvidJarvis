@@ -90,6 +90,11 @@ test(
     );
 
     assert.equal(
+      config.chatTimeoutMs,
+      30000
+    );
+
+    assert.equal(
       config.maxToolResultChars,
       4000
     );
