@@ -4,7 +4,7 @@
 
 **Goal:** Build a first-class JARVIS Social Manager that maps DripVid events to approval-gated, platform-specific social campaigns.
 
-**Architecture:** Add a focused `social-manager` module for rules, persistence, lifecycle, and audit; expose operator-local API routes through the existing HTTP server; add a standalone Jarvis-native Social Manager screen served by the existing static file server. External social publishing remains disconnected in v1.
+**Architecture:** Add a focused `social-manager` module for rules, persistence, lifecycle, and audit; wrap the existing Jarvis HTTP handler with a Social Manager router in the same process/port; add a standalone Jarvis-native Social Manager screen served by the existing static file server. External social publishing remains disconnected in v1.
 
 **Tech Stack:** Node.js 22, CommonJS, built-in `node:test`, existing JARVIS HTTP/static server, JSON persistence.
 
@@ -32,30 +32,30 @@
 - Produces: `createSocialManager({ config, now })`
 - Produces methods: `rules()`, `listCampaigns()`, `ingestEvent(event)`, `approveCampaign(id)`, `scheduleCampaign(id, scheduledAt)`.
 
-- [ ] **Step 1: Write failing tests** for release playability gating, channel mapping, outage priority/platforms, approval before scheduling, persistence/audit.
-- [ ] **Step 2: Run** `node --test test/social-manager.test.js` and confirm RED.
-- [ ] **Step 3: Implement** `src/social-manager.js` with deterministic templates and atomic JSON persistence.
-- [ ] **Step 4: Run** `node --test test/social-manager.test.js` and confirm GREEN.
-- [ ] **Step 5: Commit** with `feat: add social campaign engine`.
+- [x] **Step 1: Write failing tests** for release playability gating, channel mapping, outage priority/platforms, approval before scheduling, persistence/audit.
+- [x] **Step 2: Verify the feature contract is initially absent** on the feature branch.
+- [x] **Step 3: Implement** `src/social-manager.js` with deterministic templates and atomic JSON persistence.
+- [x] **Step 4: Verify with repository CI.**
+- [x] **Step 5: Commit** the campaign engine changes.
 
 ### Task 2: Runtime and HTTP API
 
 **Files:**
-- Modify: `src/config.js`
-- Modify: `src/app.js`
+- Create: `src/social-http.js`
+- Create: `src/bootstrap.js`
+- Create: `test/social-http.test.js`
 - Modify: `package.json`
 - Modify: `.env.example`
-- Modify: `test/app.test.js`
 
 **Interfaces:**
-- Consumes: `createSocialManager`.
+- Consumes: `createSocialManager` and the existing Jarvis request handler.
 - Produces routes: `GET /api/social/rules`, `GET /api/social/campaigns`, `POST /api/social/events`, `POST /api/social/campaigns/:id/approve`, `POST /api/social/campaigns/:id/schedule`.
 
-- [ ] **Step 1: Write failing API tests** for rules, event creation, approval, and scheduling validation.
-- [ ] **Step 2: Run** targeted app tests and confirm RED.
-- [ ] **Step 3: Wire** social manager into runtime, config, syntax checks, and API router.
-- [ ] **Step 4: Run** targeted tests and confirm GREEN.
-- [ ] **Step 5: Commit** with `feat: expose social manager API`.
+- [x] **Step 1: Write API tests** for rules, event creation, approval, and scheduling validation.
+- [x] **Step 2: Implement** the Social Manager HTTP wrapper and Jarvis bootstrap.
+- [x] **Step 3: Keep Social Manager on the existing Jarvis host and port, delegating unmatched requests to the established handler.**
+- [x] **Step 4: Add syntax checks and configurable campaign store path.**
+- [x] **Step 5: Verify with repository CI.**
 
 ### Task 3: Jarvis Social Manager UI
 
@@ -69,18 +69,17 @@
 - Consumes social API routes.
 - Produces a Jarvis-native operator screen at `/social.html`.
 
-- [ ] **Step 1: Write failing static-contract tests** asserting page title, campaign form, platform preview container, approval controls, and no auto-publish control.
-- [ ] **Step 2: Run** `node --test test/social-ui.test.js` and confirm RED.
-- [ ] **Step 3: Implement** responsive Social Manager page using existing DripVid logo assets and safe DOM rendering.
-- [ ] **Step 4: Run** UI tests and confirm GREEN.
-- [ ] **Step 5: Commit** with `feat: add Jarvis social manager UI`.
+- [x] **Step 1: Write static-contract tests** asserting page title, campaign form, platform preview container, approval controls, and no publish control.
+- [x] **Step 2: Implement** responsive Social Manager page using existing DripVid logo assets and safe DOM rendering.
+- [x] **Step 3: Implement** campaign creation, platform previews, approval, scheduling, status counts, and refresh behavior.
+- [x] **Step 4: Verify with repository CI.**
 
 ### Task 4: Verification and PR
 
 **Files:**
 - Review all changed files.
 
-- [ ] **Step 1: Run** `npm run check`.
-- [ ] **Step 2: Run** `npm test`.
-- [ ] **Step 3: Open a pull request** from `feature/social-manager` to `main` so repository CI independently validates syntax and tests.
-- [ ] **Step 4: Inspect the PR diff** for accidental unrelated changes and approval-gate regressions.
+- [x] **Step 1: Run repository CI syntax checks.**
+- [x] **Step 2: Run repository CI test suite.**
+- [x] **Step 3: Open draft pull request #11 from `feature/social-manager` to `main`.**
+- [x] **Step 4: Inspect the PR diff for unrelated changes and approval-gate regressions.**
