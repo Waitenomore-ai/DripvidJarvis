@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>DripVid J.A.R.V.I.S. — Social Manager</title>
+  <link rel="icon" type="image/svg+xml" href="dripvid-icon.svg">
+  <link rel="stylesheet" href="social.css?v=1">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <img src="dripvid-logo.svg" alt="DripVid">
+      <div>
+        <strong>J.A.R.V.I.S.</strong>
+        <span>SOCIAL MANAGER</span>
+      </div>
+    </a>
+    <a class="back" href="/">← Back to Jarvis</a>
+  </header>
+
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">DRIPVID SOCIAL OPERATIONS</p>
+        <h1>Social Manager</h1>
+        <p>Create platform-specific campaigns from verified DripVid events. Every campaign requires operator approval before scheduling.</p>
+      </div>
+      <div class="safety-card">
+        <strong>Publishing locked</strong>
+        <span>External social accounts are not connected in this release.</span>
+      </div>
+    </section>
+
+    <section class="stats" aria-label="Campaign summary">
+      <article><span>Draft</span><strong id="statDraft">0</strong></article>
+      <article><span>Approved</span><strong id="statApproved">0</strong></article>
+      <article><span>Scheduled</span><strong id="statScheduled">0</strong></article>
+      <article><span>Total</span><strong id="statTotal">0</strong></article>
+    </section>
+
+    <section class="layout">
+      <aside class="panel composer-panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">CAMPAIGN MAKER</p>
+            <h2>New DripVid Event</h2>
+          </div>
+        </div>
+
+        <form id="eventForm">
+          <label>
+            Event type
+            <select id="eventType" required>
+              <option value="new_release">New release</option>
+              <option value="channel_added">Channel addition</option>
+              <option value="outage">Outage</option>
+              <option value="outage_resolved">Outage resolved</option>
+              <option value="service_notice">Service notice</option>
+              <option value="seasonal_promotion">Seasonal promotion</option>
+            </select>
+          </label>
+
+          <label>
+            Title
+            <input id="eventTitle" type="text" required maxlength="160" placeholder="e.g. Music channel is now live">
+          </label>
+
+          <label>
+            Description
+            <textarea id="eventDescription" rows="5" maxlength="1200" placeholder="Verified details Jarvis can turn into platform copy"></textarea>
+          </label>
+
+          <label id="playableRow" class="check-row">
+            <input id="eventPlayable" type="checkbox">
+            <span>Release is verified playable</span>
+          </label>
+
+          <label id="seasonRow" hidden>
+            Season
+            <input id="eventSeason" type="text" maxlength="80" placeholder="e.g. christmas">
+          </label>
+
+          <button class="primary" type="submit">Generate Campaign Draft</button>
+          <p id="formMessage" class="message" role="status"></p>
+        </form>
+      </aside>
+
+      <section class="panel campaign-panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">APPROVAL QUEUE</p>
+            <h2>Campaigns</h2>
+          </div>
+          <button id="refreshButton" class="secondary" type="button">Refresh</button>
+        </div>
+        <div id="campaigns" class="campaigns" aria-live="polite"></div>
+      </section>
+    </section>
+  </main>
+
+  <template id="campaignTemplate">
+    <article class="campaign-card">
+      <div class="campaign-top">
+        <div>
+          <div class="campaign-meta"></div>
+          <h3 class="campaign-title"></h3>
+          <p class="campaign-audience"></p>
+          <p class="campaign-timing"></p>
+        </div>
+        <span class="status-badge"></span>
+      </div>
+
+      <div class="platform-drafts"></div>
+
+      <div class="campaign-actions">
+        <button class="approve-button primary" type="button">Approve</button>
+        <label class="schedule-control">
+          <span>Schedule</span>
+          <input class="schedule-at" type="datetime-local">
+        </label>
+        <button class="schedule-button secondary" type="button">Schedule</button>
+      </div>
+    </article>
+  </template>
+
+  <script src="social.js?v=1"></script>
+</body>
+</html>
