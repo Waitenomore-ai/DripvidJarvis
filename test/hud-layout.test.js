@@ -124,3 +124,15 @@ test('HUD shows a working acknowledgement without sending it to the model', () =
   assert.match(js, /conversation:\s*conversationHistory/);
   assert.doesNotMatch(js, /conversationHistory\.push\(\{\s*role:\s*'assistant',\s*content:\s*WORKING_ACKNOWLEDGEMENT/s);
 });
+
+test('HUD avoids browser-fragile APIs for core chat rendering', () => {
+  assert.match(js, /function safeStorageGet/);
+  assert.match(js, /function safeStorageSet/);
+  assert.match(js, /function safeStorageRemove/);
+  assert.match(js, /function replaceEvery/);
+  assert.doesNotMatch(js, /\.replaceAll\(/);
+  assert.match(js, /window\.localStorage\.getItem\(key\)/);
+  assert.match(js, /window\.localStorage\.setItem\(key, value\)/);
+  assert.match(js, /window\.localStorage\.removeItem\(key\)/);
+  assert.doesNotMatch(js, /[^.]localStorage\.(getItem|setItem|removeItem)\(/);
+});
