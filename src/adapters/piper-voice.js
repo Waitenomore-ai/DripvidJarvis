@@ -39,6 +39,35 @@ function createPiperVoiceAdapter({
   execFileSyncImpl = execFileSync,
   commandExists = defaultCommandExists
 }) {
+  function buildEnvironment() {
+    const env = {
+      ...process.env
+    };
+
+    if (
+      config.piperBin &&
+      (
+        config.piperBin.includes('/') ||
+        config.piperBin.includes('\\')
+      )
+    ) {
+      const libraryPath =
+        path.join(
+          path.dirname(config.piperBin),
+          'lib'
+        );
+      const currentPath =
+        env.LD_LIBRARY_PATH || '';
+
+      env.LD_LIBRARY_PATH =
+        currentPath
+          ? `${libraryPath}:${currentPath}`
+          : libraryPath;
+    }
+
+    return env;
+  }
+
   function validate() {
     if (!config.piperModel) {
       return 'Piper voice model is not configured';
@@ -105,6 +134,7 @@ function createPiperVoiceAdapter({
         ],
         {
           input: content,
+          env: buildEnvironment(),
           timeout:
             Math.max(
               1000,

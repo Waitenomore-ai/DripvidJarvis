@@ -39,3 +39,23 @@ test(
     );
   }
 );
+
+test(
+  'Piper installer preserves bundled runtime libraries',
+  () => {
+    const script = fs.readFileSync(
+      path.resolve(__dirname, '..', 'scripts', 'install-piper.sh'),
+      'utf8'
+    );
+
+    assert.match(
+      script,
+      /cp -a "\$piper_bundle\/\." "\$target\/"/
+    );
+
+    assert.doesNotMatch(
+      script,
+      /find "\$tmp" -type f -name piper -exec cp/
+    );
+  }
+);
