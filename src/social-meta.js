@@ -44,13 +44,11 @@ function createMetaProvider({
       url.searchParams.set('fields', fields);
     }
 
-    url.searchParams.set(
-      'access_token',
-      pageToken
-    );
-
     const response = await fetchImpl(url, {
-      method: 'GET'
+      method: 'GET',
+      headers: {
+        authorization: `Bearer ${pageToken}`
+      }
     });
 
     let body;
@@ -75,6 +73,83 @@ function createMetaProvider({
     }
 
     return body;
+  }
+
+  async function graphPost(pathname, body) {
+    const url = new URL(
+      `${graphBase}/${pathname}`
+    );
+
+    const response = await fetchImpl(url, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${pageToken}`,
+        'content-type':
+          'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams(body)
+    });
+
+    let responseBody;
+
+    try {
+      responseBody = await response.json();
+    } catch {
+      throw new Error(
+        `Meta Graph returned invalid JSON (${response.status})`
+      );
+    }
+
+    if (
+      !response.ok ||
+      responseBody.error
+    ) {
+      const message =
+        responseBody &&
+        responseBody.error &&
+        responseBody.error.message
+          ? responseBody.error.message
+          : `Meta Graph request failed (${response.status})`;
+
+      throw new Error(message);
+    }
+
+    return responseBody;
+  }
+
+  async function publishFacebook(message) {
+    if (
+      typeof message !== 'string' ||
+      !message.trim()
+    ) {
+      throw new Error(
+        'Facebook post message is required'
+      );
+    }
+
+    const result = await graphPost(
+      `${pageId}/feed`,
+      {
+        message: message.trim()
+      }
+    );
+
+    if (
+      !result ||
+      typeof result.id !== 'string' ||
+      !result.id.trim()
+    ) {
+      throw new Error(
+        'Meta Graph did not return a Facebook post id'
+      );
+    }
+
+    return {
+      provider: 'meta',
+      platform: 'facebook',
+      pageId,
+      postId: result.id
+    };
   }
 
   async function health() {
@@ -134,7 +209,8 @@ function createMetaProvider({
   }
 
   return {
-    health
+    health,
+    publishFacebook
   };
 }
 

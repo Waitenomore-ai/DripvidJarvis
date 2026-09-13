@@ -19,8 +19,11 @@ test(
   async () => {
     const requests = [];
 
-    const fetchImpl = async (url) => {
-      requests.push(String(url));
+    const fetchImpl = async (url, options = {}) => {
+      requests.push({
+        url: String(url),
+        options
+      });
 
       if (
         String(url).includes('/page-123?')
@@ -89,9 +92,14 @@ test(
     assert.equal(requests.length, 2);
 
     for (const request of requests) {
-      assert.match(
-        request,
-        /access_token=secret-token/
+      assert.doesNotMatch(
+        String(request.url),
+        /access_token/
+      );
+
+      assert.equal(
+        request.options.headers.authorization,
+        'Bearer secret-token'
       );
     }
   }
@@ -232,6 +240,180 @@ test(
           env: {}
         }),
       /Missing Meta configuration/
+    );
+  }
+);
+
+test(
+  'Meta provider can prepare Facebook Page publish request',
+  async () => {
+    const requests = [];
+
+    const fetchImpl =
+      async (url, options = {}) => {
+        requests.push({
+          url: String(url),
+          options
+        });
+
+        return new Response(
+          JSON.stringify({
+            id: 'page-123_post-789'
+          }),
+          {
+            status: 200,
+            headers: {
+              'content-type':
+                'application/json'
+            }
+          }
+        );
+      };
+
+    const provider =
+      createMetaProvider({
+        env: ENV,
+        fetchImpl
+      });
+
+    const result =
+      await provider.publishFacebook(
+        'DripVid test message'
+      );
+
+    assert.equal(requests.length, 1);
+
+    const request = requests[0];
+
+    assert.equal(
+      request.url,
+      'https://graph.facebook.com/v26.0/page-123/feed'
+    );
+
+    assert.doesNotMatch(
+      request.url,
+      /access_token/
+    );
+
+    assert.equal(
+      request.options.method,
+      'POST'
+    );
+
+    assert.equal(
+      request.options.headers.authorization,
+      'Bearer secret-token'
+    );
+
+    assert.equal(
+      request.options.headers[
+        'content-type'
+      ],
+      'application/x-www-form-urlencoded'
+    );
+
+    assert.equal(
+      request.options.body.get('message'),
+      'DripVid test message'
+    );
+
+    assert.equal(
+      result.platform,
+      'facebook'
+    );
+
+    assert.equal(
+      result.pageId,
+      'page-123'
+    );
+
+    assert.equal(
+      result.postId,
+      'page-123_post-789'
+    );
+  }
+);
+
+test(
+  'Meta provider rejects empty Facebook post message',
+  async () => {
+    const provider =
+      createMetaProvider({
+        env: ENV,
+        fetchImpl:
+          async () => {
+            throw new Error(
+              'fetch must not be called'
+            );
+          }
+      });
+
+    await assert.rejects(
+      provider.publishFacebook('   '),
+      /Facebook post message is required/
+    );
+  }
+);
+
+test(
+  'Meta provider surfaces Facebook publishing failure',
+  async () => {
+    const provider =
+      createMetaProvider({
+        env: ENV,
+        fetchImpl:
+          async () =>
+            new Response(
+              JSON.stringify({
+                error: {
+                  message:
+                    'Meta rejected the post'
+                }
+              }),
+              {
+                status: 400,
+                headers: {
+                  'content-type':
+                    'application/json'
+                }
+              }
+            )
+      });
+
+    await assert.rejects(
+      provider.publishFacebook(
+        'DripVid test message'
+      ),
+      /Meta rejected the post/
+    );
+  }
+);
+
+test(
+  'Meta provider rejects Facebook publish response without post id',
+  async () => {
+    const provider =
+      createMetaProvider({
+        env: ENV,
+        fetchImpl:
+          async () =>
+            new Response(
+              JSON.stringify({}),
+              {
+                status: 200,
+                headers: {
+                  'content-type':
+                    'application/json'
+                }
+              }
+            )
+      });
+
+    await assert.rejects(
+      provider.publishFacebook(
+        'DripVid test message'
+      ),
+      /did not return a Facebook post id/
     );
   }
 );
