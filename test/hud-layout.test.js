@@ -114,3 +114,13 @@ test('HUD exposes an admin layout-arrange control with persisted positions', () 
   assert.match(js, /localStorage/);
   assert.match(js, /layoutStore/);
 });
+
+test('HUD shows a working acknowledgement without sending it to the model', () => {
+  assert.match(
+    js,
+    /I am looking into that, sir\. I will come back to you once I have an answer for you\./
+  );
+  assert.match(js, /transientChatItems/);
+  assert.match(js, /conversation:\s*conversationHistory/);
+  assert.doesNotMatch(js, /conversationHistory\.push\(\{\s*role:\s*'assistant',\s*content:\s*WORKING_ACKNOWLEDGEMENT/s);
+});
