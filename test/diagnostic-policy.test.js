@@ -158,4 +158,9 @@ test('diagnostic request detection targets live operational questions without hi
   assert.equal(isDiagnosticRequest('Remember that DripVid is my project'), false);
   assert.equal(isDiagnosticRequest('What do you know about me?'), false);
   assert.equal(isDiagnosticRequest('status?'), false);
+  assert.equal(isDiagnosticRequest('What do you know about DripVid?'), false);
+  assert.equal(isDiagnosticRequest('Give me a quick overview of the stack, services and ports'), false);
+  assert.equal(isDiagnosticRequest('Tell me what services run on which ports'), false);
+  assert.equal(isDiagnosticRequest('How does the media pipeline work?'), false);
+  assert.equal(isDiagnosticRequest('What do you know about the request system?'), false);
 });

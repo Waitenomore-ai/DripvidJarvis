@@ -4,11 +4,11 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { loadConfig } = require('../src/config');
 
-test('natural-language diagnostic limits default to four rounds and eight calls', () => {
+test('natural-language diagnostic limits default to four rounds and sixteen calls', () => {
   const config = loadConfig({});
 
   assert.equal(config.maxDiagnosticRounds, 4);
-  assert.equal(config.maxDiagnosticCalls, 8);
+  assert.equal(config.maxDiagnosticCalls, 16);
 });
 
 test('natural-language diagnostic limits can be reduced or raised explicitly', () => {

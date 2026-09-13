@@ -191,7 +191,7 @@ function loadConfig(env = process.env) {
     maxDiagnosticCalls:
       parsePositiveInteger(
         env.JARVIS_MAX_DIAGNOSTIC_CALLS,
-        8
+        16
       ),
 
     confirmationTtlMs:

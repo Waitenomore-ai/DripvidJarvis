@@ -22,5 +22,53 @@
   {
     "text": "DripVid services are launched and monitored through Pinokio on this machine. JARVIS health probes DripVid at /api/health and the MCP endpoint /mcp; those report offline when the services are not running on this host.",
     "tags": ["dripvid", "mcp", "health", "pinokio"]
+  },
+  {
+    "text": "DripVid is a private streaming platform for the encrypted private domain dripvid.uk. Runtime stack: Debian 13 Trixie, Node.js 20+, PostgreSQL 17, Jellyfin (media/playback engine), Nginx + Certbot/Cloudflare HTTPS. Repo: Waitenomore-ai/dripvid (GitHub).",
+    "tags": ["dripvid", "platform", "stack", "architecture", "jellyfin", "postgresql"]
+  },
+  {
+    "text": "DripVid canonical production layout: app at /opt/dripvid/app, versioned releases at /opt/dripvid/releases, secrets at /etc/dripvid/dripvid.env, service account dripvid, Node listener 127.0.0.1:3000, Jellyfin 127.0.0.1:8096, public URL https://dripvid.uk.",
+    "tags": ["dripvid", "deploy", "layout", "paths", "architecture"]
+  },
+  {
+    "text": "DripVid service/port map: DripVid app 127.0.0.1:3000, DripVid internal MCP gateway 127.0.0.1:3001, JARVIS web UI 127.0.0.1:3342, JARVIS host MCP 127.0.0.1:8788, Jellyfin 127.0.0.1:8096, PostgreSQL 127.0.0.1:5432 (loopback only), Sonarr 8989, Radarr 7878, Prowlarr 9696, qBittorrent 8081-ish web UI (dripvid downloads), Cockpit 9090, OmniRoute LLM proxy 127.0.0.1:20128/v1. Nginx listens on 443 for public dripvid.uk traffic.",
+    "tags": ["dripvid", "ports", "services", "architecture", "jellyfin", "sonarr", "radarr", "prowlarr"]
+  },
+  {
+    "text": "DripVid core services on the host: cloudflared (Cloudflare Tunnel), dripvid (DripVid web app), dripvid-jarvis (JARVIS), dripvid-mcp (read-only MCP server), jellyfin, postgresql 17, nginx, sonarr, radarr, prowlarr, qbittorrent-nox, dripvid-rotation-mount (USB media rotation). A recurring dripvid-live-e2e timer historically left failed systemd-run units on the box.",
+    "tags": ["dripvid", "services", "systemd", "operations"]
+  },
+  {
+    "text": "Media pipeline: members request titles in DripVid, automation hands movies to Radarr and TV to Sonarr, both use qBittorrent for downloads, then import into Jellyfin libraries on the storage mount, and DripVid surfaces Watch Here on already-owned media. DripVid is the member-facing app; Jellyfin is the actual playback engine.",
+    "tags": ["dripvid", "media", "pipeline", "radarr", "sonarr", "qbittorrent", "jellyfin"]
+  },
+  {
+    "text": "DripVid media storage disks: root /dev/sda (298G, OS, has one pending-sector warning), /dev/sdb1 mounted /mnt/TV (916G), /dev/sdc1 mounted /mnt/dripvid-tv, /dev/sdd1 mounted /mnt/dripvid-movies (1.8T movies), /dev/sde1 mounted /mnt/waiteflix. Removable movie drives rotate into a Leaving Soon workflow with fail-closed USB UUID/mount verification.",
+    "tags": ["dripvid", "storage", "disks", "mounts", "leaving-soon"]
+  },
+  {
+    "text": "DripVid request automation and cancellation: movies go through Radarr, TV through Sonarr, qBittorrent handles downloads. Sonarr API may return HTTP 500 instead of 404 for already-removed series; DripVid request-cancellation treats an externally-missing series as already removed and continues local cleanup (sonarr.js tolerant handling).",
+    "tags": ["dripvid", "requests", "sonarr", "radarr", "cancellation", "automation"]
+  },
+  {
+    "text": "DripVid ops: database backups run via sudo /opt/dripvid/app/deploy/backup-dripvid.sh into /var/backups/dripvid (date-stamped custom-format dump + manifest + SHA256SUMS), verified with verify-backup.sh, restored destructively with restore-dripvid.sh only under DRIPVID_RESTORE_CONFIRM=YES. Verified backups must be copied off-host; the DB backup excludes production secrets.",
+    "tags": ["dripvid", "backup", "postgresql", "disaster-recovery", "operations"]
+  },
+  {
+    "text": "Off-server config backup (2026-09-13): Windows Task Scheduler task 'DripVid Config Backup' pulls nginx site configs, systemd units, /etc/hosts, and the two secret env files (/etc/dripvid/dripvid.env, /etc/dripvid-jarvis.env) daily at 04:00 over SSH to C:\\pinokio\\backups\\dripvid\\config, keeping 30 snapshots. Scoped sudoers rule /etc/sudoers.d/chris-config-backup permits passwordless cat of only those two env files.",
+    "tags": ["ops", "backup", "secrets", "windows", "scheduled-task", "configuration"]
+  },
+  {
+    "text": "DripVid is in Private Alpha / Private Beta preparation (Release 2.7x+). The current primary goal is reliability before a wider beta: verify automatic requests, full movie and TV flows, readiness checks, health checks, storage rotation, and automated backups.",
+    "tags": ["dripvid", "roadmap", "phase", "beta", "product"]
+  },
+  {
+    "text": "DripVid JARVIS frontend is subpath-aware at /jarvis: assets are relative and the API prefix is derived from the location pathname, so it works behind an nginx /jarvis/ prefix that strips to 127.0.0.1:3342.",
+    "tags": ["jarvis", "frontend", "nginx", "prefix", "hud"]
+  },
+  {
+    "text": "DripVid security: PostgreSQL and Jellyfin must not be exposed publicly; only ports 80/443 enter from the internet. Jellyfin 8096 binds localhost. JARVIS binds 127.0.0.1 only. Jellyfin admin and DripVid ADMIN_PASSWORD are separate privileged accounts.",
+    "tags": ["dripvid", "security", "firewall", "ports", "network"]
   }
 ]
