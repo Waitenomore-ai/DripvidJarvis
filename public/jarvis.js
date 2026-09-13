@@ -1,6 +1,9 @@
 'use strict';
 
 const conversationHistory = [];
+const transientChatItems = [];
+const WORKING_ACKNOWLEDGEMENT =
+  'I am looking into that, sir. I will come back to you once I have an answer for you.';
 
 const $ = (id) =>
   document.getElementById(id);
@@ -1255,7 +1258,10 @@ function renderChat(log) {
 
   log.textContent = '';
 
-  for (const item of conversationHistory) {
+  for (const item of [
+    ...conversationHistory,
+    ...transientChatItems
+  ]) {
     const el = document.createElement('div');
 
     el.className = `message ${item.role === 'user' ? 'you' : 'jarvis'}`;
@@ -1283,17 +1289,29 @@ async function sendConversation(text) {
     content: text
   });
 
+  transientChatItems.length = 0;
+  transientChatItems.push({
+    role: 'assistant',
+    content: WORKING_ACKNOWLEDGEMENT
+  });
+
   renderChat(activeLog());
 
   const started = performance.now();
-  const response = await api(apiPath('/api/conversation'), {
-    method: 'POST',
-    body: JSON.stringify({
-      conversation: conversationHistory
-    })
-  });
-  lastReplyMs = Math.round(performance.now() - started);
-  sessionTurns += 1;
+  let response;
+
+  try {
+    response = await api(apiPath('/api/conversation'), {
+      method: 'POST',
+      body: JSON.stringify({
+        conversation: conversationHistory
+      })
+    });
+    lastReplyMs = Math.round(performance.now() - started);
+    sessionTurns += 1;
+  } finally {
+    transientChatItems.length = 0;
+  }
 
   const message =
     response.message ||
