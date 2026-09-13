@@ -532,7 +532,8 @@ test('agent loop feeds tool results back to the model', async () => {
 
   assert.ok(chats.length >= 2);
 
-  const roundTrip = chats[1].conversation;
+  const roundTrip = chats[1].conversation
+    .filter((message) => message.role !== 'system');
 
   assert.equal(
     roundTrip[0].role,
@@ -649,9 +650,31 @@ test('recalled memories are injected as system context', async () => {
     ]
   });
 
-  const system = chats[0].conversation[0];
-  assert.equal(system.role, 'system');
-  assert.match(system.content, /Operator prefers cyan accents/);
+  const system = chats[0].conversation
+    .filter((message) => message.role === 'system')
+    .map((message) => message.content);
+  assert.ok(system.length > 0);
+  assert.match(system.join('\n'), /Operator prefers cyan accents/);
+});
+
+test('every reply carries the plain-language summary rule', async () => {
+  const { jarvis, chats } = setup();
+
+  await jarvis.conversation({
+    conversation: [
+      { role: 'user', content: 'hello' }
+    ]
+  });
+
+  const system = chats[0].conversation
+    .filter((message) => message.role === 'system')
+    .map((message) => message.content)
+    .join('\n');
+
+  assert.match(system, /plain spoken words and letters only/i);
+  assert.match(system, /no asterisks, hashes, dashes, pipes, backticks/i);
+  assert.match(system, /raw dumps of numbers/i);
+  assert.match(system, /verdict/i);
 });
 
 test('brain.remember tool stores a durable fact', async () => {

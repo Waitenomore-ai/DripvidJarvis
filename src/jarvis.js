@@ -565,13 +565,23 @@ function createJarvis({
       const outboundConversation = [...messages];
       const systemHints = [];
 
+      systemHints.push(
+        'You respond in plain spoken words and letters only. ' +
+        'Do not read out symbols or punctuation: no asterisks, hashes, dashes, pipes, backticks, arrows, parentheses, or emoji. ' +
+        'Do not recite raw dumps of numbers, tables, or command output. ' +
+        'Always summarise: lead with a short plain-language verdict, then mention only what matters and what needs attention. ' +
+        'Keep it brief and conversational.'
+      );
+
       if (diagnosticMode) {
         systemHints.push(
           'You are JARVIS operating in read-only diagnostic mode. ' +
           'When the operator asks about current system state, use the available read-only diagnostic tools rather than guessing. ' +
           'Use the minimum checks needed, but combine multiple diagnostics when useful. ' +
           'Do not invent live system state and do not request write, restart, deploy, shell, or other mutating actions. ' +
-          'After tool results arrive, explain the important findings in plain language, mention failed checks, and distinguish confirmed findings from suspected causes.'
+          'After tool results arrive, explain the important findings in plain language, mention failed checks, and distinguish confirmed findings from suspected causes. ' +
+          'Open with an overall verdict in plain words, for example "System health is good" or "System health needs attention". ' +
+          'Then only read out what is healthy and what needs attention — never recite the full diagnostic output, port lists, capacity numbers, or raw tool results.'
         );
       }
 

@@ -309,8 +309,10 @@ test('provider failure after diagnostics returns deterministic partial results',
   });
 
   assert.equal(result.degraded, true);
-  assert.match(result.message, /mcp\.disk_status/);
-  assert.match(result.message, /1 TB/);
+  assert.match(result.message, /System health is good/);
+  assert.match(result.message, /1 is healthy/);
+  assert.doesNotMatch(result.message, /mcp\.disk_status/);
+  assert.doesNotMatch(result.message, /1 TB/);
   assert.match(result.message, /model unavailable/);
 });
 

@@ -122,11 +122,12 @@ test('fallback summary reports successful and failed diagnostics', () => {
     }
   ], 'model unavailable');
 
-  assert.match(text, /mcp\.disk_status/);
-  assert.match(text, /1 TB/);
+  assert.match(text, /needs attention/);
+  assert.match(text, /1 is healthy|are healthy/);
   assert.match(text, /mcp\.service_logs/);
   assert.match(text, /timeout/);
   assert.match(text, /model unavailable/);
+  assert.doesNotMatch(text, /\*|`|—|\[\[/);
 });
 
 test('fallback summary sanitizes and bounds oversized diagnostic details', () => {
@@ -142,9 +143,8 @@ test('fallback summary sanitizes and bounds oversized diagnostic details', () =>
   ], 'model unavailable');
 
   assert.doesNotMatch(text, /secret-value/);
-  assert.match(text, /\[REDACTED\]/);
+  assert.doesNotMatch(text, /mcp\.service_logs|\[REDACTED\]/);
   assert.ok(text.length < 2500);
-  assert.match(text, /truncated/i);
 });
 
 test('diagnostic request detection targets live operational questions without hijacking normal chat', () => {

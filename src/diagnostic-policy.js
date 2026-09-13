@@ -556,33 +556,44 @@ function formatDiagnosticFallback(
   toolResults,
   reason
 ) {
+  const items = Array.isArray(toolResults) ? toolResults : [];
+  const okCount = items.filter((item) => item.ok).length;
+  const problemItems = items.filter((item) => !item.ok);
+  const failedDetail = [];
+
+  for (const item of problemItems) {
+    const detail = boundFallbackText(
+      String(item.error || 'failed'),
+      200
+    );
+    failedDetail.push(
+      `${item.name || 'diagnostic'} ${detail}`
+    );
+  }
+
   const lines = [
-    'I completed available read-only diagnostics, but a guardrail stopped me before I could write the full AI report. Here is the summary of what was checked:'
+    `System health is ${okCount === items.length && items.length ? 'good' : 'needs attention'}. ` +
+    `I checked ${items.length} item${items.length === 1 ? '' : 's'}; ${okCount} ${okCount === 1 ? 'is healthy' : 'are healthy'}.`
   ];
+
+  if (failedDetail.length) {
+    lines.push(
+      'What needs attention: ' +
+      failedDetail.join('; ') + '.'
+    );
+  }
+
+  if (!items.length) {
+    lines.push('No live diagnostic checks were actually run and the report could not be completed.');
+  }
 
   if (reason) {
     lines.push(
-      `Why: ${boundFallbackText(reason, 300)}`
+      'Note: ' + boundFallbackText(reason, 300)
     );
   }
 
-  for (const item of toolResults || []) {
-    const detail = item.ok
-      ? summarizeDiagnosticResult(
-          item.name,
-          item.result
-        )
-      : boundFallbackText(
-          String(item.error || 'failed'),
-          200
-        );
-
-    lines.push(
-      `- ${item.name || 'diagnostic'}: ${item.ok ? 'OK' : 'FAILED'} — ${detail}`
-    );
-  }
-
-  return lines.join('\n');
+  return lines.join(' ');
 }
 
 module.exports = {
