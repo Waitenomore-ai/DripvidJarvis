@@ -71,6 +71,7 @@ function matchCampaignAction(pathname) {
 
 function createSocialServer({
   socialManager,
+  metaProvider = null,
   fallbackHandler
 }) {
   if (!socialManager) {
@@ -98,6 +99,56 @@ function createSocialServer({
             200,
             socialManager.rules()
           );
+          return;
+        }
+
+        if (
+          req.method === 'GET' &&
+          url.pathname === '/api/social/providers/meta'
+        ) {
+          if (!metaProvider) {
+            sendJson(
+              res,
+              200,
+              {
+                provider: 'meta',
+                configured: false,
+                online: false,
+                publishingEnabled: false
+              }
+            );
+            return;
+          }
+
+          try {
+            const health =
+              await metaProvider.health();
+
+            sendJson(
+              res,
+              200,
+              {
+                configured: true,
+                ...health
+              }
+            );
+          } catch (error) {
+            sendJson(
+              res,
+              503,
+              {
+                provider: 'meta',
+                configured: true,
+                online: false,
+                publishingEnabled: false,
+                error:
+                  error && error.message
+                    ? error.message
+                    : 'Meta provider unavailable'
+              }
+            );
+          }
+
           return;
         }
 
