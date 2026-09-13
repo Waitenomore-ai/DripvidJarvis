@@ -122,6 +122,47 @@ test('piper voice speak shells out with fixed model and returns wav audio', asyn
   }
 });
 
+test('piper voice speak exposes bundled libraries to the binary', async () => {
+  const fixture = tempFile('voice.onnx');
+  fs.writeFileSync(fixture.file, 'model');
+  const piperBin = path.join(fixture.dir, 'piper', 'piper');
+  const expectedLibPath =
+    path.join(fixture.dir, 'piper', 'lib');
+  let callOptions = null;
+
+  try {
+    const adapter = createPiperVoiceAdapter({
+      config: makeConfig({
+        piperBin,
+        piperModel: fixture.file
+      }),
+      commandExists: () => true,
+      execFileSyncImpl(command, args, options) {
+        callOptions = options;
+
+        const outputFile =
+          args[args.indexOf('--output_file') + 1];
+
+        fs.writeFileSync(
+          outputFile,
+          Buffer.from('WAVDATA')
+        );
+      }
+    });
+
+    await adapter.speak('Hello Jarvis');
+
+    assert.match(
+      callOptions.env.LD_LIBRARY_PATH,
+      new RegExp(
+        expectedLibPath.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')
+      )
+    );
+  } finally {
+    fixture.cleanup();
+  }
+});
+
 test('piper voice speak rejects empty text without invoking piper', async () => {
   let called = false;
 

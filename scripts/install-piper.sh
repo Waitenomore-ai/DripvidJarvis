@@ -31,7 +31,13 @@ curl -fsSL \
   -o "$tmp/piper.tar.gz"
 
 tar -xzf "$tmp/piper.tar.gz" -C "$tmp"
-find "$tmp" -type f -name piper -exec cp {} "$target/piper" \;
+piper_bundle="$(find "$tmp" -type f -name piper -exec dirname {} \; | head -n 1)"
+if [[ -z "$piper_bundle" ]]; then
+  echo "Piper archive did not contain a piper binary" >&2
+  exit 1
+fi
+
+cp -a "$piper_bundle/." "$target/"
 chmod 0755 "$target/piper"
 
 if [[ "$voice" =~ ^([a-z]{2})_([A-Z]{2})-([^-]+)-([^-]+)$ ]]; then
