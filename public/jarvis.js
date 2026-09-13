@@ -1448,7 +1448,7 @@ const voiceSupported =
   !!(navigator.mediaDevices && SpeechRecognition);
 
 let voiceEnabled =
-  safeStorageGet('jarvis-voice-output') === '1';
+  safeStorageGet('jarvis-voice-output') !== '0';
 
 let voiceMode = 'browser-fallback';
 
