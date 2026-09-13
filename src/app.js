@@ -34,6 +34,10 @@ const {
 } = require('./adapters/free-voice');
 
 const {
+  createPiperVoiceAdapter
+} = require('./adapters/piper-voice');
+
+const {
   createBrain
 } = require('./brain');
 
@@ -480,10 +484,14 @@ function createRuntime({
     });
 
   const tts =
-    createFreeVoiceAdapter({
-      config,
-      fetchImpl
-    });
+    config.voiceProvider === 'piper'
+      ? createPiperVoiceAdapter({
+          config
+        })
+      : createFreeVoiceAdapter({
+          config,
+          fetchImpl
+        });
 
   const brain =
     createBrain({ config });

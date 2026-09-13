@@ -14,6 +14,10 @@ const {
   createApp
 } = require('../src/app');
 
+const {
+  createRuntime
+} = require('../src/app');
+
 test(
   'config defaults bind JARVIS to localhost port 3342',
   () => {
@@ -101,6 +105,21 @@ test(
     );
 
     assert.equal(
+      config.voiceProvider,
+      'google'
+    );
+
+    assert.equal(
+      config.piperBin,
+      'piper'
+    );
+
+    assert.equal(
+      config.piperVoiceId,
+      'en_GB-alan-medium'
+    );
+
+    assert.equal(
       config.brainPath,
       path.resolve(
         __dirname,
@@ -118,6 +137,38 @@ test(
         'data',
         'auto-verify.result'
       )
+    );
+  }
+);
+
+test(
+  'runtime can select Piper as the voice provider',
+  async () => {
+    const runtime = createRuntime({
+      env: {
+        JARVIS_VOICE_PROVIDER:
+          'piper',
+        JARVIS_PIPER_MODEL:
+          ''
+      },
+      fetchImpl: async () => {
+        throw new Error(
+          'Piper runtime must not call the Google voice endpoint'
+        );
+      }
+    });
+
+    const health =
+      await runtime.tts.health();
+
+    assert.equal(
+      health.provider,
+      'piper'
+    );
+
+    assert.equal(
+      health.status,
+      'offline'
     );
   }
 );
