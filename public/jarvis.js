@@ -8,6 +8,34 @@ const WORKING_ACKNOWLEDGEMENT =
 const $ = (id) =>
   document.getElementById(id);
 
+function replaceEvery(value, search, replacement) {
+  return String(value).split(search).join(replacement);
+}
+
+function safeStorageGet(key) {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeStorageSet(key, value) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Browser storage can be blocked in private or locked-down modes.
+  }
+}
+
+function safeStorageRemove(key) {
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Browser storage can be blocked in private or locked-down modes.
+  }
+}
+
 function apiPath(path) {
   const prefix =
     window.location.pathname.startsWith('/jarvis')
@@ -42,12 +70,17 @@ async function api(url, options = {}) {
 }
 
 function escapeHtml(value) {
-  return String(value)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
+  return [
+    ['&', '&amp;'],
+    ['<', '&lt;'],
+    ['>', '&gt;'],
+    ['"', '&quot;'],
+    ["'", '&#039;']
+  ].reduce(
+    (escaped, pair) =>
+      replaceEvery(escaped, pair[0], pair[1]),
+    String(value)
+  );
 }
 
 function redactUrl(value) {
@@ -1415,7 +1448,7 @@ const voiceSupported =
   !!(navigator.mediaDevices && SpeechRecognition);
 
 let voiceEnabled =
-  localStorage.getItem('jarvis-voice-output') === '1';
+  safeStorageGet('jarvis-voice-output') === '1';
 
 let voiceMode = 'browser-fallback';
 
@@ -1611,7 +1644,7 @@ $('voiceButton').addEventListener('click', () => {
     stopSpeaking();
   }
 
-  localStorage.setItem(
+  safeStorageSet(
     'jarvis-voice-output',
     voiceEnabled ? '1' : '0'
   );
@@ -1948,7 +1981,7 @@ let dragContext = null;
 function loadLayoutStore() {
   try {
     return JSON.parse(
-      localStorage.getItem(LAYOUT_KEY) || '{}'
+      safeStorageGet(LAYOUT_KEY) || '{}'
     );
   } catch {
     return {};
@@ -2024,7 +2057,7 @@ function savePanelPosition(panel) {
     panelPosition(panel);
 
   try {
-    localStorage.setItem(
+    safeStorageSet(
       LAYOUT_KEY,
       JSON.stringify(layoutStore)
     );
@@ -2195,7 +2228,7 @@ function resetLayout() {
   layoutStore = {};
 
   try {
-    localStorage.removeItem(LAYOUT_KEY);
+    safeStorageRemove(LAYOUT_KEY);
   } catch {
     // Best-effort.
   }
