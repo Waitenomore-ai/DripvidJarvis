@@ -71,15 +71,21 @@ Owns:
 
 Data is stored in a JSON file configured by `JARVIS_SOCIAL_MANAGER_PATH` and defaults under `data/`.
 
-### `src/app.js`
+### `src/social-http.js`
 
-Creates the Social Manager in the Jarvis runtime and exposes operator-local API routes:
+Owns the operator-local Social Manager API routes:
 
 - `GET /api/social/rules`
 - `GET /api/social/campaigns`
 - `POST /api/social/events`
 - `POST /api/social/campaigns/:id/approve`
 - `POST /api/social/campaigns/:id/schedule`
+
+Unmatched requests are delegated to the existing Jarvis request handler.
+
+### `src/bootstrap.js`
+
+Starts the existing Jarvis runtime and HTTP handler, then wraps that handler with the Social Manager router. This keeps Social Manager inside the same Jarvis process, host, and port without rewriting the established `src/app.js` router.
 
 ### `public/social.html`, `public/social.js`, `public/social.css`
 
