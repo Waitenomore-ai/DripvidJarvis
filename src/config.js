@@ -102,6 +102,19 @@ function loadConfig(env = process.env) {
     voiceLang:
       env.JARVIS_VOICE_LANG || 'en-gb',
 
+    voiceProvider:
+      env.JARVIS_VOICE_PROVIDER || 'google',
+
+    piperBin:
+      env.JARVIS_PIPER_BIN || 'piper',
+
+    piperModel:
+      env.JARVIS_PIPER_MODEL || '',
+
+    piperVoiceId:
+      env.JARVIS_PIPER_VOICE_ID ||
+      'en_GB-alan-medium',
+
     brainPath:
       env.JARVIS_BRAIN_PATH ||
       path.resolve(
