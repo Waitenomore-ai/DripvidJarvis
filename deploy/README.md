@@ -8,9 +8,9 @@ Deploys JARVIS on the dripvid.uk host behind the existing nginx.
 sudo mkdir -p /opt/dripvid-jarvis
 sudo chown dripvid-jarvis:dripvid-jarvis /opt/dripvid-jarvis
 # either clone and let dripvid-jarvis own the tree:
-sudo -u dripvid-jarvis git clone <this-repo> /opt/dripvid-jarvis/app
-# or rsync the built `app` tree from a release:
-# rsync -az app/ dripvid-jarvis@<host>:/opt/dripvid-jarvis/app/
+sudo -u dripvid-jarvis git clone <this-repo> /opt/dripvid-jarvis
+# or rsync the built tree from a release:
+# rsync -az app/ dripvid-jarvis@<host>:/opt/dripvid-jarvis/
 sudo chown -R dripvid-jarvis:dripvid-jarvis /opt/dripvid-jarvis
 ```
 
@@ -66,6 +66,8 @@ curl -u <admin-user> https://dripvid.uk/jarvis/api/health
 - HUD shows OverdueHealth; DripVid + MCP should be `online` when those
   services run on this host (defaults: `http://127.0.0.1:3000` and
   `http://127.0.0.1:8788/mcp`).
+- Social Manager is available at `/social.html` and `/api/social/*`; the
+  systemd service starts `src/bootstrap.js` so these routes are active.
 - Confirmations still require in-app approval (JARVIS stays read-only by
   default); nothing changes DripVid state without explicit consenting.
 
