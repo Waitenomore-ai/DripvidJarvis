@@ -8,7 +8,7 @@ User=dripvid-jarvis
 Group=dripvid-jarvis
 WorkingDirectory=/opt/dripvid-jarvis
 EnvironmentFile=/etc/dripvid-jarvis.env
-ExecStart=/usr/bin/node /opt/dripvid-jarvis/src/app.js
+ExecStart=/usr/bin/node /opt/dripvid-jarvis/src/bootstrap.js
 Restart=on-failure
 RestartSec=5
 
