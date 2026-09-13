@@ -433,6 +433,138 @@ function createSocialManager({
     );
   }
 
+  function prepareFacebookPublish(id) {
+    const store = readStore();
+
+    const campaign =
+      store.campaigns.find(
+        (item) => item.id === id
+      );
+
+    if (!campaign) {
+      throw new Error(
+        'Campaign not found'
+      );
+    }
+
+    if (campaign.status !== 'approved') {
+      throw new Error(
+        'Campaign must be approved before publishing'
+      );
+    }
+
+    if (
+      !Array.isArray(campaign.platforms) ||
+      !campaign.platforms.includes('facebook')
+    ) {
+      throw new Error(
+        'Campaign is not configured for Facebook'
+      );
+    }
+
+    const message =
+      campaign.drafts &&
+      typeof campaign.drafts.facebook === 'string'
+        ? campaign.drafts.facebook.trim()
+        : '';
+
+    if (!message) {
+      throw new Error(
+        'Campaign has no Facebook draft'
+      );
+    }
+
+    return {
+      campaignId: campaign.id,
+      platform: 'facebook',
+      message
+    };
+  }
+
+  function recordFacebookPublishSuccess(
+    id,
+    result
+  ) {
+    return mutateCampaign(
+      id,
+      (campaign) => {
+        if (campaign.status !== 'approved') {
+          throw new Error(
+            'Campaign must be approved before recording publication'
+          );
+        }
+
+        if (
+          !result ||
+          typeof result.postId !== 'string' ||
+          !result.postId.trim()
+        ) {
+          throw new Error(
+            'Facebook publish result requires a post id'
+          );
+        }
+
+        const at =
+          normalizeNow(now).toISOString();
+
+        campaign.status = 'published';
+        campaign.publishedAt = at;
+
+        campaign.publishResult = {
+          provider: 'meta',
+          platform: 'facebook',
+          postId: result.postId,
+          pageId:
+            typeof result.pageId === 'string'
+              ? result.pageId
+              : null
+        };
+
+        campaign.audit.push({
+          action: 'published',
+          at,
+          detail:
+            `Published to Facebook as ${result.postId}`
+        });
+      }
+    );
+  }
+
+  function recordFacebookPublishFailure(
+    id,
+    error
+  ) {
+    return mutateCampaign(
+      id,
+      (campaign) => {
+        const at =
+          normalizeNow(now).toISOString();
+
+        const message =
+          error && error.message
+            ? error.message
+            : String(
+                error ||
+                'Unknown publishing error'
+              );
+
+        campaign.publishFailure = {
+          provider: 'meta',
+          platform: 'facebook',
+          message,
+          at
+        };
+
+        campaign.audit.push({
+          action: 'publish_failed',
+          at,
+          detail:
+            `Facebook publishing failed: ${message}`
+        });
+      }
+    );
+  }
+
   function scheduleCampaign(
     id,
     scheduledAt
@@ -478,6 +610,9 @@ function createSocialManager({
     listCampaigns,
     ingestEvent,
     approveCampaign,
+    prepareFacebookPublish,
+    recordFacebookPublishSuccess,
+    recordFacebookPublishFailure,
     scheduleCampaign
   });
 }

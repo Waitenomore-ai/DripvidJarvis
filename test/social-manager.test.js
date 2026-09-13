@@ -183,3 +183,374 @@ test(
     assert.equal(reloaded[0].title, 'Classics');
   }
 );
+
+test(
+  'Facebook publishing requires an approved Facebook campaign',
+  () => {
+    const root = fs.mkdtempSync(
+      path.join(
+        os.tmpdir(),
+        'jarvis-social-facebook-guard-'
+      )
+    );
+
+    const manager =
+      createSocialManager({
+        config: {
+          socialManagerPath:
+            path.join(root, 'social.json')
+        },
+        now: () =>
+          new Date(
+            '2026-09-13T20:00:00.000Z'
+          )
+      });
+
+    const created =
+      manager.ingestEvent({
+        type: 'service_notice',
+        title: 'Maintenance',
+        description:
+          'Short maintenance window.'
+      });
+
+    assert.throws(
+      () =>
+        manager.prepareFacebookPublish(
+          created.campaign.id
+        ),
+      /approved before publishing/
+    );
+
+    manager.approveCampaign(
+      created.campaign.id
+    );
+
+    const prepared =
+      manager.prepareFacebookPublish(
+        created.campaign.id
+      );
+
+    assert.equal(
+      prepared.platform,
+      'facebook'
+    );
+
+    assert.equal(
+      prepared.message,
+      created.campaign.drafts.facebook
+    );
+  }
+);
+
+test(
+  'Facebook publish success is recorded in campaign audit',
+  () => {
+    const root = fs.mkdtempSync(
+      path.join(
+        os.tmpdir(),
+        'jarvis-social-facebook-success-'
+      )
+    );
+
+    let now =
+      new Date(
+        '2026-09-13T20:00:00.000Z'
+      );
+
+    const manager =
+      createSocialManager({
+        config: {
+          socialManagerPath:
+            path.join(root, 'social.json')
+        },
+        now: () => now
+      });
+
+    const created =
+      manager.ingestEvent({
+        type: 'service_notice',
+        title: 'Maintenance'
+      });
+
+    manager.approveCampaign(
+      created.campaign.id
+    );
+
+    now =
+      new Date(
+        '2026-09-13T20:05:00.000Z'
+      );
+
+    const updated =
+      manager.recordFacebookPublishSuccess(
+        created.campaign.id,
+        {
+          pageId: 'page-123',
+          postId: 'page-123_post-789'
+        }
+      );
+
+    assert.equal(
+      updated.status,
+      'published'
+    );
+
+    assert.equal(
+      updated.publishResult.platform,
+      'facebook'
+    );
+
+    assert.equal(
+      updated.publishResult.postId,
+      'page-123_post-789'
+    );
+
+    assert.equal(
+      updated.publishResult.pageId,
+      'page-123'
+    );
+
+    assert.equal(
+      updated.audit.at(-1).action,
+      'published'
+    );
+  }
+);
+
+test(
+  'Facebook publish failure is audited without marking campaign published',
+  () => {
+    const root = fs.mkdtempSync(
+      path.join(
+        os.tmpdir(),
+        'jarvis-social-facebook-failure-'
+      )
+    );
+
+    const manager =
+      createSocialManager({
+        config: {
+          socialManagerPath:
+            path.join(root, 'social.json')
+        },
+        now: () =>
+          new Date(
+            '2026-09-13T20:00:00.000Z'
+          )
+      });
+
+    const created =
+      manager.ingestEvent({
+        type: 'service_notice',
+        title: 'Maintenance'
+      });
+
+    manager.approveCampaign(
+      created.campaign.id
+    );
+
+    const updated =
+      manager.recordFacebookPublishFailure(
+        created.campaign.id,
+        new Error(
+          'Meta rejected the post'
+        )
+      );
+
+    assert.equal(
+      updated.status,
+      'approved'
+    );
+
+    assert.equal(
+      updated.publishFailure.platform,
+      'facebook'
+    );
+
+    assert.match(
+      updated.publishFailure.message,
+      /Meta rejected the post/
+    );
+
+    assert.equal(
+      updated.audit.at(-1).action,
+      'publish_failed'
+    );
+  }
+);
+
+test(
+  'published Facebook campaign cannot be published twice',
+  () => {
+    const root = fs.mkdtempSync(
+      path.join(
+        os.tmpdir(),
+        'jarvis-social-facebook-duplicate-'
+      )
+    );
+
+    const manager =
+      createSocialManager({
+        config: {
+          socialManagerPath:
+            path.join(root, 'social.json')
+        },
+        now: () =>
+          new Date(
+            '2026-09-13T20:00:00.000Z'
+          )
+      });
+
+    const created =
+      manager.ingestEvent({
+        type: 'service_notice',
+        title: 'Maintenance'
+      });
+
+    manager.approveCampaign(
+      created.campaign.id
+    );
+
+    manager.recordFacebookPublishSuccess(
+      created.campaign.id,
+      {
+        pageId: 'page-123',
+        postId: 'page-123_post-789'
+      }
+    );
+
+    assert.throws(
+      () =>
+        manager.prepareFacebookPublish(
+          created.campaign.id
+        ),
+      /approved before publishing/
+    );
+
+    assert.throws(
+      () =>
+        manager.recordFacebookPublishSuccess(
+          created.campaign.id,
+          {
+            pageId: 'page-123',
+            postId: 'page-123_post-999'
+          }
+        ),
+      /approved before recording publication/
+    );
+
+    const campaign =
+      manager.listCampaigns().find(
+        (item) =>
+          item.id === created.campaign.id
+      );
+
+    assert.equal(
+      campaign.publishResult.postId,
+      'page-123_post-789'
+    );
+
+    assert.equal(
+      campaign.audit.filter(
+        (entry) =>
+          entry.action === 'published'
+      ).length,
+      1
+    );
+  }
+);
+
+test(
+  'Facebook publication state and audit survive manager restart',
+  () => {
+    const root = fs.mkdtempSync(
+      path.join(
+        os.tmpdir(),
+        'jarvis-social-facebook-persistence-'
+      )
+    );
+
+    const storePath =
+      path.join(root, 'social.json');
+
+    const firstManager =
+      createSocialManager({
+        config: {
+          socialManagerPath: storePath
+        },
+        now: () =>
+          new Date(
+            '2026-09-13T20:00:00.000Z'
+          )
+      });
+
+    const created =
+      firstManager.ingestEvent({
+        type: 'service_notice',
+        title: 'Maintenance'
+      });
+
+    firstManager.approveCampaign(
+      created.campaign.id
+    );
+
+    firstManager.recordFacebookPublishSuccess(
+      created.campaign.id,
+      {
+        pageId: 'page-123',
+        postId: 'page-123_post-789'
+      }
+    );
+
+    const secondManager =
+      createSocialManager({
+        config: {
+          socialManagerPath: storePath
+        },
+        now: () =>
+          new Date(
+            '2026-09-13T20:10:00.000Z'
+          )
+      });
+
+    const campaign =
+      secondManager.listCampaigns().find(
+        (item) =>
+          item.id === created.campaign.id
+      );
+
+    assert.ok(campaign);
+
+    assert.equal(
+      campaign.status,
+      'published'
+    );
+
+    assert.equal(
+      campaign.publishResult.postId,
+      'page-123_post-789'
+    );
+
+    assert.equal(
+      campaign.publishResult.pageId,
+      'page-123'
+    );
+
+    assert.equal(
+      campaign.audit.filter(
+        (entry) =>
+          entry.action === 'published'
+      ).length,
+      1
+    );
+
+    assert.throws(
+      () =>
+        secondManager.prepareFacebookPublish(
+          created.campaign.id
+        ),
+      /approved before publishing/
+    );
+  }
+);

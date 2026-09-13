@@ -69,6 +69,20 @@ function matchCampaignAction(pathname) {
   };
 }
 
+function matchFacebookPublish(pathname) {
+  const match = pathname.match(
+    /^\/api\/social\/campaigns\/([^/]+)\/publish\/facebook$/
+  );
+
+  if (!match) {
+    return null;
+  }
+
+  return {
+    id: decodeURIComponent(match[1])
+  };
+}
+
 function createSocialServer({
   socialManager,
   metaProvider = null,
@@ -81,6 +95,9 @@ function createSocialServer({
   if (typeof fallbackHandler !== 'function') {
     throw new Error('fallbackHandler is required');
   }
+
+  const facebookPublishesInFlight =
+    new Set();
 
   return http.createServer(
     async (req, res) => {
@@ -183,6 +200,148 @@ function createSocialServer({
           return;
         }
 
+        const facebookPublish =
+          matchFacebookPublish(
+            url.pathname
+          );
+
+        if (
+          req.method === 'POST' &&
+          facebookPublish
+        ) {
+          const body =
+            await readJson(req);
+
+          if (body.confirm !== true) {
+            throw new Error(
+              'Facebook publishing requires explicit confirmation'
+            );
+          }
+
+          if (
+            !metaProvider ||
+            typeof metaProvider.publishFacebook !==
+              'function'
+          ) {
+            throw new Error(
+              'Meta publishing provider is not configured'
+            );
+          }
+
+          const existing =
+            socialManager
+              .listCampaigns()
+              .find(
+                (campaign) =>
+                  campaign.id ===
+                  facebookPublish.id
+              );
+
+          if (!existing) {
+            throw new Error(
+              'Campaign not found'
+            );
+          }
+
+          if (
+            existing.status === 'published' &&
+            existing.publishResult &&
+            existing.publishResult.platform ===
+              'facebook'
+          ) {
+            sendJson(
+              res,
+              200,
+              {
+                published: true,
+                idempotent: true,
+                campaign: existing,
+                publishResult:
+                  existing.publishResult
+              }
+            );
+            return;
+          }
+
+          if (
+            facebookPublishesInFlight.has(
+              facebookPublish.id
+            )
+          ) {
+            sendJson(
+              res,
+              409,
+              {
+                error:
+                  'Facebook publishing already in progress'
+              }
+            );
+            return;
+          }
+
+          const prepared =
+            socialManager
+              .prepareFacebookPublish(
+                facebookPublish.id
+              );
+
+          facebookPublishesInFlight.add(
+            facebookPublish.id
+          );
+
+          try {
+            let result;
+
+            try {
+              result =
+                await metaProvider
+                  .publishFacebook(
+                    prepared.message
+                  );
+            } catch (error) {
+              socialManager
+                .recordFacebookPublishFailure(
+                  facebookPublish.id,
+                  error
+                );
+
+              const message =
+                error && error.message
+                  ? error.message
+                  : 'Unknown Meta publishing error';
+
+              throw new Error(
+                `Meta publish failed: ${message}`
+              );
+            }
+
+            const campaign =
+              socialManager
+                .recordFacebookPublishSuccess(
+                  facebookPublish.id,
+                  result
+                );
+
+            sendJson(
+              res,
+              200,
+              {
+                published: true,
+                idempotent: false,
+                campaign,
+                publishResult:
+                  campaign.publishResult
+              }
+            );
+          } finally {
+            facebookPublishesInFlight.delete(
+              facebookPublish.id
+            );
+          }
+
+          return;
+        }
+
         const campaignAction =
           matchCampaignAction(url.pathname);
 
@@ -227,7 +386,7 @@ function createSocialServer({
         let statusCode = 400;
 
         if (
-          /approved before scheduling/i
+          /approved before scheduling|approved before publishing|approved before recording publication|publishing already in progress/i
             .test(message)
         ) {
           statusCode = 409;
@@ -236,7 +395,17 @@ function createSocialServer({
         ) {
           statusCode = 404;
         } else if (
-          !/Malformed JSON|body too large|Unsupported social event|Invalid campaign priority|valid scheduledAt|draft campaigns/i
+          /Meta publishing provider is not configured/i
+            .test(message)
+        ) {
+          statusCode = 503;
+        } else if (
+          /Meta publish failed/i
+            .test(message)
+        ) {
+          statusCode = 502;
+        } else if (
+          !/Malformed JSON|body too large|Unsupported social event|Invalid campaign priority|valid scheduledAt|draft campaigns|explicit confirmation|not configured for Facebook|no Facebook draft/i
             .test(message)
         ) {
           statusCode = 500;
