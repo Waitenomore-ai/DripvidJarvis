@@ -156,3 +156,177 @@ test(
     });
   }
 );
+
+test(
+  'GET /api/social/providers/meta reports unconfigured without Meta credentials',
+  async () => {
+    const socialManager = createSocialManager({
+      config: {
+        socialManagerPath: tempStore()
+      }
+    });
+
+    const server = createSocialServer({
+      socialManager,
+      fallbackHandler: (req, res) => {
+        res.statusCode = 404;
+        res.end('fallback');
+      }
+    });
+
+    await new Promise((resolve) => {
+      server.listen(0, '127.0.0.1', resolve);
+    });
+
+    const address = server.address();
+    const baseUrl =
+      `http://127.0.0.1:${address.port}`;
+
+    try {
+      const response = await fetch(
+        `${baseUrl}/api/social/providers/meta`
+      );
+      const body = await response.json();
+
+      assert.equal(response.status, 200);
+      assert.equal(body.provider, 'meta');
+      assert.equal(body.configured, false);
+      assert.equal(body.online, false);
+      assert.equal(body.publishingEnabled, false);
+    } finally {
+      await new Promise((resolve, reject) => {
+        server.close((error) => {
+          if (error) reject(error);
+          else resolve();
+        });
+      });
+    }
+  }
+);
+
+test(
+  'GET /api/social/providers/meta exposes safe Meta health without credentials',
+  async () => {
+    const socialManager = createSocialManager({
+      config: {
+        socialManagerPath: tempStore()
+      }
+    });
+
+    const metaProvider = {
+      health: async () => ({
+        provider: 'meta',
+        online: true,
+        publishingEnabled: false,
+        facebook: {
+          id: 'page-123',
+          name: 'Dripvidmedia'
+        },
+        instagram: {
+          id: 'ig-456',
+          username: 'dripvid2026',
+          mediaCount: 0
+        }
+      })
+    };
+
+    const server = createSocialServer({
+      socialManager,
+      metaProvider,
+      fallbackHandler: (req, res) => {
+        res.statusCode = 404;
+        res.end('fallback');
+      }
+    });
+
+    await new Promise((resolve) => {
+      server.listen(0, '127.0.0.1', resolve);
+    });
+
+    const address = server.address();
+    const baseUrl =
+      `http://127.0.0.1:${address.port}`;
+
+    try {
+      const response = await fetch(
+        `${baseUrl}/api/social/providers/meta`
+      );
+      const body = await response.json();
+
+      assert.equal(response.status, 200);
+      assert.equal(body.configured, true);
+      assert.equal(body.online, true);
+      assert.equal(body.facebook.name, 'Dripvidmedia');
+      assert.equal(body.instagram.username, 'dripvid2026');
+      assert.equal(body.publishingEnabled, false);
+
+      const serialized = JSON.stringify(body);
+
+      assert.doesNotMatch(
+        serialized,
+        /access[_-]?token/i
+      );
+    } finally {
+      await new Promise((resolve, reject) => {
+        server.close((error) => {
+          if (error) reject(error);
+          else resolve();
+        });
+      });
+    }
+  }
+);
+
+test(
+  'GET /api/social/providers/meta returns 503 when Meta is unavailable',
+  async () => {
+    const socialManager = createSocialManager({
+      config: {
+        socialManagerPath: tempStore()
+      }
+    });
+
+    const metaProvider = {
+      health: async () => {
+        throw new Error('Meta Graph unavailable');
+      }
+    };
+
+    const server = createSocialServer({
+      socialManager,
+      metaProvider,
+      fallbackHandler: (req, res) => {
+        res.statusCode = 404;
+        res.end('fallback');
+      }
+    });
+
+    await new Promise((resolve) => {
+      server.listen(0, '127.0.0.1', resolve);
+    });
+
+    const address = server.address();
+    const baseUrl =
+      `http://127.0.0.1:${address.port}`;
+
+    try {
+      const response = await fetch(
+        `${baseUrl}/api/social/providers/meta`
+      );
+      const body = await response.json();
+
+      assert.equal(response.status, 503);
+      assert.equal(body.provider, 'meta');
+      assert.equal(body.configured, true);
+      assert.equal(body.online, false);
+      assert.equal(body.publishingEnabled, false);
+    } finally {
+      await new Promise((resolve, reject) => {
+        server.close((error) => {
+          if (error) reject(error);
+          else resolve();
+        });
+      });
+    }
+  }
+);

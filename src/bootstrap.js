@@ -15,6 +15,10 @@ const {
   createSocialServer
 } = require('./social-http');
 
+const {
+  createMetaProvider
+} = require('./social-meta');
+
 function createSocialManagerPath(env) {
   return env.JARVIS_SOCIAL_MANAGER_PATH ||
     path.resolve(
@@ -49,14 +53,29 @@ function createJarvisServer({
       now
     });
 
+  let metaProvider = null;
+
+  if (
+    env.JARVIS_META_PAGE_ID &&
+    env.JARVIS_META_INSTAGRAM_ID &&
+    env.JARVIS_META_PAGE_TOKEN
+  ) {
+    metaProvider = createMetaProvider({
+      env,
+      fetchImpl
+    });
+  }
+
   const server = createSocialServer({
     socialManager,
+    metaProvider,
     fallbackHandler
   });
 
   return {
     runtime,
     socialManager,
+    metaProvider,
     server
   };
 }
