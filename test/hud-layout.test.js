@@ -136,3 +136,11 @@ test('HUD avoids browser-fragile APIs for core chat rendering', () => {
   assert.match(js, /window\.localStorage\.removeItem\(key\)/);
   assert.doesNotMatch(js, /[^.]localStorage\.(getItem|setItem|removeItem)\(/);
 });
+
+test('HUD defaults voice output on unless the operator explicitly disables it', () => {
+  assert.match(
+    js,
+    /let voiceEnabled\s*=\s*safeStorageGet\('jarvis-voice-output'\) !== '0';/
+  );
+  assert.match(js, /voiceEnabled \? '1' : '0'/);
+});
