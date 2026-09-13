@@ -95,20 +95,12 @@ function loadConfig(env = process.env) {
         600000
       ),
 
-    elevenLabsBaseUrl:
-      env.JARVIS_ELEVENLABS_BASE_URL ||
-      'https://api.elevenlabs.io/v1',
+    voiceBaseUrl:
+      env.JARVIS_VOICE_BASE_URL ||
+      'https://translate.google.com/translate_tts',
 
-    elevenLabsApiKey:
-      env.JARVIS_ELEVENLABS_API_KEY || '',
-
-    elevenLabsVoiceId:
-      env.JARVIS_ELEVENLABS_VOICE_ID ||
-      'onwK4e9ZLuTAKqWW03F9',
-
-    elevenLabsModel:
-      env.JARVIS_ELEVENLABS_MODEL ||
-      'eleven_turbo_v2_5',
+    voiceLang:
+      env.JARVIS_VOICE_LANG || 'en-gb',
 
     brainPath:
       env.JARVIS_BRAIN_PATH ||

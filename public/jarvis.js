@@ -541,7 +541,7 @@ function recoveryLines(deps) {
   if (deps.tts && deps.tts.status !== 'online') {
     lines.push(
       deps.tts.mode === 'browser-fallback'
-        ? 'Voice key missing — set JARVIS_ELEVENLABS_API_KEY in app/.env, then restart the app'
+        ? 'Voice offline — free online voice not configured (app/.env JARVIS_VOICE_BASE_URL)'
         : `Voice offline — ${deps.tts.error || 'provider unavailable'}`
     );
   }
@@ -591,7 +591,7 @@ function setVoiceProvider(ttsDep) {
     const missing =
       dep.status !== 'online' &&
       dep.mode === 'browser-fallback'
-        ? 'Missing server voice key — set JARVIS_ELEVENLABS_API_KEY in app/.env, then restart the app.'
+        ? 'Free online voice not configured — set JARVIS_VOICE_BASE_URL in app/.env, then restart the app.'
         : null;
 
     actionEl.textContent = missing || '';
@@ -1577,7 +1577,7 @@ function setVoiceButtonState() {
 
   if (label) {
     label.textContent = voiceEnabled
-      ? (voiceMode === 'elevenlabs'
+      ? (voiceMode !== 'browser-fallback'
           ? 'VOICE ON'
           : 'VOICE ON · BROWSER')
       : 'VOICE OFF';

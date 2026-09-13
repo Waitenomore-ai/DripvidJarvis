@@ -21,7 +21,7 @@ Default interface: http://127.0.0.1:3342/
 - OpenAI API (direct): configured via `JARVIS_OPENAI_API_KEY` / `JARVIS_OPENAI_MODEL`
 - Optional fallback agent (OpenAI-compatible): `JARVIS_FALLBACK_BASE_URL` / `JARVIS_FALLBACK_API_KEY` / `JARVIS_FALLBACK_MODEL`; used automatically when the primary provider is rate-limited or failing, with a `JARVIS_MODEL_FALLBACK_COOLDOWN_MS` cooldown. To wire in an OmniRoute-style endpoint now: set all three fallback vars to your OpenAI-compatible base URL (`.../v1`), key, and model; the router health endpoint reports `fallback.online` when the slot is usable.
 - Optional free-agent fallback chain: `JARVIS_LOCAL_FALLBACK_MODELS` as a comma-separated list of model names served by the **same** OpenAI-compatible server as the primary (e.g. local LM Studio agents `qwen/qwen3.8-27b,deepseek/deepseek-r1-0528-qwen3-8b,qwen2.5-coder-7b-instruct-abliterated`). Each model becomes an ordered fallback adapter sharing the primary base URL and key; health reports every agent in `model.fallbacks[]` (HUD shows them under ASSIST → FREE AGENT FALLBACKS). Free agents apply before the single OmniRoute slot.
-- Optional voice (ElevenLabs): `JARVIS_ELEVENLABS_API_KEY` / `JARVIS_ELEVENLABS_VOICE_ID` (default `onwK4e9ZLuTAKqWW03F9`, Daniel). Without a key the HUD uses the free browser TTS, which prefers a British male voice (e.g. `Microsoft Ryan`, `Google UK English Male`, `Daniel`) over other English voices.
+- Optional voice (free, keyless online TTS): `JARVIS_VOICE_BASE_URL` (default `https://translate.google.com/translate_tts`, a keyless endpoint) / `JARVIS_VOICE_LANG` (default `en-gb`; any Google TTS locale like `en`, `en-us`, `es`, `fr` works). No API key required. If the free provider is unreachable the HUD falls back to the browser's Web Speech synthesis, which prefers a British male voice (e.g. `Microsoft Ryan`, `Google UK English Male`, `Daniel`) over other English voices.
 
 ## Brain
 
@@ -52,7 +52,7 @@ YAML frontmatter (`title`, `tags`) is honored. Hidden folders (`.obsidian`, `.tr
 
 ## Voice
 
-With `JARVIS_ELEVENLABS_API_KEY` set, POST `/api/tts` with `{"text": "..."}` returns an mp3 for the configured voice (default: Daniel, a free british male voice). The operator's preferred voice `wDsJlOXPqcvIUKdLXjDs` requires a Creator-tier plan; set `JARVIS_ELEVENLABS_VOICE_ID` to switch. The HUD speaks replies through the API and falls back to the browser's Web Speech synthesis when ElevenLabs is unavailable. Voice output is toggled with the 🔊 button in the composer.
+POST `/api/tts` with `{"text": "..."}` returns an mp3 synthesized by the free keyless online provider (default: Google TTS in British English via `JARVIS_VOICE_LANG=en-gb`; set the lang to switch voices, or `JARVIS_VOICE_BASE_URL` to point at a compatible endpoint). Replies longer than 180 characters are split into chunks and concatenated automatically. The HUD speaks replies through the API and falls back to the browser's Web Speech synthesis when the free provider is unavailable. Voice output is toggled with the 🔊 button in the composer.
 
 ## Natural-language diagnostics
 

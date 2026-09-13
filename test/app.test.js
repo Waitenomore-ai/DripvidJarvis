@@ -91,8 +91,13 @@ test(
     );
 
     assert.equal(
-      config.elevenLabsVoiceId,
-      'onwK4e9ZLuTAKqWW03F9'
+      config.voiceLang,
+      'en-gb'
+    );
+
+    assert.equal(
+      config.voiceBaseUrl,
+      'https://translate.google.com/translate_tts'
     );
 
     assert.equal(

@@ -30,8 +30,8 @@ const {
 } = require('./adapters/router');
 
 const {
-  createElevenLabsAdapter
-} = require('./adapters/elevenlabs');
+  createFreeVoiceAdapter
+} = require('./adapters/free-voice');
 
 const {
   createBrain
@@ -480,7 +480,7 @@ function createRuntime({
     });
 
   const tts =
-    createElevenLabsAdapter({
+    createFreeVoiceAdapter({
       config,
       fetchImpl
     });
