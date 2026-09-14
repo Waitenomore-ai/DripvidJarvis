@@ -131,6 +131,23 @@ function loadConfig(env = process.env) {
         1
       ),
 
+    webSearchEnabled:
+      env.JARVIS_WEB_SEARCH_ENABLED !== 'false',
+
+    webSearchBaseUrl:
+      env.JARVIS_WEB_SEARCH_BASE_URL ||
+      'https://r.jina.ai/',
+
+    webSearchEngineUrl:
+      env.JARVIS_WEB_SEARCH_ENGINE_URL ||
+      'https://html.duckduckgo.com/html/?q=',
+
+    webSearchLimit:
+      parsePositiveInteger(
+        env.JARVIS_WEB_SEARCH_LIMIT,
+        6
+      ),
+
     brainPath:
       env.JARVIS_BRAIN_PATH ||
       path.resolve(

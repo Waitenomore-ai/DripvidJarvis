@@ -50,6 +50,15 @@ JARVIS can read and write an Obsidian markdown vault so it can remember and unde
 
 YAML frontmatter (`title`, `tags`) is honored. Hidden folders (`.obsidian`, `.trash`, `.git`) and paths outside the vault root are never accessed. Search results are bounded by `JARVIS_VAULT_SEARCH_LIMIT` (default 5) and note reads by `JARVIS_VAULT_READ_MAX_CHARS` (default 16000).
 
+## Web research
+
+JARVIS can research current or external information on the open web with two keyless read-only tools (no API key needed), routed through the free [r.jina.ai](https://r.jina.ai) text-reader proxy. Set `JARVIS_WEB_SEARCH_ENABLED=false` to disable them entirely.
+
+- `web.search` — DuckDuckGo search by query; returns ranked results as `{title, url, snippet}` (bounded by `JARVIS_WEB_SEARCH_LIMIT`, default 6).
+- `web.open` — read the readable text content of an http(s) URL, e.g. the article behind a search result.
+
+Both run through `JARVIS_WEB_SEARCH_BASE_URL` (default `https://r.jina.ai/`), which reads pages as clean text. Results are truncated by `JARVIS_MAX_TOOL_RESULT_CHARS` (default 4000) before being fed back to the model. Because these are read-only, they execute directly in the agent loop without confirmation.
+
 ## Voice
 
 Two server-side providers are supported, selected with `JARVIS_VOICE_PROVIDER`:

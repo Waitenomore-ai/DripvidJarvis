@@ -38,6 +38,10 @@ const {
 } = require('./adapters/piper-voice');
 
 const {
+  createWebSearchAdapter
+} = require('./adapters/web-search');
+
+const {
   cleanSpeechText
 } = require('./speech-text');
 
@@ -503,11 +507,20 @@ function createRuntime({
   const vault =
     createVault({ config });
 
+  const web =
+    config.webSearchEnabled
+      ? createWebSearchAdapter({
+          config,
+          fetchImpl
+        })
+      : null;
+
   const jarvis =
     createJarvis({
       config,
       dripvid,
       mcp,
+      web,
       brain,
       vault,
       model,
