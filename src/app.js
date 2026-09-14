@@ -38,6 +38,10 @@ const {
 } = require('./adapters/piper-voice');
 
 const {
+  cleanSpeechText
+} = require('./speech-text');
+
+const {
   createBrain
 } = require('./brain');
 
@@ -830,7 +834,7 @@ function createApp(options = {}) {
           try {
             const audio =
               await tts.speak(
-                body.text
+                cleanSpeechText(body.text)
               );
 
             res.statusCode = 200;

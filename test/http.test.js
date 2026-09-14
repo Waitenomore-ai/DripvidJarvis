@@ -203,6 +203,56 @@ test(
 );
 
 test(
+  'POST /api/tts strips markdown noise before speaking',
+  async () => {
+    const spoken = [];
+    const runtime = {
+      tts: {
+        speak: async (text) => {
+          spoken.push(text);
+          return {
+            contentType: 'audio/wav',
+            audio: Buffer.from('wav')
+          };
+        }
+      }
+    };
+
+    await withServer(
+      stubJarvis(),
+      async (base) => {
+        const response =
+          await fetch(
+            `${base}/api/tts`,
+            {
+              method: 'POST',
+              headers: {
+                'content-type':
+                  'application/json'
+              },
+              body: JSON.stringify({
+                text:
+                  '# **Server Status**: JARVIS is ready // online | voice ok'
+              })
+            }
+          );
+
+        assert.equal(
+          response.status,
+          200
+        );
+
+        assert.equal(
+          spoken[0],
+          'Server Status: JARVIS is ready online. voice ok'
+        );
+      },
+      runtime
+    );
+  }
+);
+
+test(
   'GET / serves the JARVIS HUD',
   async () => {
     await withServer(

@@ -157,3 +157,10 @@ test('HUD defaults voice output on unless the operator explicitly disables it', 
   );
   assert.match(js, /voiceEnabled \? '1' : '0'/);
 });
+
+test('HUD cleans markdown before browser voice output', () => {
+  assert.match(js, /function cleanSpeechTextForVoice/);
+  assert.match(js, /cleanSpeechTextForVoice\(text\)/);
+  assert.match(js, /body: JSON\.stringify\(\{ text: content \}\)/);
+  assert.match(js, /browserSpeak\(content\)/);
+});
