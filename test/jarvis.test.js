@@ -22,6 +22,8 @@ function setup({
   configOverride = {},
   mcpResult = { executed: true },
   vault = null,
+  web = null,
+  modelOverride = null,
   listResult = [],
   vaultList = []
 } = {}) {
@@ -110,7 +112,7 @@ function setup({
     })
   };
 
-  const model = {
+  const model = modelOverride || {
     health: async () => ({
       name: 'model',
       status: modelStatus
@@ -149,6 +151,7 @@ function setup({
       brain,
       vault: vaultAdapter,
       model,
+      web,
       now
     }),
     calls,
@@ -300,6 +303,68 @@ test('vault.write is queued for approval instead of executing', async () => {
     result.confirmations[0].tool,
     'vault.write'
   );
+});
+
+test('model exhausted tool rounds gets a forced summarisation round', async () => {
+  const toolCalls = [
+    {
+      name: 'web.search',
+      arguments: { query: 'free calendar sync' }
+    }
+  ];
+
+  const web = {
+    search: async (query) => ({
+      provider: 'duckduckgo',
+      query,
+      count: 1,
+      results: [
+        {
+          title: 'CalDAV',
+          url: 'https://example.com/caldav',
+          snippet: 'A free calendar sync protocol.'
+        }
+      ]
+    }),
+    open: async () => ({ content: 'page' })
+  };
+
+  const { jarvis, chats } = setup({
+    web,
+    rounds: 2,
+    maxAgentIterations: 2,
+    modelOverride: {
+      health: async () => ({ name: 'model', status: 'online' }),
+      chat: async (payload) => {
+        chats.push(payload);
+
+        const lastCall = chats.length;
+
+        // First two rounds: only tool calls, never a text reply.
+        return lastCall <= 2
+          ? {
+              message: '',
+              toolCalls,
+              needsConfirmation: false,
+              suggestedActions: []
+            }
+          : {
+              message: 'Here is the summary.',
+              toolCalls: [],
+              needsConfirmation: false,
+              suggestedActions: []
+            };
+      }
+    }
+  });
+
+  const result = await jarvis.conversation({
+    conversation: [{ role: 'user', content: 'Find free calendar sync' }]
+  });
+
+  assert.equal(result.toolResults.length, 2);
+  assert.match(result.message, /summary/i);
+  assert.ok(chats.length >= 3);
 });
 
 test('tool discovery preserves DripVid tools when MCP fails', async () => {

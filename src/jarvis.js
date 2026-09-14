@@ -1111,6 +1111,27 @@ function createJarvis({
 
     let reply = response ? response.message : '';
 
+    // If the model exhausted its tool rounds without producing a text reply,
+    // make one more call with no tools so it is forced to summarise.
+    if (
+      !reply &&
+      toolResults.length > 0 &&
+      !diagnosticMode &&
+      messages.length
+    ) {
+      try {
+        const summaryResponse = await model.chat({
+          messages,
+          tools: []
+        });
+
+        reply =
+          (summaryResponse && summaryResponse.message) || '';
+      } catch {
+        // If summarisation fails, return whatever we have.
+      }
+    }
+
     if (diagnosticMode && toolResults.length === 0) {
       reply +=
         (reply ? '\n\n' : '') +
