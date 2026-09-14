@@ -52,7 +52,12 @@ YAML frontmatter (`title`, `tags`) is honored. Hidden folders (`.obsidian`, `.tr
 
 ## Voice
 
-POST `/api/tts` with `{"text": "..."}` returns an mp3 synthesized by the free keyless online provider (default: Google TTS in British English via `JARVIS_VOICE_LANG=en-gb`; set the lang to switch voices, or `JARVIS_VOICE_BASE_URL` to point at a compatible endpoint). Replies longer than 180 characters are split into chunks and concatenated automatically. The HUD speaks replies through the API and falls back to the browser's Web Speech synthesis when the free provider is unavailable. Voice output is toggled with the 🔊 button in the composer.
+Two server-side providers are supported, selected with `JARVIS_VOICE_PROVIDER`:
+
+- `piper` (default for offline installs): fully offline, deterministic local TTS using [Piper](https://github.com/rhasspy/piper). Install on the server with `bash scripts/install-piper.sh` (downloads the platform binary plus a fixed British male voice, e.g. `en_GB-alan-medium`), then set `JARVIS_PIPER_BIN` and `JARVIS_PIPER_MODEL`. Audio is returned as `audio/wav`. The voice never changes between replies, so the spoken gender stays constant.
+- `google`: the free keyless Google Translate endpoint. It cannot pin a specific speaker and may flip voice gender between replies. Configure with `JARVIS_VOICE_BASE_URL` (default `https://translate.google.com/translate_tts`) and `JARVIS_VOICE_LANG` (default `en-gb`); returns mp3.
+
+POST `/api/tts` with `{"text": "..."}` returns the synthesized audio for the configured provider. Replies longer than 180 characters are split into chunks and concatenated automatically. The HUD speaks replies through the API and falls back to the browser's Web Speech synthesis when no provider is available/installed. Voice output is toggled with the 🔊 button in the composer.
 
 ## Natural-language diagnostics
 

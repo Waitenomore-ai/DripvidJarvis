@@ -1316,6 +1316,68 @@ const GREETING = {
   content: 'Operator interface ready.\n\nHow can I assist you today?'
 };
 
+function renderOperatorSummary(response = {}) {
+  const root = $('operatorSummaryList');
+  const meta = $('operatorSummaryMeta');
+
+  if (!root) {
+    return;
+  }
+
+  const responseToolResults = response.toolResults || [];
+  const responseConfirmations = response.confirmations || [];
+  const responseSuggestedActions = response.suggestedActions || [];
+  const rows = [];
+
+  rows.push({
+    text: `Reply ready in ${Math.round((lastReplyMs || 0) / 100) / 10}s · voice ${voiceEnabled ? 'on' : 'off'}`,
+    type: 'muted'
+  });
+
+  if (responseToolResults.length) {
+    const completed = responseToolResults.filter((result) => result && result.ok).length;
+    const failed = responseToolResults.length - completed;
+    rows.push({
+      text: `Checked ${responseToolResults.length} tool${responseToolResults.length === 1 ? '' : 's'} · ${completed} completed${failed ? ` · ${failed} needs attention` : ''}`,
+      type: failed ? 'warning' : ''
+    });
+  }
+
+  if (responseConfirmations.length) {
+    rows.push({
+      text: `${responseConfirmations.length} approval${responseConfirmations.length === 1 ? '' : 's'} waiting before Jarvis can change anything`,
+      type: 'warning'
+    });
+  }
+
+  if (responseSuggestedActions.length) {
+    rows.push({
+      text: `Next suggested action: ${responseSuggestedActions[0]}`,
+      type: ''
+    });
+  }
+
+  if (!responseToolResults.length && !responseConfirmations.length && !responseSuggestedActions.length) {
+    rows.push({
+      text: 'No tools or approvals were needed for that reply.',
+      type: 'muted'
+    });
+  }
+
+  root.innerHTML = rows
+    .map((row) =>
+      `<div class="operator-summary-item ${row.type || ''}">${escapeHtml(row.text)}</div>`
+    )
+    .join('');
+
+  if (meta) {
+    meta.textContent =
+      response.degraded
+        ? 'Reply degraded'
+        : 'Latest reply complete';
+  }
+}
+
 async function sendConversation(text) {
   conversationHistory.push({
     role: 'user',
@@ -1367,6 +1429,8 @@ async function sendConversation(text) {
   });
 
   renderChat(activeLog());
+
+  renderOperatorSummary(response);
 
   speakAnswer(message);
 

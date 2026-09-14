@@ -79,6 +79,19 @@ test('HUD surfaces probed endpoints on DripVid and MCP service cards', () => {
   assert.match(js, /setServiceDetail/);
 });
 
+test('HUD shows an operator action summary after each reply', () => {
+  assert.match(html, /id="operatorSummary"/);
+  assert.match(html, /id="operatorSummaryList"/);
+  assert.match(css, /\.operator-summary/);
+  assert.match(css, /\.operator-summary-item/);
+  assert.match(js, /function renderOperatorSummary/);
+  assert.match(js, /response\.toolResults/);
+  assert.match(js, /response\.confirmations/);
+  assert.match(js, /response\.suggestedActions/);
+  assert.match(js, /lastReplyMs/);
+  assert.match(js, /voiceEnabled/);
+});
+
 test('HUD renders inline recovery actions, assist rail, and secure voice depth', () => {
   assert.match(html, /id="recoveryList"/);
   assert.match(html, /id="secureActions"/);

@@ -233,6 +233,16 @@
               <button class="quick-action action-chip" data-prompt="Show recent service logs for dripvid">▤ &nbsp;Recent logs</button>
             </div>
 
+            <div id="operatorSummary" class="operator-summary" aria-live="polite">
+              <div class="operator-summary-head">
+                <span>OPERATOR SUMMARY</span>
+                <small id="operatorSummaryMeta">Awaiting first instruction</small>
+              </div>
+              <div id="operatorSummaryList" class="operator-summary-list">
+                <div class="operator-summary-item muted">No completed Jarvis action yet.</div>
+              </div>
+            </div>
+
             <div id="composer" class="composer">
               <button id="attachButton" class="attach-button" title="Attachments are not enabled in this release">＋</button>
               <input id="message" type="text" placeholder="Type a message or press the mic to speak..." autocomplete="off">

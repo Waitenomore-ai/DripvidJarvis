@@ -973,6 +973,58 @@ button {
   white-space: nowrap;
 }
 
+.operator-summary {
+  border: 1px solid rgba(120, 211, 255, .22);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(20, 45, 82, .74), rgba(7, 12, 24, .68));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .03);
+  padding: 10px 12px;
+  margin: 12px 0;
+}
+
+.operator-summary-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--cyan);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .12em;
+}
+
+.operator-summary-head small {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: .03em;
+  text-transform: none;
+}
+
+.operator-summary-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.operator-summary-item {
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .045);
+  color: #dce8ff;
+  font-size: 11.5px;
+  line-height: 1.35;
+  padding: 7px 9px;
+}
+
+.operator-summary-item.muted {
+  color: var(--muted);
+}
+
+.operator-summary-item.warning {
+  border-color: rgba(255, 209, 102, .35);
+  color: #ffe7a8;
+}
+
 .quick-actions {
   display: flex;
   flex-direction: column;
