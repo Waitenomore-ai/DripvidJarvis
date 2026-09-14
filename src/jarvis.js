@@ -1112,7 +1112,8 @@ function createJarvis({
     let reply = response ? response.message : '';
 
     // If the model exhausted its tool rounds without producing a text reply,
-    // make one more call with no tools so it is forced to summarise.
+    // run a bounded "finalize" phase: the model may still finish pending vault
+    // writes (vault.write / vault.reindex), and then is forced to answer.
     if (
       endedWithToolCalls &&
       toolResults.length > 0 &&
@@ -1120,15 +1121,104 @@ function createJarvis({
       messages.length
     ) {
       try {
-        const summaryResponse = await model.chat({
-          messages,
-          tools: []
-        });
+        const summaryTools = (await tools())
+          .filter((tool) =>
+            tool.source === 'vault' &&
+            ['vault.write', 'vault.reindex'].includes(tool.name)
+          )
+          .map((tool) => ({
+            type: 'function',
+            function: {
+              name: tool.name,
+              description: tool.description || '',
+              parameters: tool.inputSchema || { type: 'object', properties: {} }
+            }
+          }));
 
-        reply =
-          (summaryResponse && summaryResponse.message) || '';
+        const directive = {
+          role: 'system',
+          content:
+            'You have used all of your research/tool budget for this turn. ' +
+            'If you were asked to record findings as vault notes and you have not ' +
+            'written them yet, use vault.write to save each note now. ' +
+            'You may not call web.search or web.open again — research is over. ' +
+            'Then answer the user directly based on the tool results you already have.'
+        };
+
+        let finalConversation = [...messages, directive];
+        const maxFinalizeRounds = 3;
+
+        for (let f = 0; f < maxFinalizeRounds; f++) {
+          const finalizeResponse = await model.chat({
+            messages: finalConversation,
+            tools: summaryTools
+          });
+
+          const toolCalls =
+            (finalizeResponse && finalizeResponse.toolCalls) || [];
+
+          if (!toolCalls.length) {
+            reply =
+              (finalizeResponse && finalizeResponse.message) || reply;
+            break;
+          }
+
+          for (const call of toolCalls) {
+            const toolDefinition = summaryTools.find(
+              (t) =>
+                t.function &&
+                t.function.name === String(call.name || '')
+            );
+            if (!toolDefinition) {
+              continue;
+            }
+            const toolRecord = (await tools()).find(
+              (t) => t.name === toolDefinition.function.name
+            );
+            if (!toolRecord) {
+              continue;
+            }
+            try {
+              const result = await executeTool(
+                toolRecord,
+                call.arguments || {}
+              );
+              toolResults.push({ name: toolRecord.name, args: call.arguments || {} });
+              finalConversation.push(
+                {
+                  role: 'assistant',
+                  content: '',
+                  tool_calls: toolCalls.map((tc) => ({
+                    id: tc.id || '',
+                    type: 'function',
+                    function: {
+                      name: tc.name,
+                      arguments: JSON.stringify(tc.arguments || {})
+                    }
+                  }))
+                },
+                {
+                  role: 'tool',
+                  tool_call_id: call.id || '',
+                  content: JSON.stringify(result)
+                }
+              );
+            } catch {
+              // Skip failed vault tools in the finalize phase.
+            }
+          }
+        }
+
+        if (!reply) {
+          const forcedReply = await model.chat({
+            messages: finalConversation,
+            tools: []
+          });
+          reply =
+            (forcedReply && forcedReply.message) || reply;
+        }
       } catch {
-        // If summarisation fails, return whatever we have.
+        // If finalisation fails, return whatever we have.
       }
     }
 
