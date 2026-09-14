@@ -225,7 +225,7 @@ function loadConfig(env = process.env) {
     maxAgentIterations:
       parsePositiveInteger(
         env.JARVIS_MAX_AGENT_ITERATIONS,
-        5
+        10
       ),
 
     maxDiagnosticRounds:

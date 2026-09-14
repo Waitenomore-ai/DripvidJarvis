@@ -1209,14 +1209,17 @@ function createJarvis({
           }
         }
 
-        if (!reply) {
-          const forcedReply = await model.chat({
+                const forcedReply = await model.chat({
             messages: finalConversation,
             tools: []
           });
-          reply =
-            (forcedReply && forcedReply.message) || reply;
-        }
+
+          const forcedText =
+            (forcedReply && forcedReply.message) || '';
+
+          // If the forced answer is substantive, use it; otherwise keep whatever
+          // the finalize loop produced so far.
+          reply = forcedText || reply;
       } catch {
         // If finalisation fails, return whatever we have.
       }
