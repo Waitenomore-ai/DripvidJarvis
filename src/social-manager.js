@@ -409,6 +409,49 @@ function createSocialManager({
     return clone(campaign);
   }
 
+  function updateFacebookDraft(id, message) {
+    const text = cleanText(message);
+
+    if (!text) {
+      throw new Error(
+        'Facebook draft text is required'
+      );
+    }
+
+    return mutateCampaign(
+      id,
+      (campaign) => {
+        if (campaign.status !== 'draft') {
+          throw new Error(
+            'Only draft campaigns can be edited'
+          );
+        }
+
+        if (
+          !Array.isArray(campaign.platforms) ||
+          !campaign.platforms.includes('facebook')
+        ) {
+          throw new Error(
+            'Campaign is not configured for Facebook'
+          );
+        }
+
+        const at =
+          normalizeNow(now).toISOString();
+
+        campaign.drafts =
+          campaign.drafts || {};
+        campaign.drafts.facebook = text;
+        campaign.audit.push({
+          action: 'facebook_draft_updated',
+          at,
+          detail:
+            'Facebook draft updated by operator'
+        });
+      }
+    );
+  }
+
   function approveCampaign(id) {
     return mutateCampaign(
       id,
@@ -609,6 +652,7 @@ function createSocialManager({
     rules,
     listCampaigns,
     ingestEvent,
+    updateFacebookDraft,
     approveCampaign,
     prepareFacebookPublish,
     recordFacebookPublishSuccess,

@@ -69,6 +69,20 @@ function matchCampaignAction(pathname) {
   };
 }
 
+function matchFacebookDraft(pathname) {
+  const match = pathname.match(
+    /^\/api\/social\/campaigns\/([^/]+)\/drafts\/facebook$/
+  );
+
+  if (!match) {
+    return null;
+  }
+
+  return {
+    id: decodeURIComponent(match[1])
+  };
+}
+
 function matchFacebookPublish(pathname) {
   const match = pathname.match(
     /^\/api\/social\/campaigns\/([^/]+)\/publish\/facebook$/
@@ -196,6 +210,28 @@ function createSocialServer({
             res,
             result.created ? 201 : 200,
             result
+          );
+          return;
+        }
+
+        const facebookDraft =
+          matchFacebookDraft(
+            url.pathname
+          );
+
+        if (
+          req.method === 'PUT' &&
+          facebookDraft
+        ) {
+          const body = await readJson(req);
+
+          sendJson(
+            res,
+            200,
+            socialManager.updateFacebookDraft(
+              facebookDraft.id,
+              body.message
+            )
           );
           return;
         }
@@ -386,7 +422,7 @@ function createSocialServer({
         let statusCode = 400;
 
         if (
-          /approved before scheduling|approved before publishing|approved before recording publication|publishing already in progress/i
+          /approved before scheduling|approved before publishing|approved before recording publication|Only draft campaigns can be edited|publishing already in progress/i
             .test(message)
         ) {
           statusCode = 409;
@@ -405,7 +441,7 @@ function createSocialServer({
         ) {
           statusCode = 502;
         } else if (
-          !/Malformed JSON|body too large|Unsupported social event|Invalid campaign priority|valid scheduledAt|draft campaigns|explicit confirmation|not configured for Facebook|no Facebook draft/i
+          !/Malformed JSON|body too large|Unsupported social event|Invalid campaign priority|valid scheduledAt|draft campaigns|Facebook draft text is required|explicit confirmation|not configured for Facebook|no Facebook draft/i
             .test(message)
         ) {
           statusCode = 500;
