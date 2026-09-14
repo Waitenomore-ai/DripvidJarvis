@@ -1114,7 +1114,7 @@ function createJarvis({
     // If the model exhausted its tool rounds without producing a text reply,
     // make one more call with no tools so it is forced to summarise.
     if (
-      !reply &&
+      endedWithToolCalls &&
       toolResults.length > 0 &&
       !diagnosticMode &&
       messages.length
