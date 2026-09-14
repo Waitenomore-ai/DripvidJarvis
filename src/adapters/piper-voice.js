@@ -123,15 +123,27 @@ function createPiperVoiceAdapter({
     const outputFile =
       path.join(tempDir, 'speech.wav');
 
+    const args = [
+      '--model',
+      config.piperModel,
+      '--output_file',
+      outputFile
+    ];
+
+    if (
+      config.piperLengthScale &&
+      config.piperLengthScale !== 1
+    ) {
+      args.push(
+        '--length_scale',
+        String(config.piperLengthScale)
+      );
+    }
+
     try {
       execFileSyncImpl(
         config.piperBin || 'piper',
-        [
-          '--model',
-          config.piperModel,
-          '--output_file',
-          outputFile
-        ],
+        args,
         {
           input: content,
           env: buildEnvironment(),

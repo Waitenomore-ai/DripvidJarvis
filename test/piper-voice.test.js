@@ -31,6 +31,7 @@ function makeConfig(overrides = {}) {
     piperBin: 'piper',
     piperModel: '',
     piperVoiceId: 'en_GB-alan-medium',
+    piperLengthScale: 1,
     requestTimeoutMs: 3000,
     ...overrides
   };
@@ -158,6 +159,80 @@ test('piper voice speak exposes bundled libraries to the binary', async () => {
         expectedLibPath.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')
       )
     );
+  } finally {
+    fixture.cleanup();
+  }
+});
+
+test('piper voice speak passes length_scale when set', async () => {
+  const fixture = tempFile('voice.onnx');
+  fs.writeFileSync(fixture.file, 'model');
+  const calls = [];
+
+  try {
+    const adapter = createPiperVoiceAdapter({
+      config: makeConfig({
+        piperModel: fixture.file,
+        piperLengthScale: 0.8
+      }),
+      commandExists: () => true,
+      execFileSyncImpl(command, args, options) {
+        calls.push({ args: args.slice() });
+
+        const outputFile =
+          args[args.indexOf('--output_file') + 1];
+
+        fs.writeFileSync(
+          outputFile,
+          Buffer.from('WAVDATA')
+        );
+      }
+    });
+
+    const result =
+      await adapter.speak('Hello Jarvis');
+
+    assert.equal(result.contentType, 'audio/wav');
+    assert.ok(calls[0].args.includes('--length_scale'));
+    assert.equal(
+      calls[0].args[
+        calls[0].args.indexOf('--length_scale') + 1
+      ],
+      '0.8'
+    );
+  } finally {
+    fixture.cleanup();
+  }
+});
+
+test('piper voice speak omits length_scale at default speed', async () => {
+  const fixture = tempFile('voice.onnx');
+  fs.writeFileSync(fixture.file, 'model');
+  const calls = [];
+
+  try {
+    const adapter = createPiperVoiceAdapter({
+      config: makeConfig({
+        piperModel: fixture.file,
+        piperLengthScale: 1
+      }),
+      commandExists: () => true,
+      execFileSyncImpl(command, args, options) {
+        calls.push({ args: args.slice() });
+
+        const outputFile =
+          args[args.indexOf('--output_file') + 1];
+
+        fs.writeFileSync(
+          outputFile,
+          Buffer.from('WAVDATA')
+        );
+      }
+    });
+
+    await adapter.speak('Hello Jarvis');
+
+    assert.ok(!calls[0].args.includes('--length_scale'));
   } finally {
     fixture.cleanup();
   }

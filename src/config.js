@@ -33,6 +33,16 @@ function parseList(value) {
     .filter(Boolean);
 }
 
+function parsePositiveFloat(value, fallback) {
+  const parsed = Number.parseFloat(value);
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+
+  return parsed;
+}
+
 function loadConfig(env = process.env) {
   const dripvidBaseUrl =
     env.JARVIS_DRIPVID_BASE_URL ||
@@ -114,6 +124,12 @@ function loadConfig(env = process.env) {
     piperVoiceId:
       env.JARVIS_PIPER_VOICE_ID ||
       'en_GB-alan-medium',
+
+    piperLengthScale:
+      parsePositiveFloat(
+        env.JARVIS_PIPER_LENGTH_SCALE,
+        1
+      ),
 
     brainPath:
       env.JARVIS_BRAIN_PATH ||
