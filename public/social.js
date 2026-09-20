@@ -1,7 +1,8 @@
 'use strict';
 
 const state = {
-  campaigns: []
+  campaigns: [],
+  health: null
 };
 
 const els = {
@@ -20,7 +21,21 @@ const els = {
   statDraft: document.getElementById('statDraft'),
   statApproved: document.getElementById('statApproved'),
   statScheduled: document.getElementById('statScheduled'),
-  statTotal: document.getElementById('statTotal')
+  statTotal: document.getElementById('statTotal'),
+  automationSummary: document.getElementById('automationSummary'),
+  automationSummaryTitle: document.getElementById('automationSummaryTitle'),
+  automationSummaryText: document.getElementById('automationSummaryText'),
+  healthBadge: document.getElementById('automationHealthBadge'),
+  healthFacebook: document.getElementById('healthFacebook'),
+  healthInstagram: document.getElementById('healthInstagram'),
+  healthLedger: document.getElementById('healthLedger'),
+  healthPublished: document.getElementById('healthPublished'),
+  healthPublishing: document.getElementById('healthPublishing'),
+  healthReconciliation: document.getElementById('healthReconciliation'),
+  healthFailures: document.getElementById('healthFailures'),
+  healthBoundary: document.getElementById('healthBoundary'),
+  healthLastPublication: document.getElementById('healthLastPublication'),
+  healthMessage: document.getElementById('healthMessage')
 };
 
 async function api(url, options = {}) {
@@ -192,6 +207,263 @@ function renderCampaigns() {
   updateStats();
 }
 
+function formatHealthDate(value) {
+  if (!value) {
+    return 'Not established';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+
+  return date.toLocaleString();
+}
+
+function healthStatusLabel(status) {
+  return {
+    healthy: 'HEALTHY',
+    waiting_for_first_release: 'WAITING',
+    publishing: 'PUBLISHING',
+    attention: 'ATTENTION',
+    disabled: 'DISABLED',
+    waiting_for_activation_boundary: 'BOUNDARY REQUIRED',
+    unavailable: 'UNAVAILABLE'
+  }[status] || String(status || 'UNKNOWN').toUpperCase();
+}
+
+function renderHealth() {
+  const health = state.health;
+
+  if (!health) {
+    return;
+  }
+
+  const automatic =
+    health.automaticRelease || {};
+
+  const ledger =
+    health.ledger || {};
+
+  els.healthFacebook.textContent =
+    automatic.facebookEnabled
+      ? 'Live'
+      : 'Disabled';
+
+  els.healthInstagram.textContent =
+    automatic.instagramEnabled
+      ? 'Live'
+      : 'Disabled';
+
+  els.healthLedger.textContent =
+    String(ledger.total ?? 0);
+
+  els.healthPublished.textContent =
+    String(ledger.published ?? 0);
+
+  els.healthPublishing.textContent =
+    String(ledger.publishing ?? 0);
+
+  els.healthReconciliation.textContent =
+    String(
+      ledger.needsReconciliation ?? 0
+    );
+
+  els.healthFailures.textContent =
+    String(ledger.failed ?? 0);
+
+  els.healthBoundary.textContent =
+    formatHealthDate(
+      automatic.facebookActivationAt
+    );
+
+  if (health.lastPublication) {
+    const last =
+      health.lastPublication;
+
+    const title =
+      last.title
+        ? `${last.title} — `
+        : '';
+
+    els.healthLastPublication.textContent =
+      `${title}${formatHealthDate(last.publishedAt)}`;
+  } else if (
+    health.status ===
+    'waiting_for_first_release'
+  ) {
+    els.healthLastPublication.textContent =
+      'Waiting for first genuine new playable release';
+  } else {
+    els.healthLastPublication.textContent =
+      'None recorded';
+  }
+
+  const label =
+    healthStatusLabel(
+      health.status
+    );
+
+  els.healthBadge.textContent =
+    label;
+
+  els.healthBadge.dataset.status =
+    health.status;
+
+  els.automationSummary.dataset.status =
+    health.status;
+
+  if (
+    health.status === 'attention'
+  ) {
+    els.automationSummaryTitle.textContent =
+      'Automatic publishing needs attention';
+
+    els.automationSummaryText.textContent =
+      'A publication failure or reconciliation state requires operator review.';
+
+    els.healthMessage.textContent =
+      'Automatic publishing is not clear: review the release ledger before retrying any ambiguous publication.';
+
+    els.healthMessage.dataset.kind =
+      'error';
+
+    return;
+  }
+
+  if (
+    health.status === 'publishing'
+  ) {
+    els.automationSummaryTitle.textContent =
+      'Automatic Facebook publishing active';
+
+    els.automationSummaryText.textContent =
+      'A verified new release is currently being published.';
+
+    els.healthMessage.textContent =
+      'Publication is in progress.';
+
+    els.healthMessage.dataset.kind =
+      'success';
+
+    return;
+  }
+
+  if (
+    health.status ===
+    'waiting_for_first_release'
+  ) {
+    els.automationSummaryTitle.textContent =
+      'Automatic Facebook publishing live';
+
+    els.automationSummaryText.textContent =
+      'Protected and waiting for the first genuine new playable release.';
+
+    els.healthMessage.textContent =
+      'No automatic release has been published since activation yet.';
+
+    els.healthMessage.dataset.kind =
+      'success';
+
+    return;
+  }
+
+  if (
+    health.status === 'disabled'
+  ) {
+    els.automationSummaryTitle.textContent =
+      'Automatic Facebook publishing disabled';
+
+    els.automationSummaryText.textContent =
+      'New-release automation is currently switched off.';
+
+    els.healthMessage.textContent =
+      'Automatic release publishing is disabled.';
+
+    els.healthMessage.dataset.kind =
+      'warning';
+
+    return;
+  }
+
+  if (
+    health.status ===
+    'waiting_for_activation_boundary'
+  ) {
+    els.automationSummaryTitle.textContent =
+      'Activation boundary required';
+
+    els.automationSummaryText.textContent =
+      'Automatic publishing is fail-closed until a Facebook activation boundary exists.';
+
+    els.healthMessage.textContent =
+      'Historical-release protection is not established.';
+
+    els.healthMessage.dataset.kind =
+      'error';
+
+    return;
+  }
+
+  els.automationSummaryTitle.textContent =
+    health.healthy
+      ? 'Automatic publishing healthy'
+      : 'Automatic publishing unavailable';
+
+  els.automationSummaryText.textContent =
+    health.healthy
+      ? 'Release automation is operating normally.'
+      : 'Release automation health could not be confirmed.';
+
+  els.healthMessage.textContent =
+    health.healthy
+      ? 'No publication safety issues detected.'
+      : 'Health information is unavailable.';
+
+  els.healthMessage.dataset.kind =
+    health.healthy
+      ? 'success'
+      : 'error';
+}
+
+async function loadHealth() {
+  try {
+    state.health =
+      await api(
+        '/api/social/health'
+      );
+
+    renderHealth();
+  } catch (error) {
+    state.health = {
+      healthy: false,
+      status: 'unavailable',
+      automaticRelease: {
+        facebookEnabled: false,
+        instagramEnabled: false,
+        facebookActivationAt: null
+      },
+      ledger: {
+        total: 0,
+        published: 0,
+        publishing: 0,
+        needsReconciliation: 0,
+        failed: 0
+      },
+      lastPublication: null
+    };
+
+    renderHealth();
+
+    els.healthMessage.textContent =
+      error.message;
+
+    els.healthMessage.dataset.kind =
+      'error';
+  }
+}
+
 async function loadCampaigns() {
   const body = await api('/api/social/campaigns');
   state.campaigns = Array.isArray(body.campaigns)
@@ -252,12 +524,19 @@ els.form.addEventListener('submit', async (event) => {
 
 els.type.addEventListener('change', updateConditionalFields);
 els.refresh.addEventListener('click', () => {
-  loadCampaigns().catch((error) => {
+  Promise.all([
+    loadCampaigns(),
+    loadHealth()
+  ]).catch((error) => {
     setMessage(error.message, 'error');
   });
 });
 
 updateConditionalFields();
-loadCampaigns().catch((error) => {
+
+Promise.all([
+  loadCampaigns(),
+  loadHealth()
+]).catch((error) => {
   setMessage(error.message, 'error');
 });

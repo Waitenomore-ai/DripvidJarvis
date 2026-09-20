@@ -70,5 +70,13 @@
   {
     "text": "DripVid security: PostgreSQL and Jellyfin must not be exposed publicly; only ports 80/443 enter from the internet. Jellyfin 8096 binds localhost. JARVIS binds 127.0.0.1 only. Jellyfin admin and DripVid ADMIN_PASSWORD are separate privileged accounts.",
     "tags": ["dripvid", "security", "firewall", "ports", "network"]
+  },
+  {
+    "text": "The household is the Wightman/Waites family. Chris (born 13 Dec 1981) is husband, dad, and stepdad to Drew and Josh, and head of the house. Tania (born 3 Dec 1980) is Chris's wife. The kids are Drew (25), Josh (21), Finnlee (14), Louie (12), Eden (6), and Katie (Chris's daughter he has never met). Pets: dog Beau, cats Kenibo and Odie. The family is tech-savvy and used to stream together as The_Waites but no longer streams full-time. Treat everyone by name and respect birthdays.",
+    "tags": ["family", "household", "people", "pets", "preferences"]
+  },
+  {
+    "text": "JARVIS has keyless read-only web research tools: web.search (DuckDuckGo via the r.jina.ai text proxy) and web.open (read a page's text via r.jina.ai). Use them for current or external information instead of guessing, and to research how JARVIS could better serve the household (e.g., calendar sync, Alexa, home automation). Respect page-citation by citing the source URL.",
+    "tags": ["jarvis", "web", "search", "research", "capabilities"]
   }
 ]

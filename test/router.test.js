@@ -401,3 +401,142 @@ test(
     );
   }
 );
+test(
+  'router falls through primary and first fallback to second fallback',
+  async () => {
+    const primary = adapter({
+      provider: 'omniroute',
+      chatError: 'primary timeout'
+    });
+
+    const openai = adapter({
+      provider: 'openai',
+      chatError: 'openai unavailable'
+    });
+
+    const gemini = adapter({
+      provider: 'gemini',
+      chatResult: {
+        message: 'gemini ok',
+        toolCalls: []
+      }
+    });
+
+    const router =
+      createModelRouter({
+        primary,
+        fallbacks: [
+          openai,
+          gemini
+        ]
+      });
+
+    const result =
+      await router.chat({
+        conversation: [{
+          role: 'user',
+          content: 'hello'
+        }]
+      });
+
+    assert.equal(
+      result.message,
+      'gemini ok'
+    );
+
+    assert.equal(
+      primary.chatCalls,
+      1
+    );
+
+    assert.equal(
+      openai.chatCalls,
+      1
+    );
+
+    assert.equal(
+      gemini.chatCalls,
+      1
+    );
+  }
+);
+
+test(
+  'router skips failed primary on the next request during cooldown',
+  async () => {
+    let time = 0;
+
+    const primary = adapter({
+      provider: 'omniroute',
+      chatError: 'primary timeout'
+    });
+
+    const openai = adapter({
+      provider: 'openai',
+      chatResult: {
+        message: 'openai ok',
+        toolCalls: []
+      }
+    });
+
+    const gemini = adapter({
+      provider: 'gemini',
+      chatResult: {
+        message: 'gemini ok',
+        toolCalls: []
+      }
+    });
+
+    const router =
+      createModelRouter({
+        primary,
+        fallbacks: [
+          openai,
+          gemini
+        ],
+        cooldownMs: 600000,
+        now: () => time
+      });
+
+    const first =
+      await router.chat({
+        conversation: []
+      });
+
+    assert.equal(
+      first.message,
+      'openai ok'
+    );
+
+    assert.equal(
+      primary.chatCalls,
+      1
+    );
+
+    const second =
+      await router.chat({
+        conversation: []
+      });
+
+    assert.equal(
+      second.message,
+      'openai ok'
+    );
+
+    assert.equal(
+      primary.chatCalls,
+      1,
+      'OmniRoute must remain skipped during cooldown'
+    );
+
+    assert.equal(
+      openai.chatCalls,
+      2
+    );
+
+    assert.equal(
+      gemini.chatCalls,
+      0
+    );
+  }
+);

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>DripVid J.A.R.V.I.S. — Social Manager</title>
   <link rel="icon" type="image/svg+xml" href="dripvid-icon.svg">
-  <link rel="stylesheet" href="social.css?v=1">
+  <link rel="stylesheet" href="social.css?v=2">
 </head>
 <body>
   <header class="topbar">
@@ -26,10 +26,68 @@
         <h1>Social Manager</h1>
         <p>Create platform-specific campaigns from verified DripVid events. Every campaign requires operator approval before scheduling.</p>
       </div>
-      <div class="safety-card">
-        <strong>Publishing locked</strong>
-        <span>External social accounts are not connected in this release.</span>
+      <div class="safety-card" id="automationSummary">
+        <strong id="automationSummaryTitle">Checking automation…</strong>
+        <span id="automationSummaryText">Loading release publishing health.</span>
       </div>
+    </section>
+
+    <section class="panel automation-health" aria-labelledby="automationHealthTitle">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">AUTOMATIC RELEASE PUBLISHING</p>
+          <h2 id="automationHealthTitle">Automation Health</h2>
+        </div>
+        <span id="automationHealthBadge" class="status-badge">CHECKING</span>
+      </div>
+
+      <p class="automation-description">
+        Read-only status for automatic playable-release announcements. Manual Social Manager campaigns below remain approval-gated.
+      </p>
+
+      <div class="health-grid">
+        <article>
+          <span>Facebook</span>
+          <strong id="healthFacebook">Checking…</strong>
+        </article>
+        <article>
+          <span>Instagram</span>
+          <strong id="healthInstagram">Checking…</strong>
+        </article>
+        <article>
+          <span>Protected ledger</span>
+          <strong id="healthLedger">—</strong>
+        </article>
+        <article>
+          <span>Published</span>
+          <strong id="healthPublished">—</strong>
+        </article>
+        <article>
+          <span>Publishing now</span>
+          <strong id="healthPublishing">—</strong>
+        </article>
+        <article>
+          <span>Needs reconciliation</span>
+          <strong id="healthReconciliation">—</strong>
+        </article>
+        <article>
+          <span>Publish failures</span>
+          <strong id="healthFailures">—</strong>
+        </article>
+      </div>
+
+      <div class="health-details">
+        <div>
+          <span>Facebook activation boundary</span>
+          <strong id="healthBoundary">—</strong>
+        </div>
+        <div>
+          <span>Last automatic publication</span>
+          <strong id="healthLastPublication">—</strong>
+        </div>
+      </div>
+
+      <p id="healthMessage" class="message" role="status"></p>
     </section>
 
     <section class="stats" aria-label="Campaign summary">
@@ -124,6 +182,6 @@
     </article>
   </template>
 
-  <script src="social.js?v=1"></script>
+  <script src="social.js?v=2"></script>
 </body>
 </html>

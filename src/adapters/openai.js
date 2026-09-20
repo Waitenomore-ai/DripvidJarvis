@@ -255,7 +255,8 @@ function createOpenAiAdapter({
       }
 
       requestBody.tools = sanitizedTools;
-      requestBody.reasoning_effort = 'none';
+      requestBody.reasoning_effort =
+        config.reasoningEffort || 'none';
     }
 
     if (options.maxTokens) {

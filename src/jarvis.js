@@ -103,6 +103,7 @@ function createJarvis({
   brain,
   vault,
   model,
+  web,
   now = () => Date.now()
 }) {
   const pending = new Map();
@@ -323,11 +324,52 @@ function createJarvis({
     }
   ];
 
+  const WEB_TOOLS = [
+    {
+      name: 'web.search',
+      source: 'web',
+      description:
+        'Search the open web with DuckDuckGo and return a list of matching results (title, url, snippet). Use for current or external information that is not stored in the vault or memory.',
+      mutating: false,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: 'The web search query.'
+          }
+        },
+        required: ['query']
+      }
+    },
+    {
+      name: 'web.open',
+      source: 'web',
+      description:
+        'Open an http(s) URL and read its readable text content. Use after web.search to read the full article or page behind a result.',
+      mutating: false,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          url: {
+            type: 'string',
+            description: 'The http(s) URL to read.'
+          }
+        },
+        required: ['url']
+      }
+    }
+  ];
+
   async function tools() {
     const discovered = [...BRAIN_TOOLS];
 
     if (vault) {
       discovered.push(...VAULT_TOOLS);
+    }
+
+    if (web) {
+      discovered.push(...WEB_TOOLS);
     }
 
     discovered.push(...dripvid.listTools());
@@ -433,6 +475,18 @@ function createJarvis({
 
     if (tool.source === 'mcp') {
       return mcp.callTool(tool.name, args);
+    }
+
+    if (tool.source === 'web') {
+      if (tool.name === 'web.search') {
+        return web.search(String(args.query || ''));
+      }
+
+      if (tool.name === 'web.open') {
+        return web.open(String(args.url || ''));
+      }
+
+      throw new Error(`Unsupported web tool: ${tool.name}`);
     }
 
     throw new Error(`Unsupported tool source: ${tool.source}`);
@@ -582,6 +636,17 @@ function createJarvis({
           'After tool results arrive, explain the important findings in plain language, mention failed checks, and distinguish confirmed findings from suspected causes. ' +
           'Open with an overall verdict in plain words, for example "System health is good" or "System health needs attention". ' +
           'Then only read out what is healthy and what needs attention — never recite the full diagnostic output, port lists, capacity numbers, or raw tool results.'
+        );
+      }
+
+      if (web) {
+        systemHints.push(
+          'You have read-only web research tools: web.search finds current ' +
+          'or external information and returns results with urls, and ' +
+          'web.open reads the readable text of an http(s) page. ' +
+          'Use them when you need up-to-date or outside information that ' +
+          'is not stored in your brain or vault, and cite the source url ' +
+          'in your answer.'
         );
       }
 
@@ -1045,6 +1110,120 @@ function createJarvis({
     }
 
     let reply = response ? response.message : '';
+
+    // If the model exhausted its tool rounds without producing a text reply,
+    // run a bounded "finalize" phase: the model may still finish pending vault
+    // writes (vault.write / vault.reindex), and then is forced to answer.
+    if (
+      endedWithToolCalls &&
+      toolResults.length > 0 &&
+      !diagnosticMode &&
+      messages.length
+    ) {
+      try {
+        const summaryTools = (await tools())
+          .filter((tool) =>
+            tool.source === 'vault' &&
+            ['vault.write', 'vault.reindex'].includes(tool.name)
+          )
+          .map((tool) => ({
+            type: 'function',
+            function: {
+              name: tool.name,
+              description: tool.description || '',
+              parameters: tool.inputSchema || { type: 'object', properties: {} }
+            }
+          }));
+
+        const directive = {
+          role: 'system',
+          content:
+            'You have used all of your research/tool budget for this turn. ' +
+            'If you were asked to record findings as vault notes and you have not ' +
+            'written them yet, use vault.write to save each note now. ' +
+            'You may not call web.search or web.open again — research is over. ' +
+            'Then answer the user directly based on the tool results you already have.'
+        };
+
+        let finalConversation = [...messages, directive];
+        const maxFinalizeRounds = 3;
+
+        for (let f = 0; f < maxFinalizeRounds; f++) {
+          const finalizeResponse = await model.chat({
+            messages: finalConversation,
+            tools: summaryTools
+          });
+
+          const toolCalls =
+            (finalizeResponse && finalizeResponse.toolCalls) || [];
+
+          if (!toolCalls.length) {
+            reply =
+              (finalizeResponse && finalizeResponse.message) || reply;
+            break;
+          }
+
+          for (const call of toolCalls) {
+            const toolDefinition = summaryTools.find(
+              (t) =>
+                t.function &&
+                t.function.name === String(call.name || '')
+            );
+            if (!toolDefinition) {
+              continue;
+            }
+            const toolRecord = (await tools()).find(
+              (t) => t.name === toolDefinition.function.name
+            );
+            if (!toolRecord) {
+              continue;
+            }
+            try {
+              const result = await executeTool(
+                toolRecord,
+                call.arguments || {}
+              );
+              toolResults.push({ name: toolRecord.name, args: call.arguments || {} });
+              finalConversation.push(
+                {
+                  role: 'assistant',
+                  content: '',
+                  tool_calls: toolCalls.map((tc) => ({
+                    id: tc.id || '',
+                    type: 'function',
+                    function: {
+                      name: tc.name,
+                      arguments: JSON.stringify(tc.arguments || {})
+                    }
+                  }))
+                },
+                {
+                  role: 'tool',
+                  tool_call_id: call.id || '',
+                  content: JSON.stringify(result)
+                }
+              );
+            } catch {
+              // Skip failed vault tools in the finalize phase.
+            }
+          }
+        }
+
+                const forcedReply = await model.chat({
+            messages: finalConversation,
+            tools: []
+          });
+
+          const forcedText =
+            (forcedReply && forcedReply.message) || '';
+
+          // If the forced answer is substantive, use it; otherwise keep whatever
+          // the finalize loop produced so far.
+          reply = forcedText || reply;
+      } catch {
+        // If finalisation fails, return whatever we have.
+      }
+    }
 
     if (diagnosticMode && toolResults.length === 0) {
       reply +=

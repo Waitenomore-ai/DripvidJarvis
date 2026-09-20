@@ -94,6 +94,27 @@ function loadConfig(env = process.env) {
       env.JARVIS_FALLBACK_MODEL ||
       'gpt-5.6-luna',
 
+    geminiBaseUrl:
+      env.JARVIS_GEMINI_BASE_URL || '',
+
+    geminiApiKey:
+      env.JARVIS_GEMINI_API_KEY || '',
+
+    geminiModel:
+      env.JARVIS_GEMINI_MODEL ||
+      'gemini-3.6-flash',
+
+    groqBaseUrl:
+      env.JARVIS_GROQ_BASE_URL ||
+      'https://api.groq.com/openai/v1',
+
+    groqApiKey:
+      env.GROQ_API_KEY || '',
+
+    groqModel:
+      env.JARVIS_GROQ_MODEL ||
+      'openai/gpt-oss-120b',
+
     localFallbackModels:
       parseList(
         env.JARVIS_LOCAL_FALLBACK_MODELS
@@ -129,6 +150,23 @@ function loadConfig(env = process.env) {
       parsePositiveFloat(
         env.JARVIS_PIPER_LENGTH_SCALE,
         1
+      ),
+
+    webSearchEnabled:
+      env.JARVIS_WEB_SEARCH_ENABLED !== 'false',
+
+    webSearchBaseUrl:
+      env.JARVIS_WEB_SEARCH_BASE_URL ||
+      'https://r.jina.ai/',
+
+    webSearchEngineUrl:
+      env.JARVIS_WEB_SEARCH_ENGINE_URL ||
+      'https://html.duckduckgo.com/html/?q=',
+
+    webSearchLimit:
+      parsePositiveInteger(
+        env.JARVIS_WEB_SEARCH_LIMIT,
+        6
       ),
 
     brainPath:
@@ -205,6 +243,12 @@ function loadConfig(env = process.env) {
         30000
       ),
 
+    primaryChatTimeoutMs:
+      parsePositiveInteger(
+        env.JARVIS_PRIMARY_CHAT_TIMEOUT_MS,
+        5000
+      ),
+
     maxAgentIterations:
       parsePositiveInteger(
         env.JARVIS_MAX_AGENT_ITERATIONS,
@@ -245,6 +289,34 @@ function loadConfig(env = process.env) {
       parsePositiveInteger(
         env.JARVIS_MAX_TOOL_RESULT_CHARS,
         4000
+      ),
+
+    externalApiKey:
+      env.JARVIS_EXTERNAL_API_KEY || '',
+
+    livekitUrl:
+      env.JARVIS_LIVEKIT_URL ||
+      env.LIVEKIT_URL ||
+      '',
+
+    livekitApiKey:
+      env.JARVIS_LIVEKIT_API_KEY ||
+      env.LIVEKIT_API_KEY ||
+      '',
+
+    livekitApiSecret:
+      env.JARVIS_LIVEKIT_API_SECRET ||
+      env.LIVEKIT_API_SECRET ||
+      '',
+
+    livekitRoom:
+      env.JARVIS_LIVEKIT_ROOM ||
+      'jarvis-voice',
+
+    livekitTokenTtlSeconds:
+      parsePositiveInteger(
+        env.JARVIS_LIVEKIT_TOKEN_TTL_SECONDS,
+        3600
       )
   });
 }

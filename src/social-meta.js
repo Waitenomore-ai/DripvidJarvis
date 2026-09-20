@@ -117,7 +117,83 @@ function createMetaProvider({
     return responseBody;
   }
 
-  async function publishFacebook(message) {
+  async function graphPostMultipart(
+    pathname,
+    fields,
+    imageBuffer,
+    imageContentType
+  ) {
+    const url = new URL(
+      `${graphBase}/${pathname}`
+    );
+
+    const form = new FormData();
+
+    for (const [key, value] of
+      Object.entries(fields || {})) {
+      form.append(key, String(value));
+    }
+
+    form.append(
+      'source',
+      new Blob(
+        [imageBuffer],
+        {
+          type:
+            imageContentType ||
+            'image/jpeg'
+        }
+      ),
+      'dripvid-release-image'
+    );
+
+    const response = await fetchImpl(
+      url,
+      {
+        method: 'POST',
+        headers: {
+          authorization:
+            `Bearer ${pageToken}`
+        },
+        body: form
+      }
+    );
+
+    let responseBody;
+
+    try {
+      responseBody =
+        await response.json();
+    } catch {
+      throw new Error(
+        `Meta Graph returned invalid JSON (${response.status})`
+      );
+    }
+
+    if (
+      !response.ok ||
+      responseBody.error
+    ) {
+      const message =
+        responseBody &&
+        responseBody.error &&
+        responseBody.error.message
+          ? responseBody.error.message
+          : `Meta Graph request failed (${response.status})`;
+
+      throw new Error(message);
+    }
+
+    return responseBody;
+  }
+
+  async function publishFacebook(
+    message,
+    {
+      imageBuffer = null,
+      imageContentType = null
+    } = {}
+  ) {
     if (
       typeof message !== 'string' ||
       !message.trim()
@@ -127,18 +203,50 @@ function createMetaProvider({
       );
     }
 
-    const result = await graphPost(
-      `${pageId}/feed`,
-      {
-        message: message.trim()
-      }
-    );
+    let result;
 
     if (
-      !result ||
-      typeof result.id !== 'string' ||
-      !result.id.trim()
+      Buffer.isBuffer(
+        imageBuffer
+      ) &&
+      imageBuffer.length > 0
     ) {
+      result =
+        await graphPostMultipart(
+          `${pageId}/photos`,
+          {
+            caption:
+              message.trim(),
+            published: 'true'
+          },
+          imageBuffer,
+          imageContentType
+        );
+    } else {
+      result =
+        await graphPost(
+          `${pageId}/feed`,
+          {
+            message:
+              message.trim()
+          }
+        );
+    }
+
+    const postId =
+      result &&
+      typeof result.post_id ===
+        'string' &&
+      result.post_id.trim()
+        ? result.post_id.trim()
+        : result &&
+          typeof result.id ===
+            'string' &&
+          result.id.trim()
+          ? result.id.trim()
+          : '';
+
+    if (!postId) {
       throw new Error(
         'Meta Graph did not return a Facebook post id'
       );
@@ -148,7 +256,7 @@ function createMetaProvider({
       provider: 'meta',
       platform: 'facebook',
       pageId,
-      postId: result.id
+      postId
     };
   }
 

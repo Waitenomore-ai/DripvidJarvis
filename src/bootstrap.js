@@ -19,6 +19,10 @@ const {
   createMetaProvider
 } = require('./social-meta');
 
+const {
+  createReleaseAnnouncer
+} = require('./release-announcer');
+
 function createSocialManagerPath(env) {
   return env.JARVIS_SOCIAL_MANAGER_PATH ||
     path.resolve(
@@ -66,9 +70,27 @@ function createJarvisServer({
     });
   }
 
+  const releaseAnnouncer =
+    createReleaseAnnouncer({
+      statePath:
+        env.JARVIS_RELEASE_ANNOUNCEMENT_PATH ||
+        path.resolve(
+          __dirname,
+          '..',
+          'data',
+          'release-announcements.json'
+        ),
+      socialManager,
+      metaProvider,
+      env,
+      fetchImpl,
+      now
+    });
+
   const server = createSocialServer({
     socialManager,
     metaProvider,
+    releaseAnnouncer,
     fallbackHandler
   });
 
@@ -76,6 +98,7 @@ function createJarvisServer({
     runtime,
     socialManager,
     metaProvider,
+    releaseAnnouncer,
     server
   };
 }
