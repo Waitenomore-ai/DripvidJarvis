@@ -476,6 +476,41 @@ function createSocialManager({
     );
   }
 
+  function approveAutomationCampaign(id) {
+    return mutateCampaign(
+      id,
+      (campaign) => {
+        if (campaign.status !== 'draft') {
+          throw new Error(
+            'Only draft campaigns can be approved'
+          );
+        }
+
+        if (
+          campaign.eventType !== 'new_release' ||
+          !campaign.sourceEvent ||
+          campaign.sourceEvent.automation !==
+            'dripvid_auto_release'
+        ) {
+          throw new Error(
+            'Campaign is not a trusted automatic release'
+          );
+        }
+
+        const at =
+          normalizeNow(now).toISOString();
+
+        campaign.status = 'approved';
+        campaign.audit.push({
+          action: 'automation_approved',
+          at,
+          detail:
+            'Trusted DripVid automatic release campaign approved'
+        });
+      }
+    );
+  }
+
   function prepareFacebookPublish(id) {
     const store = readStore();
 
@@ -654,6 +689,7 @@ function createSocialManager({
     ingestEvent,
     updateFacebookDraft,
     approveCampaign,
+    approveAutomationCampaign,
     prepareFacebookPublish,
     recordFacebookPublishSuccess,
     recordFacebookPublishFailure,

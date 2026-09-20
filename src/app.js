@@ -46,6 +46,13 @@ const {
 } = require('./speech-text');
 
 const {
+  createLiveKitToken,
+  createLiveKitAdminToken,
+  sanitizeLiveKitRoomName,
+  sanitizeLiveKitIdentity
+} = require('./livekit-token');
+
+const {
   createBrain
 } = require('./brain');
 
@@ -413,6 +420,75 @@ function serveStatic(req, res) {
   return true;
 }
 
+function validateExternalApiKey(req, config) {
+  const auth = req.headers['authorization'];
+  if (!auth || !auth.startsWith('Bearer ')) return false;
+  const token = auth.slice(7);
+  if (!config.externalApiKey) return false;
+  if (token.length !== config.externalApiKey.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < token.length; i++) {
+    mismatch |= token.charCodeAt(i) ^ config.externalApiKey.charCodeAt(i);
+  }
+  return mismatch === 0;
+}
+
+
+function liveKitApiBaseUrl(url) {
+  return String(url || '')
+    .replace(/^wss:/, 'https:')
+    .replace(/^ws:/, 'http:')
+    .replace(/\/+$/, '');
+}
+
+async function dispatchLiveKitAgent(config, room) {
+  if (!config.livekitUrl) {
+    throw new Error('LiveKit URL is not configured');
+  }
+
+  const token =
+    createLiveKitAdminToken({
+      apiKey: config.livekitApiKey,
+      apiSecret: config.livekitApiSecret,
+      room
+    });
+
+  const response =
+    await fetch(
+      `${liveKitApiBaseUrl(config.livekitUrl)}/twirp/livekit.AgentDispatchService/CreateDispatch`,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${token}`,
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({
+          agent_name: 'jarvis',
+          room,
+          metadata: JSON.stringify({
+            source: 'dripvid-jarvis-page'
+          })
+        })
+      }
+    );
+
+  let body = {};
+
+  try {
+    body = await response.json();
+  } catch {}
+
+  if (!response.ok) {
+    throw new Error(
+      body.msg ||
+      body.message ||
+      `LiveKit dispatch failed (${response.status})`
+    );
+  }
+
+  return body;
+}
+
 function createRuntime({
   env = process.env,
   fetchImpl = globalThis.fetch,
@@ -434,7 +510,11 @@ function createRuntime({
 
   const primary =
     createOpenAiAdapter({
-      config,
+      config: {
+        ...config,
+        chatTimeoutMs:
+          config.primaryChatTimeoutMs
+      },
       fetchImpl
     });
 
@@ -475,6 +555,50 @@ function createRuntime({
         })
       : null;
 
+  const geminiFallback =
+    config.geminiBaseUrl &&
+    config.geminiApiKey
+      ? createOpenAiAdapter({
+          config: {
+            ...config,
+            openAiBaseUrl:
+              config.geminiBaseUrl,
+            openAiApiKey:
+              config.geminiApiKey,
+            openAiModel:
+              config.geminiModel,
+            requestTimeoutMs:
+              config.requestTimeoutMs,
+            chatTimeoutMs:
+              config.chatTimeoutMs
+          },
+          fetchImpl
+        })
+      : null;
+
+  const groqFallback =
+    config.groqBaseUrl &&
+    config.groqApiKey
+      ? createOpenAiAdapter({
+          config: {
+            ...config,
+            openAiBaseUrl:
+              config.groqBaseUrl,
+            openAiApiKey:
+              config.groqApiKey,
+            openAiModel:
+              config.groqModel,
+            reasoningEffort:
+              'low',
+            requestTimeoutMs:
+              config.requestTimeoutMs,
+            chatTimeoutMs:
+              config.chatTimeoutMs
+          },
+          fetchImpl
+        })
+      : null;
+
   const model =
     createModelRouter({
       primary,
@@ -483,6 +607,16 @@ function createRuntime({
         ...(
           remoteFallback
             ? [remoteFallback]
+            : []
+        ),
+        ...(
+          geminiFallback
+            ? [geminiFallback]
+            : []
+        ),
+        ...(
+          groqFallback
+            ? [groqFallback]
             : []
         )
       ],
@@ -530,10 +664,51 @@ function createRuntime({
   return {
     config,
     jarvis,
+    model,
     brain,
     vault,
     tts
   };
+}
+
+async function testProvider(model) {
+  try {
+    const result = await model.chat({
+      conversation: [{
+        role: 'user',
+        content: 'Reply with exactly: JARVIS_OK'
+      }]
+    });
+    return {
+      ok: true,
+      category: 'ok',
+      message: 'Provider connection succeeded.',
+      reply: String(result && result.message || '').slice(0, 120)
+    };
+  } catch (error) {
+    const raw = String(error && error.message || 'Provider request failed');
+    const match = raw.match(/HTTP\s+(\d{3})/i);
+    const status = match ? Number(match[1]) : null;
+    const category = status === 401 || status === 403
+      ? 'authentication'
+      : status === 429
+        ? 'rate_limit'
+        : status === 400 || status === 404
+          ? 'model'
+          : /timeout/i.test(raw)
+            ? 'timeout'
+            : /connect|network|fetch/i.test(raw)
+              ? 'connectivity'
+              : 'provider';
+    return {
+      ok: false,
+      category,
+      ...(status ? { status } : {}),
+      message: status
+        ? `Provider returned HTTP ${status}.`
+        : 'Provider request failed.'
+    };
+  }
 }
 
 function createApp(options = {}) {
@@ -581,7 +756,242 @@ function createApp(options = {}) {
             gatherServerMetrics()
           );
           return;
+
         }
+
+        if (
+          req.method === 'POST' &&
+          req.url === '/api/provider/test'
+        ) {
+          sendJson(
+            res,
+            200,
+            await testProvider(runtime.model)
+          );
+          return;
+
+        }
+
+        if (
+          req.method === 'POST' &&
+          req.url === '/api/livekit/dispatch'
+        ) {
+          const body =
+            await readJson(req);
+
+          const room =
+            sanitizeLiveKitRoomName(
+              body.room ||
+              runtime.config.livekitRoom
+            );
+
+          try {
+            sendJson(
+              res,
+              200,
+              {
+                room,
+                dispatch:
+                  await dispatchLiveKitAgent(
+                    runtime.config,
+                    room
+                  )
+              }
+            );
+          } catch (error) {
+            sendJson(
+              res,
+              502,
+              {
+                error:
+                  error.message ||
+                  'LiveKit dispatch failed'
+              }
+            );
+          }
+
+          return;
+        }
+
+        if (
+          req.method === 'POST' &&
+          req.url === '/api/livekit/token'
+        ) {
+          const body =
+            await readJson(req);
+
+          const room =
+            sanitizeLiveKitRoomName(
+              body.room ||
+              runtime.config.livekitRoom
+            );
+
+          const identity =
+            sanitizeLiveKitIdentity(
+              body.identity ||
+              'operator'
+            );
+
+          try {
+            sendJson(
+              res,
+              200,
+              {
+                url: runtime.config.livekitUrl,
+                room,
+                identity,
+                token:
+                  createLiveKitToken({
+                    apiKey:
+                      runtime.config.livekitApiKey,
+                    apiSecret:
+                      runtime.config.livekitApiSecret,
+                    room,
+                    identity,
+                    name:
+                      body.name ||
+                      'Operator',
+                    ttlSeconds:
+                      runtime.config.livekitTokenTtlSeconds
+                  })
+              }
+            );
+          } catch (error) {
+            sendJson(
+              res,
+              503,
+              {
+                error:
+                  error.message ||
+                  'LiveKit is not configured'
+              }
+            );
+          }
+
+          return;
+        }
+
+          if (
+            req.method === 'POST' &&
+            req.url === '/api/external/chat'
+          ) {
+            if (
+              !validateExternalApiKey(
+                req,
+                runtime.config
+              )
+            ) {
+              sendJson(
+                res,
+                401,
+                {
+                  error: 'Unauthorized'
+                }
+              );
+              return;
+            }
+
+            const body =
+              await readJson(req);
+
+            const {
+              message,
+              context,
+              conversation
+            } = body;
+
+            if (
+              !message ||
+              typeof message !== 'string'
+            ) {
+              sendJson(
+                res,
+                400,
+                {
+                  error:
+                    'Missing or invalid message'
+                }
+              );
+              return;
+            }
+
+            try {
+              const result =
+                await jarvis.conversation({
+                  conversation: (() => {
+                    const history =
+                      Array.isArray(conversation)
+                        ? conversation
+                            .filter(item =>
+                              item &&
+                              (
+                                item.role === 'user' ||
+                                item.role === 'assistant'
+                              ) &&
+                              typeof item.content === 'string' &&
+                              item.content.trim().length > 0
+                            )
+                            .slice(-19)
+                            .map(item => ({
+                              role: item.role,
+                              content:
+                                item.content
+                                  .trim()
+                                  .slice(0, 4000)
+                            }))
+                        : [];
+
+                    const latestMessage =
+                      message.trim();
+
+                    const last =
+                      history[
+                        history.length - 1
+                      ];
+
+                    if (
+                      last &&
+                      last.role === 'user' &&
+                      last.content === latestMessage
+                    ) {
+                      return history;
+                    }
+
+                    return [
+                      ...history,
+                      {
+                        role: 'user',
+                        content: latestMessage
+                      }
+                    ].slice(-20);
+                  })(),
+                  state: {
+                    externalContext:
+                      context &&
+                      typeof context === 'object'
+                        ? context
+                        : {}
+                  }
+                });
+
+              sendJson(
+                res,
+                200,
+                result
+              );
+            } catch (error) {
+              sendJson(
+                res,
+                500,
+                {
+                  error:
+                    error.message
+                }
+              );
+            }
+
+            return;
+          }
 
         if (
           req.method === 'GET' &&
@@ -861,6 +1271,7 @@ function createApp(options = {}) {
               'no-store'
             );
             res.end(audio.audio);
+
           } catch (error) {
             sendJson(
               res,
@@ -936,5 +1347,6 @@ if (require.main === module) {
 module.exports = {
   createApp,
   createRuntime,
+  testProvider,
   start
 };

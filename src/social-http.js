@@ -100,6 +100,7 @@ function matchFacebookPublish(pathname) {
 function createSocialServer({
   socialManager,
   metaProvider = null,
+  releaseAnnouncer = null,
   fallbackHandler
 }) {
   if (!socialManager) {
@@ -119,6 +120,203 @@ function createSocialServer({
         req.url,
         'http://127.0.0.1'
       );
+
+      if (
+        req.method === 'GET' &&
+        url.pathname === '/api/social/health'
+      ) {
+        if (
+          !releaseAnnouncer ||
+          typeof releaseAnnouncer.readState !==
+            'function'
+        ) {
+          res.statusCode = 503;
+          res.setHeader(
+            'content-type',
+            'application/json; charset=utf-8'
+          );
+          res.end(
+            JSON.stringify({
+              healthy: false,
+              status: 'unavailable',
+              error:
+                'Release automation health is unavailable'
+            })
+          );
+          return;
+        }
+
+        try {
+          const state =
+            releaseAnnouncer.readState() || {};
+
+          const items =
+            state.items &&
+            typeof state.items === 'object'
+              ? Object.values(state.items)
+              : [];
+
+          const counts = {
+            total: items.length,
+            baseline: 0,
+            suppressed: 0,
+            published: 0,
+            publishing: 0,
+            needsReconciliation: 0,
+            failed: 0,
+            other: 0
+          };
+
+          let lastPublication = null;
+
+          for (const item of items) {
+            const status =
+              item &&
+              typeof item.status === 'string'
+                ? item.status
+                : '';
+
+            switch (status) {
+              case 'baseline':
+                counts.baseline += 1;
+                break;
+
+              case 'suppressed':
+                counts.suppressed += 1;
+                break;
+
+              case 'published':
+                counts.published += 1;
+
+                {
+                  const publishedAt =
+                    item.publishedAt ||
+                    item.updatedAt ||
+                    null;
+
+                  if (
+                    publishedAt &&
+                    (
+                      !lastPublication ||
+                      String(publishedAt) >
+                        String(
+                          lastPublication.publishedAt
+                        )
+                    )
+                  ) {
+                    lastPublication = {
+                      publishedAt,
+                      title:
+                        item.title ||
+                        item.name ||
+                        null,
+                      postId:
+                        item.facebookPostId ||
+                        item.postId ||
+                        null
+                    };
+                  }
+                }
+
+                break;
+
+              case 'publishing':
+                counts.publishing += 1;
+                break;
+
+              case 'needs_reconciliation':
+                counts.needsReconciliation += 1;
+                break;
+
+              case 'failed':
+              case 'publish_failed':
+                counts.failed += 1;
+                break;
+
+              default:
+                counts.other += 1;
+                break;
+            }
+          }
+
+          const facebookEnabled =
+            /^(1|true|yes|on)$/i.test(
+              String(
+                process.env
+                  .JARVIS_AUTO_RELEASE_FACEBOOK_ENABLED ||
+                  ''
+              )
+            );
+
+          const instagramEnabled =
+            /^(1|true|yes|on)$/i.test(
+              String(
+                process.env
+                  .JARVIS_AUTO_RELEASE_INSTAGRAM_ENABLED ||
+                  ''
+              )
+            );
+
+          let status = 'healthy';
+
+          if (
+            counts.needsReconciliation > 0 ||
+            counts.failed > 0
+          ) {
+            status = 'attention';
+          } else if (counts.publishing > 0) {
+            status = 'publishing';
+          } else if (!facebookEnabled) {
+            status = 'disabled';
+          } else if (!state.facebookActivationAt) {
+            status = 'waiting_for_activation_boundary';
+          } else if (counts.published === 0) {
+            status = 'waiting_for_first_release';
+          }
+
+          const healthy =
+            counts.needsReconciliation === 0 &&
+            counts.failed === 0;
+
+          res.statusCode = 200;
+          res.setHeader(
+            'content-type',
+            'application/json; charset=utf-8'
+          );
+
+          res.end(
+            JSON.stringify({
+              healthy,
+              status,
+              automaticRelease: {
+                facebookEnabled,
+                instagramEnabled,
+                facebookActivationAt:
+                  state.facebookActivationAt || null
+              },
+              ledger: counts,
+              lastPublication
+            })
+          );
+
+          return;
+        } catch (error) {
+          res.statusCode = 503;
+          res.setHeader(
+            'content-type',
+            'application/json; charset=utf-8'
+          );
+          res.end(
+            JSON.stringify({
+              healthy: false,
+              status: 'unavailable',
+              error:
+                'Release automation health is unavailable'
+            })
+          );
+          return;
+        }
+      }
 
       try {
         if (
@@ -194,6 +392,54 @@ function createSocialServer({
               campaigns:
                 socialManager.listCampaigns()
             }
+          );
+          return;
+        }
+
+        if (
+          req.method === 'POST' &&
+          url.pathname === '/api/social/releases/auto'
+        ) {
+          if (!releaseAnnouncer) {
+            sendJson(
+              res,
+              503,
+              {
+                error:
+                  'Automatic release announcer is unavailable'
+              }
+            );
+            return;
+          }
+
+          if (
+            !releaseAnnouncer.isAuthorized(
+              req.headers.authorization
+            )
+          ) {
+            sendJson(
+              res,
+              401,
+              {
+                error:
+                  'Unauthorized release event'
+              }
+            );
+            return;
+          }
+
+          const body =
+            await readJson(req);
+
+          const result =
+            await releaseAnnouncer.processBatch(
+              body.items
+            );
+
+          sendJson(
+            res,
+            200,
+            result
           );
           return;
         }
