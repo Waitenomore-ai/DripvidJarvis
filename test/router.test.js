@@ -540,3 +540,55 @@ test(
     );
   }
 );
+
+
+test(
+  'router skips a free agent after it reaches the usage threshold',
+  async () => {
+    const primary = adapter({
+      provider: 'p',
+      chatResult: { message: 'primary ok', toolCalls: [] }
+    });
+    const fallback = adapter({
+      provider: 'f',
+      chatResult: { message: 'fallback ok', toolCalls: [] }
+    });
+
+    const usageBudget = {
+      calls: 0,
+      shouldSkip(name) {
+        return name === 'p' && this.calls > 0;
+      },
+      usage(name) {
+        return {
+          provider: name,
+          tokens: this.calls ? 90 : 0,
+          tokenBudget: 100,
+          percent: this.calls ? 90 : 0,
+          thresholdPercent: 90,
+          atThreshold: this.calls > 0
+        };
+      },
+      record(name) {
+        this.calls += 1;
+        return this.usage(name);
+      },
+      markSwitch() {},
+      snapshot() { return []; }
+    };
+
+    const router = createModelRouter({
+      primary,
+      fallback,
+      usageBudget
+    });
+
+    const first = await router.chat({ conversation: [] });
+    const second = await router.chat({ conversation: [] });
+
+    assert.equal(first.message, 'primary ok');
+    assert.equal(second.message, 'fallback ok');
+    assert.equal(primary.chatCalls, 1);
+    assert.equal(fallback.chatCalls, 1);
+  }
+);
