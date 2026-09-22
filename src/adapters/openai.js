@@ -143,6 +143,13 @@ function parseCompletion(body) {
   return {
     message: content,
     toolCalls,
+    usage: body && body.usage
+      ? {
+          prompt_tokens: body.usage.prompt_tokens,
+          completion_tokens: body.usage.completion_tokens,
+          total_tokens: body.usage.total_tokens
+        }
+      : null,
     needsConfirmation: false,
     suggestedActions: []
   };
@@ -316,7 +323,10 @@ function createOpenAiAdapter({
 
   return {
     health,
-    chat
+    chat,
+    routeName:
+      config.routeName ||
+      config.openAiModel
   };
 }
 

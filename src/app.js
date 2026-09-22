@@ -512,10 +512,31 @@ function createRuntime({
     createOpenAiAdapter({
       config: {
         ...config,
+        openAiBaseUrl: config.freeOnly
+          ? config.localPrimaryBaseUrl
+          : config.openAiBaseUrl,
+        openAiApiKey: config.freeOnly
+          ? config.localPrimaryApiKey
+          : config.openAiApiKey,
+        openAiModel: config.freeOnly
+          ? config.localPrimaryModel
+          : config.openAiModel,
+        routeName: config.freeOnly
+          ? config.localPrimaryModel
+          : 'primary',
         chatTimeoutMs:
           config.primaryChatTimeoutMs
       },
       fetchImpl
+    });
+
+  const usageBudget =
+    createUsageBudget({
+      budgets: config.freeAgentBudgets,
+      threshold: config.freeAgentUsageThreshold,
+      windowMs: config.freeAgentUsageWindowMs,
+      path: config.freeAgentUsagePath,
+      now
     });
 
   const localFallbacks =
@@ -524,7 +545,12 @@ function createRuntime({
         createOpenAiAdapter({
           config: {
             ...config,
+            openAiBaseUrl:
+              config.localFallbackBaseUrl,
+            openAiApiKey:
+              config.localFallbackApiKey,
             openAiModel: model,
+            routeName: model,
             requestTimeoutMs:
               config.requestTimeoutMs,
             chatTimeoutMs:
@@ -605,21 +631,34 @@ function createRuntime({
       fallbacks: [
         ...localFallbacks,
         ...(
-          remoteFallback
-            ? [remoteFallback]
-            : []
+          config.freeOnly
+            ? []
+            : (
+              remoteFallback
+                ? [remoteFallback]
+                : []
+            )
         ),
         ...(
-          geminiFallback
-            ? [geminiFallback]
-            : []
+          config.freeOnly
+            ? []
+            : (
+              geminiFallback
+                ? [geminiFallback]
+                : []
+            )
         ),
         ...(
-          groqFallback
-            ? [groqFallback]
-            : []
+          config.freeOnly
+            ? []
+            : (
+              groqFallback
+                ? [groqFallback]
+                : []
+            )
         )
       ],
+      usageBudget,
       cooldownMs:
         config.modelFallbackCooldownMs,
       now

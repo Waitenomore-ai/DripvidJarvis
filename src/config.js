@@ -43,6 +43,24 @@ function parsePositiveFloat(value, fallback) {
   return parsed;
 }
 
+function parseBudgets(value) {
+  const budgets = {};
+
+  for (const item of String(value || '').split(',')) {
+    const [rawName, rawValue] = item.split('=');
+    const name = String(rawName || '').trim();
+    const tokens = Number(rawValue);
+
+    if (!name || !Number.isFinite(tokens) || tokens <= 0) {
+      continue;
+    }
+
+    budgets[name] = Math.floor(tokens);
+  }
+
+  return budgets;
+}
+
 function loadConfig(env = process.env) {
   const dripvidBaseUrl =
     env.JARVIS_DRIPVID_BASE_URL ||
@@ -72,6 +90,62 @@ function loadConfig(env = process.env) {
 
     mcpBearer:
       env.JARVIS_MCP_BEARER || '',
+
+    freeOnly:
+      env.JARVIS_FREE_ONLY !== 'false',
+
+    localPrimaryBaseUrl:
+      env.JARVIS_LOCAL_PRIMARY_BASE_URL ||
+      'http://127.0.0.1:11434/v1',
+
+    localPrimaryApiKey:
+      env.JARVIS_LOCAL_PRIMARY_API_KEY ||
+      'ollama',
+
+    localPrimaryModel:
+      env.JARVIS_LOCAL_PRIMARY_MODEL ||
+      'qwen3.5:4b',
+
+    localFallbackBaseUrl:
+      env.JARVIS_LOCAL_FALLBACK_BASE_URL ||
+      'http://127.0.0.1:11434/v1',
+
+    localFallbackApiKey:
+      env.JARVIS_LOCAL_FALLBACK_API_KEY ||
+      'ollama',
+
+    localFallbackModels:
+      parseList(
+        env.JARVIS_LOCAL_FALLBACK_MODELS ||
+        'phi4-mini:3.8b,qwen2.5-coder:3b,llama3.2:3b'
+      ),
+
+    freeAgentUsageThreshold:
+      parsePositiveFloat(
+        env.JARVIS_FREE_AGENT_USAGE_THRESHOLD,
+        0.9
+      ),
+
+    freeAgentUsageWindowMs:
+      parsePositiveInteger(
+        env.JARVIS_FREE_AGENT_USAGE_WINDOW_MS,
+        86400000
+      ),
+
+    freeAgentUsagePath:
+      env.JARVIS_FREE_AGENT_USAGE_PATH ||
+      path.resolve(
+        __dirname,
+        '..',
+        'data',
+        'free-agent-usage.json'
+      ),
+
+    freeAgentBudgets:
+      parseBudgets(
+        env.JARVIS_FREE_AGENT_BUDGETS ||
+        'qwen3.5:4b=50000,phi4-mini:3.8b=50000,qwen2.5-coder:3b=50000,llama3.2:3b=50000'
+      ),
 
     openAiBaseUrl:
       env.JARVIS_OPENAI_BASE_URL ||

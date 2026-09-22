@@ -148,3 +148,40 @@ npm run smoke:dry                               # offline, uses test/fixtures/sm
 The timer fires at 00:20 UTC daily and skips another run if a pass already succeeded
 that day. Results go to `/opt/dripvid-jarvis/data/auto-verify.log` and
 `auto-verify.state`. CI for the repo is provided by `.github/workflows/ci.yml`.
+
+
+## Free-only agent pool
+
+JARVIS can run with **no paid model provider at all**. When `JARVIS_FREE_ONLY=true` (the default in the example configuration), the model router uses the local Ollama endpoint only.
+
+The initial free pool is:
+
+- `qwen3.5:4b` — primary general/tool-capable local model.
+- `phi4-mini:3.8b` — fallback with function-calling support.
+- `qwen2.5-coder:3b` — coding-focused fallback.
+- `llama3.2:3b` — lightweight general/tool-use fallback.
+
+The models are local Ollama models, so there is no per-request API bill. The current server is memory-constrained, so the pool intentionally uses small quantized models rather than large 8B+ models. Model pages and sizes are documented by Ollama: Qwen3.5 4B is about 3.4 GB, Phi-4-mini about 2.5 GB, Qwen2.5-Coder 3B about 1.9 GB, and Llama 3.2 3B about 2.0 GB. citeturn2search0turn1search0turn1search3turn0search5
+
+Install the pool with:
+
+```bash
+bash scripts/install-free-models.sh
+```
+
+### Automatic 90% rotation
+
+JARVIS keeps a rolling usage ledger in `data/free-agent-usage.json`. Each model has a configurable token budget. Once a model reaches `JARVIS_FREE_AGENT_USAGE_THRESHOLD` (default 90%), new requests skip that model and move to the next free model.
+
+This is a **local safety/budget guard**, not a claim about an external provider's real quota. Local Ollama itself does not expose a hosted free-tier quota. If a model fails, times out, or becomes unavailable, the same router also moves to the next model.
+
+Example:
+
+```text
+qwen3.5:4b      90% -> switch
+phi4-mini       0%  -> active
+qwen2.5-coder   0%
+llama3.2        0%
+```
+
+The usage state survives JARVIS restarts and resets after `JARVIS_FREE_AGENT_USAGE_WINDOW_MS`.
