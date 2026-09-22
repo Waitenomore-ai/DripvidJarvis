@@ -129,10 +129,11 @@ function createModelRouter({
     const candidates =
       all.filter((provider) => canUse(provider.name));
 
-    const attempt =
-      candidates.length
-        ? candidates
-        : all;
+    if (!candidates.length) {
+      throw new Error('All free model providers are unavailable, cooling down, or at their usage threshold');
+    }
+
+    const attempt = candidates;
 
     let lastError = null;
 
