@@ -30,6 +30,10 @@ const {
 } = require('./adapters/router');
 
 const {
+  createUsageBudget
+} = require('./adapters/usage-budget');
+
+const {
   createFreeVoiceAdapter
 } = require('./adapters/free-voice');
 
