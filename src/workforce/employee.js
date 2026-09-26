@@ -1,5 +1,6 @@
 'use strict';
 
+const { staticToolCatalog } = require('../jarvis');
 const { isState } = require('./state-machine');
 
 const ACTIVE_STATES = ['working', 'thinking', 'researching'];
@@ -12,6 +13,13 @@ const DEFAULT_APPROVAL_RULES = {
   spend: true,
   read: false
 };
+
+// Destructive in effect even though the tool advertises mutating:false.
+const DESTRUCTIVE_TOOLS = Object.freeze(['brain.forget']);
+
+const TOOL_BY_NAME = new Map(
+  staticToolCatalog().map((tool) => [tool.name, tool])
+);
 
 function clone(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -90,6 +98,8 @@ function canUseTool(employee, toolName) {
   );
 }
 
+// Approval resolves most-specific first, and fails closed: an action we
+// cannot positively identify as read-only requires operator approval.
 function requiresApproval(employee, action) {
   if (!employee || !employee.approvalRules) {
     return true;
@@ -97,11 +107,33 @@ function requiresApproval(employee, action) {
 
   const key = String(action || '');
 
-  return Boolean(
-    Object.prototype.hasOwnProperty.call(employee.approvalRules, key)
-      ? employee.approvalRules[key]
-      : DEFAULT_APPROVAL_RULES[key] === true
-  );
+  if (Object.prototype.hasOwnProperty.call(employee.approvalRules, key)) {
+    return Boolean(employee.approvalRules[key]);
+  }
+
+  for (const [category, required] of Object.entries(
+    DEFAULT_APPROVAL_RULES
+  )) {
+    if (category === 'read') {
+      continue;
+    }
+
+    if (key.includes(category)) {
+      return Boolean(required);
+    }
+  }
+
+  if (DESTRUCTIVE_TOOLS.includes(key)) {
+    return true;
+  }
+
+  const tool = TOOL_BY_NAME.get(key);
+
+  if (tool) {
+    return Boolean(tool.mutating);
+  }
+
+  return true;
 }
 
 function cloneEmployee(employee) {
@@ -114,5 +146,6 @@ module.exports = {
   requiresApproval,
   cloneEmployee,
   ACTIVE_STATES,
-  DEFAULT_APPROVAL_RULES
+  DEFAULT_APPROVAL_RULES,
+  DESTRUCTIVE_TOOLS
 };
