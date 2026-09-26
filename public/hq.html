@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>DripVid J.A.R.V.I.S. — Headquarters</title>
+  <link rel="icon" type="image/svg+xml" href="dripvid-icon.svg">
+  <link rel="stylesheet" href="hq.css?v=1">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <img src="dripvid-logo.svg" alt="DripVid">
+      <div>
+        <strong>J.A.R.V.I.S.</strong>
+        <span>HEADQUARTERS</span>
+      </div>
+    </a>
+
+    <div class="topbar-right">
+      <span class="conn" id="conn" data-state="connecting">connecting</span>
+      <a class="back" href="/">&larr; Dashboard</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="stats hq-grid" id="stats" aria-label="Workforce summary"></section>
+
+    <nav class="rooms" id="rooms" aria-label="Rooms"></nav>
+
+    <p class="notice" id="notice" role="status" hidden></p>
+
+    <section class="panel">
+      <h2>Workforce</h2>
+      <div class="cards" id="employees"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Tasks</h2>
+      <div id="tasks"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Approvals</h2>
+      <div id="approvals"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Activity</h2>
+      <ol class="activity" id="activity"></ol>
+    </section>
+  </main>
+
+  <script src="hq.js?v=1"></script>
+</body>
+</html>
