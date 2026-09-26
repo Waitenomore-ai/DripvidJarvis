@@ -45,7 +45,12 @@ function createTaskManager({
     return state;
   }
 
-  function create({ title, detail = '', assignee = null } = {}) {
+  function create({
+    id,
+    title,
+    detail = '',
+    assignee = null
+  } = {}) {
     const cleanTitle = String(title || '').trim();
 
     if (!cleanTitle) {
@@ -53,11 +58,16 @@ function createTaskManager({
     }
 
     const state = read();
-    const id = String(idFactory());
+    const taskId = id ? String(id) : String(idFactory());
+
+    if (state.tasks[taskId]) {
+      throw new Error(`task already exists: ${taskId}`);
+    }
+
     const at = Number(now());
 
     const task = {
-      id,
+      id: taskId,
       title: cleanTitle,
       detail: String(detail || ''),
       status: 'open',
@@ -67,11 +77,11 @@ function createTaskManager({
       history: [{ at, from: null, to: 'open', note: 'created' }]
     };
 
-    state.tasks[id] = task;
+    state.tasks[taskId] = task;
 
     store.appendActivity(state, {
       kind: 'task.created',
-      taskId: id,
+      taskId,
       title: cleanTitle
     });
 

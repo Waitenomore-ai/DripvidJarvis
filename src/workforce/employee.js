@@ -81,6 +81,9 @@ function createEmployee(input = {}) {
     ),
     state,
     currentTaskId,
+    pendingQuestion: input.pendingQuestion
+      ? String(input.pendingQuestion)
+      : null,
     updatedAt: input.updatedAt === undefined ? null : Number(input.updatedAt)
   };
 }
