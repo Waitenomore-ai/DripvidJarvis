@@ -27,27 +27,31 @@ function lastBlockQuestion(task) {
   return null;
 }
 
+// An action receives the leader for employee and task work, and the composed
+// workforce for anything that needs the handoff manager. Both are passed
+// explicitly because the leader is built inside createWorkforce.
 const ACTIONS = {
-  assign: (leader, input) =>
+  assign: (leader, _, input) =>
     leader.assign(input.taskId, {
       employeeId: input.employeeId,
       title: input.title,
       detail: input.detail
     }),
-  state: (leader, input) => leader.setState(input.employeeId, input.state),
-  block: (leader, input) =>
+  state: (leader, _, input) =>
+    leader.setState(input.employeeId, input.state),
+  block: (leader, _, input) =>
     leader.block(input.taskId, {
       employeeId: input.employeeId,
       question: input.question
     }),
-  resume: (leader, input) =>
+  resume: (leader, _, input) =>
     leader.resume(input.taskId, { employeeId: input.employeeId }),
-  alert: (leader, input) => leader.alert(input.employeeId, input.reason),
-  complete: (leader, input) =>
+  alert: (leader, _, input) => leader.alert(input.employeeId, input.reason),
+  complete: (leader, _, input) =>
     leader.complete(input.taskId, { employeeId: input.employeeId }),
-  cancel: (leader, input) =>
+  cancel: (leader, _, input) =>
     leader.cancel(input.taskId, { employeeId: input.employeeId }),
-  handoff: (workforce, input) =>
+  handoff: (_, workforce, input) =>
     workforce.handoffs.delegate({
       from: input.from,
       to: input.to,
@@ -285,7 +289,9 @@ function createWorkforce({
           throw new Error(`unknown workforce action: ${action}`);
         }
 
-        return handler(leader, input);
+        // The handoff action needs the composed service, not the leader, so
+        // the whole workforce is handed over as well.
+        return handler(leader, workforce, input);
       }
     },
     {

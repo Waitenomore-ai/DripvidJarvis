@@ -181,6 +181,40 @@ test('dispatch routes actions to the leader', () => {
   assert.equal(snapshot.tasks[0].assignee, 'penny');
 });
 
+test('dispatch reaches every advertised action', () => {
+  const { workforce } = setup();
+
+  // Each action is invoked over the same entry point the HTTP route uses, so
+  // an action that is wired up to the wrong object fails here rather than at
+  // the caller's terminal.
+  workforce.dispatch({
+    action: 'assign',
+    taskId: 't-1',
+    employeeId: 'sosh',
+    title: 'Write the brief'
+  });
+  workforce.dispatch({ action: 'state', employeeId: 'sosh', state: 'working' });
+  workforce.dispatch({
+    action: 'block',
+    taskId: 't-1',
+    employeeId: 'sosh',
+    question: 'Which format?'
+  });
+  workforce.dispatch({ action: 'resume', taskId: 't-1', employeeId: 'sosh' });
+  workforce.dispatch({ action: 'handoff', from: 'sosh', to: 'dex', taskId: 't-1', reason: 'busy' });
+  workforce.dispatch({ action: 'complete', taskId: 't-1', employeeId: 'dex' });
+
+  const snapshot = workforce.snapshot();
+  const task = snapshot.tasks[0];
+  const dex = snapshot.employees.find((e) => e.id === 'dex');
+
+  assert.equal(task.status, 'done');
+  assert.equal(task.assignee, 'dex');
+  assert.equal(dex.state, 'complete');
+  assert.equal(dex.currentTaskId, null);
+  assert.equal(snapshot.handoffs.length, 1);
+});
+
 test('the snapshot is a copy and cannot corrupt stored state', () => {
   const { workforce } = setup();
 
