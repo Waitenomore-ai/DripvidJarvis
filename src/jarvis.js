@@ -96,6 +96,211 @@ function isKnowledgeSummaryRequest(text) {
   return /(tell|show|list|recap) me what you know/.test(value);
 }
 
+const BRAIN_TOOLS = [
+  {
+    name: 'brain.remember',
+    source: 'brain',
+    description:
+      'Store a durable fact, preference, or learned detail in JARVIS memory so it can be recalled in future conversations. Use when the operator shares something worth remembering.',
+    mutating: false,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        text: {
+          type: 'string',
+          description: 'The fact or memory to store.'
+        },
+        tags: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Optional keywords to make the memory easier to find.'
+        }
+      },
+      required: ['text']
+    }
+  },
+  {
+    name: 'brain.recall',
+    source: 'brain',
+    description:
+      'Search JARVIS memory for relevant past facts, preferences, or learned details.',
+    mutating: false,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'What to search memory for.'
+        },
+        limit: {
+          type: 'number',
+          description: 'Maximum number of memories to return (default 5).'
+        }
+      },
+      required: ['query']
+    }
+  },
+  {
+    name: 'brain.forget',
+    source: 'brain',
+    description: 'Delete a memory from JARVIS by its id.',
+    mutating: false,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: {
+          type: 'string',
+          description: 'The id of the memory to delete.'
+        }
+      },
+      required: ['id']
+    }
+  }
+];
+
+const VAULT_TOOLS = [
+  {
+    name: 'vault.search',
+    source: 'vault',
+    description:
+      'Search the operator\'s Obsidian vault for notes matching a query. Use this to recall personal context, preferences, or anything the operator has written down before answering or making assumptions about them.',
+    mutating: false,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'What to search the vault for.'
+        },
+        limit: {
+          type: 'number',
+          description: 'Maximum number of notes to return (default 5).'
+        }
+      },
+      required: ['query']
+    }
+  },
+  {
+    name: 'vault.read',
+    source: 'vault',
+    description:
+      'Read the full contents of a markdown note in the operator\'s vault by its relative path. Use after vault.search when you need the complete note.',
+    mutating: false,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: {
+          type: 'string',
+          description:
+            'Relative path of the note inside the vault (for example "Projects/MyNote.md").'
+        }
+      },
+      required: ['path']
+    }
+  },
+  {
+    name: 'vault.write',
+    source: 'vault',
+    description:
+      'Create or overwrite a markdown note in the operator\'s vault. Include YAML frontmatter (title, tags) when helpful. The note becomes searchable immediately.',
+    mutating: true,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: {
+          type: 'string',
+          description:
+            'Relative path of the note inside the vault (for example "Projects/MyNote.md").'
+        },
+        content: {
+          type: 'string',
+          description: 'Full markdown content of the note.'
+        }
+      },
+      required: ['path', 'content']
+    }
+  },
+  {
+    name: 'vault.reindex',
+    source: 'vault',
+    description:
+      'Rebuild the vault search index so notes that were edited with Obsidian become searchable.',
+    mutating: false,
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      required: []
+    }
+  },
+  {
+    name: 'vault.stats',
+    source: 'vault',
+    description:
+      'Get vault statistics such as note count, index freshness, and location.',
+    mutating: false,
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      required: []
+    }
+  },
+  {
+    name: 'vault.migrate',
+    source: 'vault',
+    description:
+      'Copy all stored JARVIS memories into the operator\'s vault as markdown notes under Memories/.',
+    mutating: true,
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      required: []
+    }
+  }
+];
+
+const WEB_TOOLS = [
+  {
+    name: 'web.search',
+    source: 'web',
+    description:
+      'Search the open web with DuckDuckGo and return a list of matching results (title, url, snippet). Use for current or external information that is not stored in the vault or memory.',
+    mutating: false,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'The web search query.'
+        }
+      },
+      required: ['query']
+    }
+  },
+  {
+    name: 'web.open',
+    source: 'web',
+    description:
+      'Open an http(s) URL and read its readable text content. Use after web.search to read the full article or page behind a result.',
+    mutating: false,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        url: {
+          type: 'string',
+          description: 'The http(s) URL to read.'
+        }
+      },
+      required: ['url']
+    }
+  }
+];
+
+function staticToolCatalog() {
+  return [...BRAIN_TOOLS, ...VAULT_TOOLS, ...WEB_TOOLS].map((tool) => ({
+    ...tool
+  }));
+}
+
 function createJarvis({
   config,
   dripvid,
@@ -162,204 +367,6 @@ function createJarvis({
     };
   }
 
-  const BRAIN_TOOLS = [
-    {
-      name: 'brain.remember',
-      source: 'brain',
-      description:
-        'Store a durable fact, preference, or learned detail in JARVIS memory so it can be recalled in future conversations. Use when the operator shares something worth remembering.',
-      mutating: false,
-      inputSchema: {
-        type: 'object',
-        properties: {
-          text: {
-            type: 'string',
-            description: 'The fact or memory to store.'
-          },
-          tags: {
-            type: 'array',
-            items: { type: 'string' },
-            description: 'Optional keywords to make the memory easier to find.'
-          }
-        },
-        required: ['text']
-      }
-    },
-    {
-      name: 'brain.recall',
-      source: 'brain',
-      description:
-        'Search JARVIS memory for relevant past facts, preferences, or learned details.',
-      mutating: false,
-      inputSchema: {
-        type: 'object',
-        properties: {
-          query: {
-            type: 'string',
-            description: 'What to search memory for.'
-          },
-          limit: {
-            type: 'number',
-            description: 'Maximum number of memories to return (default 5).'
-          }
-        },
-        required: ['query']
-      }
-    },
-    {
-      name: 'brain.forget',
-      source: 'brain',
-      description: 'Delete a memory from JARVIS by its id.',
-      mutating: false,
-      inputSchema: {
-        type: 'object',
-        properties: {
-          id: {
-            type: 'string',
-            description: 'The id of the memory to delete.'
-          }
-        },
-        required: ['id']
-      }
-    }
-  ];
-
-  const VAULT_TOOLS = [
-    {
-      name: 'vault.search',
-      source: 'vault',
-      description:
-        'Search the operator\'s Obsidian vault for notes matching a query. Use this to recall personal context, preferences, or anything the operator has written down before answering or making assumptions about them.',
-      mutating: false,
-      inputSchema: {
-        type: 'object',
-        properties: {
-          query: {
-            type: 'string',
-            description: 'What to search the vault for.'
-          },
-          limit: {
-            type: 'number',
-            description: 'Maximum number of notes to return (default 5).'
-          }
-        },
-        required: ['query']
-      }
-    },
-    {
-      name: 'vault.read',
-      source: 'vault',
-      description:
-        'Read the full contents of a markdown note in the operator\'s vault by its relative path. Use after vault.search when you need the complete note.',
-      mutating: false,
-      inputSchema: {
-        type: 'object',
-        properties: {
-          path: {
-            type: 'string',
-            description:
-              'Relative path of the note inside the vault (for example "Projects/MyNote.md").'
-          }
-        },
-        required: ['path']
-      }
-    },
-    {
-      name: 'vault.write',
-      source: 'vault',
-      description:
-        'Create or overwrite a markdown note in the operator\'s vault. Include YAML frontmatter (title, tags) when helpful. The note becomes searchable immediately.',
-      mutating: true,
-      inputSchema: {
-        type: 'object',
-        properties: {
-          path: {
-            type: 'string',
-            description:
-              'Relative path of the note inside the vault (for example "Projects/MyNote.md").'
-          },
-          content: {
-            type: 'string',
-            description: 'Full markdown content of the note.'
-          }
-        },
-        required: ['path', 'content']
-      }
-    },
-    {
-      name: 'vault.reindex',
-      source: 'vault',
-      description:
-        'Rebuild the vault search index so notes that were edited with Obsidian become searchable.',
-      mutating: false,
-      inputSchema: {
-        type: 'object',
-        properties: {},
-        required: []
-      }
-    },
-    {
-      name: 'vault.stats',
-      source: 'vault',
-      description:
-        'Get vault statistics such as note count, index freshness, and location.',
-      mutating: false,
-      inputSchema: {
-        type: 'object',
-        properties: {},
-        required: []
-      }
-    },
-    {
-      name: 'vault.migrate',
-      source: 'vault',
-      description:
-        'Copy all stored JARVIS memories into the operator\'s vault as markdown notes under Memories/.',
-      mutating: true,
-      inputSchema: {
-        type: 'object',
-        properties: {},
-        required: []
-      }
-    }
-  ];
-
-  const WEB_TOOLS = [
-    {
-      name: 'web.search',
-      source: 'web',
-      description:
-        'Search the open web with DuckDuckGo and return a list of matching results (title, url, snippet). Use for current or external information that is not stored in the vault or memory.',
-      mutating: false,
-      inputSchema: {
-        type: 'object',
-        properties: {
-          query: {
-            type: 'string',
-            description: 'The web search query.'
-          }
-        },
-        required: ['query']
-      }
-    },
-    {
-      name: 'web.open',
-      source: 'web',
-      description:
-        'Open an http(s) URL and read its readable text content. Use after web.search to read the full article or page behind a result.',
-      mutating: false,
-      inputSchema: {
-        type: 'object',
-        properties: {
-          url: {
-            type: 'string',
-            description: 'The http(s) URL to read.'
-          }
-        },
-        required: ['url']
-      }
-    }
-  ];
 
   async function tools() {
     const discovered = [...BRAIN_TOOLS];
@@ -1285,5 +1292,6 @@ function createJarvis({
 }
 
 module.exports = {
-  createJarvis
+  createJarvis,
+  staticToolCatalog
 };

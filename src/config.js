@@ -296,6 +296,15 @@ function loadConfig(env = process.env) {
         16000
       ),
 
+    workforcePath:
+      env.JARVIS_WORKFORCE_PATH ||
+      path.resolve(
+        __dirname,
+        '..',
+        'data',
+        'workforce'
+      ),
+
     verifyResultPath:
       env.JARVIS_VERIFY_RESULT_PATH ||
       path.resolve(

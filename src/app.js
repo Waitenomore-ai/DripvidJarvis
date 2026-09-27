@@ -30,6 +30,10 @@ const {
 } = require('./adapters/router');
 
 const {
+  createUsageBudget
+} = require('./adapters/usage-budget');
+
+const {
   createFreeVoiceAdapter
 } = require('./adapters/free-voice');
 
@@ -63,6 +67,13 @@ const {
 const {
   createJarvis
 } = require('./jarvis');
+
+const {
+  createWorkforce
+} = require('./workforce/workforce');
+const {
+  isInternalError
+} = require('./workforce/errors');
 
 const PUBLIC_DIR =
   path.resolve(__dirname, '..', 'public');
@@ -764,6 +775,23 @@ function createApp(options = {}) {
     runtime.tts ||
     null;
 
+  let workforceInstance =
+    options.workforce ||
+    null;
+
+  function getWorkforce() {
+    if (!workforceInstance) {
+      workforceInstance =
+        createWorkforce({
+          dir:
+            runtime.config
+              .workforcePath
+        });
+    }
+
+    return workforceInstance;
+  }
+
   return http.createServer(
     async (req, res) => {
       try {
@@ -782,6 +810,72 @@ function createApp(options = {}) {
           }
 
           sendJson(res, 200, health);
+          return;
+        }
+
+        if (
+          req.method === 'GET' &&
+          req.url === '/api/workforce'
+        ) {
+          sendJson(
+            res,
+            200,
+            getWorkforce().snapshot()
+          );
+
+          return;
+        }
+
+        if (
+          req.method === 'POST' &&
+          req.url === '/api/workforce'
+        ) {
+          const body =
+            await readJson(req);
+
+          const workforce =
+            getWorkforce();
+
+          try {
+            workforce.dispatch(body);
+
+            sendJson(
+              res,
+              200,
+              workforce.snapshot()
+            );
+          } catch (error) {
+            // A rejected request is the caller's problem and is safe to
+            // describe. Anything the filesystem or the state file threw is
+            // not, and its message carries a path.
+            if (isInternalError(error)) {
+              console.error(
+                '[workforce] internal failure:',
+                error
+              );
+
+              sendJson(
+                res,
+                500,
+                {
+                  error:
+                    'workforce state is unavailable'
+                }
+              );
+
+              return;
+            }
+
+            sendJson(
+              res,
+              400,
+              {
+                error:
+                  error.message
+              }
+            );
+          }
+
           return;
         }
 
@@ -1344,6 +1438,27 @@ function createApp(options = {}) {
         const malformed =
           error.message ===
           'Malformed JSON';
+
+        // A filesystem or state-file failure is logged in full and reported
+        // without detail. Its message names real paths, and an error message
+        // is not a place to publish the server's directory layout.
+        if (isInternalError(error)) {
+          console.error(
+            '[jarvis] internal failure:',
+            error
+          );
+
+          sendJson(
+            res,
+            500,
+            {
+              error:
+                'Internal server error'
+            }
+          );
+
+          return;
+        }
 
         sendJson(
           res,
