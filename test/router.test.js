@@ -9,6 +9,7 @@ const {
 
 function adapter({
   provider,
+  routeName = null,
   status = 'online',
   chatError = null,
   chatResult = {
@@ -18,6 +19,7 @@ function adapter({
 }) {
   return {
     provider,
+    routeName,
     status,
     chatError,
     chatResult,
@@ -547,10 +549,12 @@ test(
   async () => {
     const primary = adapter({
       provider: 'p',
+      routeName: 'p',
       chatResult: { message: 'primary ok', toolCalls: [] }
     });
     const fallback = adapter({
       provider: 'f',
+      routeName: 'f',
       chatResult: { message: 'fallback ok', toolCalls: [] }
     });
 
