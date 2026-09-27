@@ -74,6 +74,12 @@ const {
 const {
   isInternalError
 } = require('./workforce/errors');
+const {
+  createWorkforceExecutor
+} = require('./workforce/executor');
+const {
+  definitionErrors
+} = require('./workforce/roster');
 
 const PUBLIC_DIR =
   path.resolve(__dirname, '..', 'public');
@@ -792,6 +798,45 @@ function createApp(options = {}) {
     return workforceInstance;
   }
 
+  // Live subscribers for the Agent Deck. Held as bare responses because the
+  // point of the stream is to push progress without a request waiting on it.
+  const streamClients = new Set();
+
+  let executorInstance =
+    options.executor ||
+    null;
+
+  function broadcast(event) {
+    if (!streamClients.size) {
+      return;
+    }
+
+    const frame =
+      `data: ${JSON.stringify(event)}\n\n`;
+
+    for (const client of streamClients) {
+      try {
+        client.write(frame);
+      } catch {
+        // A subscriber that has gone away is removed by its own close event.
+        // A browser tab closing must never be able to fail a real run.
+        streamClients.delete(client);
+      }
+    }
+  }
+
+  function getExecutor() {
+    if (!executorInstance) {
+      executorInstance = createWorkforceExecutor({
+        jarvis,
+        workforce: getWorkforce(),
+        onEvent: broadcast
+      });
+    }
+
+    return executorInstance;
+  }
+
   return http.createServer(
     async (req, res) => {
       try {
@@ -879,6 +924,137 @@ function createApp(options = {}) {
           return;
         }
 
+
+        // Live event stream for the Agent Deck. A text/event-stream response
+        // held open, so a run reports progress as it happens rather than only
+        // when it finishes.
+        if (
+          req.method === 'GET' &&
+          req.url === '/api/workforce/stream'
+        ) {
+          res.statusCode = 200;
+          res.setHeader(
+            'content-type',
+            'text/event-stream; charset=utf-8'
+          );
+          res.setHeader(
+            'cache-control',
+            'no-store'
+          );
+          res.setHeader(
+            'connection',
+            'keep-alive'
+          );
+          res.write('retry: 2000\n\n');
+
+          const executor = getExecutor();
+          const hello = {
+            type: 'stream.ready',
+            at: Date.now(),
+            snapshot: executor.snapshot(),
+            definitionErrors: definitionErrors()
+          };
+
+          res.write(`data: ${JSON.stringify(hello)}\n\n`);
+          streamClients.add(res);
+
+          req.on('close', () => {
+            streamClients.delete(res);
+          });
+
+          return;
+        }
+
+        if (
+          req.method === 'GET' &&
+          req.url === '/api/workforce/executor'
+        ) {
+          sendJson(
+            res,
+            200,
+            Object.assign(
+              getExecutor().snapshot(),
+              {
+                definitionErrors:
+                  definitionErrors()
+              }
+            )
+          );
+
+          return;
+        }
+
+        // Manual dispatch. Answered immediately with 202 because a real run
+        // takes as long as the model takes. The outcome arrives on the stream
+        // instead of holding a request open.
+        if (
+          req.method === 'POST' &&
+          req.url === '/api/workforce/run'
+        ) {
+          const body = await readJson(req);
+          const employeeId =
+            String(body.employeeId || '');
+          const employee =
+            getWorkforce().getEmployee(employeeId);
+
+          if (!employee) {
+            sendJson(res, 400, {
+              error:
+                `unknown employee: ${employeeId}`
+            });
+            return;
+          }
+
+          const taskId =
+            `task_${Date.now().toString(36)}`;
+
+          getExecutor()
+            .run({
+              taskId,
+              employeeId,
+              title: body.title,
+              detail: body.detail,
+              trigger: 'manual'
+            })
+            .catch(() => {
+              // Already published as run.failed on the stream. Swallowing it
+              // here stops a failed run becoming an unhandled rejection that
+              // could take the process down.
+            });
+
+          sendJson(res, 202, {
+            accepted: true,
+            taskId,
+            employeeId,
+            name: employee.name
+          });
+
+          return;
+        }
+
+        if (
+          req.method === 'POST' &&
+          req.url === '/api/workforce/auto'
+        ) {
+          const body = await readJson(req);
+
+          const enabled =
+            getExecutor().setAutoDelegate(
+              Boolean(body.enabled)
+            );
+
+          broadcast({
+            type: 'auto-delegate',
+            enabled,
+            at: Date.now()
+          });
+
+          sendJson(res, 200, {
+            autoDelegate: enabled
+          });
+
+          return;
+        }
         if (
           req.method === 'GET' &&
           req.url === '/api/metrics'
