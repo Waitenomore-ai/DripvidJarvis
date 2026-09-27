@@ -584,7 +584,11 @@ function createJarvis({
     // Present when this turn runs as a delegated employee. Null means the
     // operator is driving.
     toolAllowlist = null,
-    employeeId = null
+    employeeId = null,
+    // Standing instructions for a delegated employee. Placed ahead of the
+    // operator hints so the employee's own persona wins rather than being
+    // buried underneath the operator-facing system prompts.
+    systemPrompt = null
   } = {}) {
     const availableTools = await tools();
     const messages = Array.isArray(conversation)
@@ -772,6 +776,15 @@ function createJarvis({
             content: hint
           }))
         );
+      }
+
+      // Unshifted last so it ends up first in the outbound list, ahead of
+      // the operator hints.
+      if (typeof systemPrompt === 'string' && systemPrompt.trim()) {
+        outboundConversation.unshift({
+          role: 'system',
+          content: systemPrompt.trim()
+        });
       }
 
       return {
