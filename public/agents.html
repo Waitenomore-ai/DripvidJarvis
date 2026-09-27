@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>JARVIS Agent Deck</title>
+  <link rel="icon" type="image/svg+xml" href="dripvid-icon.svg">
+  <link rel="stylesheet" href="agents.css?v=1">
+</head>
+<body>
+  <div class="deck-frame">
+    <div class="corner topleft"></div>
+    <div class="corner topright"></div>
+    <div class="corner bottomleft"></div>
+    <div class="corner bottomright"></div>
+
+    <header class="deck-topbar">
+      <a class="brand" href="index.html">
+        <img src="dripvid-logo.svg" alt="DripVid">
+        <div>
+          <strong>J.A.R.V.I.S.</strong>
+          <span>AGENT COMMAND DECK</span>
+        </div>
+      </a>
+      <div class="deck-status">
+        <span class="sys-status" id="sysStatus"><i></i>Scanning…</span>
+        <span class="clock" id="deckClock">--:--:--</span>
+        <a class="exit" href="index.html">✕ Exit deck</a>
+      </div>
+    </header>
+
+    <main class="deck-body">
+      <section class="core-section" aria-label="Core status">
+        <div class="core-radar" id="coreRadar">
+          <div class="radar-sweep"></div>
+          <div class="radar-ring r1"></div>
+          <div class="radar-ring r2"></div>
+          <div class="radar-ring r3"></div>
+          <div class="radar-core">
+            <span class="core-eye">◉</span>
+            <strong>JARVIS</strong>
+            <small id="coreState">LINKING…</small>
+          </div>
+          <span class="radar-node node-brain" data-agent="brain"><i></i><b>BRAIN</b></span>
+          <span class="radar-node node-vault" data-agent="vault"><i></i><b>VAULT</b></span>
+          <span class="radar-node node-model" data-agent="model"><i></i><b>MODEL</b></span>
+          <span class="radar-node node-mcp" data-agent="mcp"><i></i><b>MCP</b></span>
+          <span class="radar-node node-dripvid" data-agent="dripvid"><i></i><b>DRIPVID</b></span>
+          <span class="radar-node node-voice" data-agent="voice"><i></i><b>VOICE</b></span>
+          <span class="radar-node node-web" data-agent="web"><i></i><b>WEB</b></span>
+        </div>
+        <p class="core-caption">LIVE AGENT ORBITAL · polls reflect real subsystem state</p>
+      </section>
+
+      <section class="agents-grid" id="agentsGrid" aria-label="Agent units"></section>
+
+      <section class="ops-row">
+        <section class="panel ops-log-panel" aria-labelledby="opsTitle">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">OPERATIONS FEED</p>
+              <h2 id="opsTitle">Live Agent Activity</h2>
+            </div>
+            <span class="live-badge"><i></i>LIVE</span>
+          </div>
+          <div id="opsLog" class="ops-log">
+            <p class="muted">Intercepting agent telemetry…</p>
+          </div>
+        </section>
+
+        <section class="panel mission-panel" aria-labelledby="missionTitle">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">APPROVAL GATE</p>
+              <h2 id="missionTitle">Pending Missions</h2>
+            </div>
+            <button id="refreshMissions" class="ghost-btn" type="button">Refresh</button>
+          </div>
+          <div id="missionQueue" class="mission-queue">
+            <p class="muted">No pending confirmations.</p>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script src="agents.js?v=1"></script>
+</body>
+</html>
