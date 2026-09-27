@@ -63,9 +63,17 @@ log "auto-verify started"
 
 if [ -f "$STATE" ]; then
   DONE="$(cut -d' ' -f1 "$STATE" 2>/dev/null || true)"
-  if [ "$DONE" = "$TODAY" ]; then
-    log "already completed today; exiting"
+  # The marker only counts if the run it came from actually passed. A marker
+  # written by a failed run would otherwise make every later attempt today
+  # exit 0 without verifying anything, which is how a single failure turned
+  # into a silent all-day skip.
+  DONE_STATUS="$(sed -n 's/.*"status":"\([a-z]*\)".*/\1/p' "$RESULT" 2>/dev/null || true)"
+  if [ "$DONE" = "$TODAY" ] && [ "$DONE_STATUS" = "ok" ]; then
+    log "already completed successfully today; exiting"
     exit 0
+  fi
+  if [ "$DONE" = "$TODAY" ]; then
+    log "last run today did not pass (status=$DONE_STATUS); verifying again"
   fi
 fi
 
@@ -90,7 +98,8 @@ done
 
 if [ "$DEGRADED" = "true" ]; then
   log "STILL DEGRADED after $ATTEMPTS attempts; aborting"
-  stamp_done
+  # No stamp_done here. The marker means "passed today", so stamping it on
+  # failure is what stops the next attempt from retrying.
   write_result "failed" "$ATTEMPTS" "\"chat\":false"
   notify "JARVIS auto-verify FAILED: still degraded after $ATTEMPTS attempts"
   exit 1
@@ -139,7 +148,6 @@ if printf '%s' "$RECALL_RESP" | grep -q '"degraded"[[:space:]]*:[[:space:]]*true
   log "recall leg degraded"
   write_result "failed" "$ATTEMPTS" "\"chat\":true,\"tool\":$TOOL_OK,\"teach\":\"$TEACH_OK\",\"vault\":$VAULT_OK,\"recall\":false"
   notify "JARVIS auto-verify FAILED: recall leg degraded"
-  stamp_done
   exit 1
 fi
 RECALL_OK="true"
