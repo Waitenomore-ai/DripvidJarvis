@@ -293,11 +293,101 @@ test('prototype keys are not real tasks', () => {
     'hasOwnProperty'
   ]) {
     assert.equal(
-      ctx.workforce.tasks.get(key),
+      ctx.workforce.getTask(key),
       null,
       `${key} must not resolve to a task`
     );
   }
+});
+
+test('the workforce cannot be used to bypass the leader', () => {
+  const ctx = setup();
+
+  // Every write has to go through the leader, because the leader is what
+  // checks ownership, validates the transition and writes the activity
+  // record. Handing out the registry or the task manager would let a caller
+  // skip all three.
+  for (const internal of [
+    'registry',
+    'tasks',
+    'store',
+    'leader',
+    'handoffs'
+  ]) {
+    assert.equal(
+      ctx.workforce[internal],
+      undefined,
+      `${internal} must not be reachable from outside`
+    );
+  }
+
+  assert.throws(
+    () => {
+      ctx.workforce.sneaky = true;
+    },
+    TypeError
+  );
+
+  assert.equal(ctx.workforce.sneaky, undefined);
+});
+
+test('a read through the workforce is a copy', () => {
+  const ctx = setup();
+
+  ctx.workforce.assign('t-1', {
+    employeeId: 'scout',
+    title: 'Research'
+  });
+
+  const task = ctx.workforce.getTask('t-1');
+  const employee = ctx.workforce.getEmployee('scout');
+
+  task.status = 'done';
+  task.title = 'Rewritten';
+  employee.state = 'complete';
+  employee.toolAllowlist.push('vault.migrate');
+
+  const after = ctx.workforce.snapshot();
+
+  assert.equal(
+    after.tasks[0].status,
+    'in-progress'
+  );
+  assert.equal(
+    after.tasks[0].title,
+    'Research'
+  );
+  assert.equal(
+    after.employees.find((e) => e.id === 'scout').state,
+    'thinking'
+  );
+  assert.equal(
+    after.employees.some((e) => e.toolAllowlist.includes('vault.migrate')),
+    false
+  );
+});
+
+test('a settled task cannot be reopened through the service', () => {
+  const ctx = setup();
+
+  ctx.workforce.assign('t-1', {
+    employeeId: 'scout',
+    title: 'Research'
+  });
+  ctx.workforce.complete('t-1', { employeeId: 'scout' });
+
+  // Scout is complete and holds nothing, so re-assigning is refused rather
+  // than quietly producing a second active task.
+  assert.throws(
+    () =>
+      ctx.workforce.assign('t-1', {
+        employeeId: 'scout',
+        title: 'Research'
+      }),
+    /cannot assign a task that is done/
+  );
+
+  assert.equal(ctx.workforce.snapshot().activeTasks, 0);
 });
 
 test('prototype keys cannot be assigned', () => {

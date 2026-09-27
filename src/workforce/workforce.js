@@ -27,9 +27,9 @@ function lastBlockQuestion(task) {
   return null;
 }
 
-// An action receives the leader for employee and task work, and the composed
-// workforce for anything that needs the handoff manager. Both are passed
-// explicitly because the leader is built inside createWorkforce.
+// An action receives the leader for employee and task work, and the handoff
+// manager for anything that moves work between employees. Both are passed in
+// because the leader is built inside createWorkforce.
 const ACTIONS = {
   assign: (leader, _, input) =>
     leader.assign(input.taskId, {
@@ -51,8 +51,8 @@ const ACTIONS = {
     leader.complete(input.taskId, { employeeId: input.employeeId }),
   cancel: (leader, _, input) =>
     leader.cancel(input.taskId, { employeeId: input.employeeId }),
-  handoff: (_, workforce, input) =>
-    workforce.handoffs.delegate({
+  handoff: (_, handoffs, input) =>
+    handoffs.delegate({
       from: input.from,
       to: input.to,
       taskId: input.taskId,
@@ -269,41 +269,54 @@ function createWorkforce({
     store.write(state);
   }
 
-  const workforce = Object.assign(
-    {
-      store,
-      registry,
-      tasks,
-      handoffs,
-      leader,
+  // The registry, the task manager and the store are the leader's business.
+  // Exposing them would let any caller move an employee or rewrite a task
+  // without the leader's transition checks, the ownership check, or the
+  // activity record, which is exactly the bypass the design is meant to
+  // prevent. Reads are offered as copies; every write goes through the leader.
+  const workforce = Object.freeze(
+    Object.assign(
+      {
+        snapshot() {
+          return leader.snapshot();
+        },
 
-      snapshot() {
-        return leader.snapshot();
-      },
+        getTask(id) {
+          return tasks.get(id);
+        },
 
-      dispatch(input = {}) {
-        const action = String(input.action || '');
-        const handler = ACTIONS[action];
+        getEmployee(id) {
+          const employee = registry.get(id);
 
-        if (!handler) {
-          throw new Error(`unknown workforce action: ${action}`);
+          return employee
+            ? { ...employee, toolAllowlist: [...employee.toolAllowlist] }
+            : null;
+        },
+
+        dispatch(input = {}) {
+          const action = String(input.action || '');
+          const handler = ACTIONS[action];
+
+          if (!handler) {
+            throw new Error(`unknown workforce action: ${action}`);
+          }
+
+          // The handoff action needs the handoff manager rather than the
+          // leader, so it is passed in beside it.
+          return handler(leader, handoffs, input);
         }
-
-        // The handoff action needs the composed service, not the leader, so
-        // the whole workforce is handed over as well.
-        return handler(leader, workforce, input);
+      },
+      {
+        handoff: (input) => handoffs.delegate(input),
+        assign: leader.assign,
+        setState: leader.setState,
+        block: leader.block,
+        resume: leader.resume,
+        alert: leader.alert,
+        complete: leader.complete,
+        cancel: leader.cancel
       }
-    },
-    {
-      handoff: (input) => handoffs.delegate(input),
-      assign: leader.assign,
-      setState: leader.setState,
-      block: leader.block,
-      resume: leader.resume,
-      alert: leader.alert,
-      complete: leader.complete,
-      cancel: leader.cancel
-    }
+    )
   );
 
   // Persist the hydrated roster immediately so a fresh install is on disk and
