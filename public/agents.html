@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>JARVIS Agent Deck</title>
   <link rel="icon" type="image/svg+xml" href="dripvid-icon.svg">
-  <link rel="stylesheet" href="agents.css?v=1">
+  <link rel="stylesheet" href="agents.css?v=2">
 </head>
 <body>
   <div class="deck-frame">
@@ -23,36 +23,46 @@
         </div>
       </a>
       <div class="deck-status">
-        <span class="sys-status" id="sysStatus"><i></i>Scanning…</span>
+        <span class="sys-status" id="sysStatus"><i></i>Linking</span>
         <span class="clock" id="deckClock">--:--:--</span>
-        <a class="exit" href="index.html">✕ Exit deck</a>
+        <a class="exit" href="index.html">Exit deck</a>
       </div>
     </header>
 
     <main class="deck-body">
-      <section class="core-section" aria-label="Core status">
-        <div class="core-radar" id="coreRadar">
-          <div class="radar-sweep"></div>
-          <div class="radar-ring r1"></div>
-          <div class="radar-ring r2"></div>
-          <div class="radar-ring r3"></div>
-          <div class="radar-core">
-            <span class="core-eye">◉</span>
-            <strong>JARVIS</strong>
-            <small id="coreState">LINKING…</small>
-          </div>
-          <span class="radar-node node-brain" data-agent="brain"><i></i><b>BRAIN</b></span>
-          <span class="radar-node node-vault" data-agent="vault"><i></i><b>VAULT</b></span>
-          <span class="radar-node node-model" data-agent="model"><i></i><b>MODEL</b></span>
-          <span class="radar-node node-mcp" data-agent="mcp"><i></i><b>MCP</b></span>
-          <span class="radar-node node-dripvid" data-agent="dripvid"><i></i><b>DRIPVID</b></span>
-          <span class="radar-node node-voice" data-agent="voice"><i></i><b>VOICE</b></span>
-          <span class="radar-node node-web" data-agent="web"><i></i><b>WEB</b></span>
+      <section class="control-deck" aria-label="Dispatch controls">
+        <div class="control-block">
+          <p class="eyebrow">AUTO DELEGATION</p>
+          <label class="switch">
+            <input type="checkbox" id="autoDelegate">
+            <span class="switch-track" aria-hidden="true"><span class="switch-knob"></span></span>
+            <span class="switch-label" id="autoLabel">Off - dispatch by hand</span>
+          </label>
         </div>
-        <p class="core-caption">LIVE AGENT ORBITAL · polls reflect real subsystem state</p>
+
+        <form class="dispatch-form" id="dispatchForm">
+          <p class="eyebrow">MANUAL DISPATCH</p>
+          <div class="dispatch-row">
+            <label class="field">
+              <span>Agent</span>
+              <select id="dispatchEmployee" required></select>
+            </label>
+            <label class="field grow">
+              <span>Task</span>
+              <input id="dispatchTitle" type="text" maxlength="120" required placeholder="Draft the release notes">
+            </label>
+            <label class="field grow">
+              <span>Detail</span>
+              <input id="dispatchDetail" type="text" maxlength="600" placeholder="Anything the agent should know">
+            </label>
+            <button class="ghost-btn dispatch-btn" type="submit" id="dispatchBtn">Dispatch</button>
+          </div>
+        </form>
       </section>
 
-      <section class="agents-grid" id="agentsGrid" aria-label="Agent units"></section>
+      <section class="defect-banner" id="defectBanner" hidden aria-live="polite"></section>
+
+      <section class="agents-grid" id="agentsGrid" aria-label="Agents"></section>
 
       <section class="ops-row">
         <section class="panel ops-log-panel" aria-labelledby="opsTitle">
@@ -64,7 +74,7 @@
             <span class="live-badge"><i></i>LIVE</span>
           </div>
           <div id="opsLog" class="ops-log">
-            <p class="muted">Intercepting agent telemetry…</p>
+            <p class="muted">Waiting for the first event.</p>
           </div>
         </section>
 
@@ -84,6 +94,6 @@
     </main>
   </div>
 
-  <script src="agents.js?v=1"></script>
+  <script src="agents.js?v=2"></script>
 </body>
 </html>

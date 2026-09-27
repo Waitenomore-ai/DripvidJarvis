@@ -210,18 +210,30 @@ function createWorkforceExecutor({
     const trigger = String(input.trigger || 'manual');
 
     inFlight.set(employeeId, taskId);
-    emit({
-      type: 'run.started',
-      employeeId,
-      taskId,
-      title,
-      trigger,
-      name: employee.name
-    });
 
     try {
       workforce.assign(taskId, { employeeId, title, detail });
-      emit({ type: 'task.assigned', employeeId, taskId, title });
+
+      // The task has to exist before anyone can watch it run, so the
+      // assignment is announced first. Emitting run.started first meant a
+      // subscriber saw a run for a task it had not been told about yet.
+      emit({
+        type: 'task.assigned',
+        employeeId,
+        taskId,
+        title,
+        trigger,
+        name: employee.name
+      });
+
+      emit({
+        type: 'run.started',
+        employeeId,
+        taskId,
+        title,
+        trigger,
+        name: employee.name
+      });
 
       setState(employeeId, taskId, 'thinking');
       setState(employeeId, taskId, 'working');

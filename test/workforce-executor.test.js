@@ -289,3 +289,61 @@ test('the employee prompt reaches the model ahead of the operator hints', async 
   assert.equal(first.role, 'system');
   assert.equal(first.content, 'You are Sosh. Never speak as JARVIS.');
 });
+
+test('a subscriber is told about the task before the run starts', async () => {
+  const { executor, events } = setup();
+
+  await executor.run({
+    employeeId: 'scout',
+    title: 'Research the new model releases',
+    trigger: 'manual'
+  });
+
+  const types = events.map((event) => event.type);
+  const assigned = types.indexOf('task.assigned');
+  const started = types.indexOf('run.started');
+
+  assert.ok(assigned !== -1, 'the task was never announced');
+  assert.ok(started !== -1, 'the run was never announced');
+
+  // Announcing a run before the task exists leaves a subscriber watching a
+  // run it has not been told about.
+  assert.ok(
+    assigned < started,
+    `task.assigned (${assigned}) must precede run.started (${started})`
+  );
+});
+
+test('every run event says what triggered the run', async () => {
+  const { executor, events } = setup();
+
+  await executor.run({
+    employeeId: 'dex',
+    title: 'Review the diff',
+    trigger: 'auto'
+  });
+
+  for (const type of ['task.assigned', 'run.started']) {
+    const event = events.find((item) => item.type === type);
+
+    assert.ok(event, `no ${type} event`);
+    assert.equal(
+      event.trigger,
+      'auto',
+      `${type} lost the trigger`
+    );
+  }
+});
+
+test('a manual run is labelled manual by default', async () => {
+  const { executor, events } = setup();
+
+  await executor.run({
+    employeeId: 'ops',
+    title: 'Check the disk'
+  });
+
+  const assigned = events.find((e) => e.type === 'task.assigned');
+
+  assert.equal(assigned.trigger, 'manual');
+});

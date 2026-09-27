@@ -415,3 +415,198 @@ body::before {
   .corner { display: none; }
   .deck-status { flex-wrap: wrap; }
 }
+/* ------------------------------------------------------------------
+   Live workforce deck.
+
+   Everything below styles the real agent roster: the dispatch controls,
+   the per-employee state, and the activity feed. It sits after the
+   original deck rules on purpose so it wins on equal specificity.
+   ------------------------------------------------------------------ */
+
+.sys-status.is-live { border-color: rgba(70, 245, 160, 0.5); color: var(--green); }
+.sys-status.is-live i { background: var(--green); box-shadow: 0 0 12px var(--green); }
+
+.control-deck {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) 1fr;
+  gap: 18px;
+  align-items: start;
+  margin-bottom: 22px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+}
+
+.control-block .eyebrow,
+.dispatch-form .eyebrow { margin: 0 0 10px; }
+
+.switch { display: inline-flex; align-items: center; gap: 12px; cursor: pointer; }
+.switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.switch-track {
+  position: relative;
+  width: 52px;
+  height: 26px;
+  flex: none;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.06);
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.switch-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+.switch input:checked + .switch-track { background: rgba(70, 245, 160, 0.2); border-color: rgba(70, 245, 160, 0.6); }
+.switch input:checked + .switch-track .switch-knob { transform: translateX(26px); background: var(--green); }
+.switch input:focus-visible + .switch-track { outline: 2px solid var(--cyan); outline-offset: 3px; }
+.switch-label { font-size: 13px; color: var(--text); }
+
+.dispatch-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.field { display: flex; flex-direction: column; gap: 6px; min-width: 160px; }
+.field.grow { flex: 1 1 220px; }
+.field > span {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.field input,
+.field select {
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: rgba(3, 10, 22, 0.9);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.field input:focus,
+.field select:focus { outline: 2px solid var(--cyan); outline-offset: 1px; border-color: var(--cyan); }
+
+.dispatch-btn {
+  padding: 11px 20px;
+  font: inherit;
+  font-weight: 600;
+  color: #041018;
+  background: linear-gradient(135deg, var(--cyan), var(--blue));
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.dispatch-btn:disabled { opacity: 0.55; cursor: progress; }
+.dispatch-btn:focus-visible { outline: 2px solid var(--pink); outline-offset: 3px; }
+
+.defect-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding: 14px 18px;
+  font-size: 13px;
+  border: 1px solid rgba(255, 192, 77, 0.5);
+  border-radius: 12px;
+  background: rgba(255, 192, 77, 0.08);
+  color: var(--amber);
+}
+.defect-item {
+  padding: 3px 9px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  border-radius: 999px;
+  background: rgba(255, 192, 77, 0.14);
+}
+
+.agent-card { display: flex; flex-direction: column; }
+.agent-role { display: block; font-size: 12px; color: var(--muted); }
+.agent-titles { min-width: 0; flex: 1; }
+
+.state-pill {
+  flex: none;
+  padding: 4px 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.agent-status-line { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; color: var(--muted); }
+.state-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--muted); }
+
+.agent-task { margin: 12px 0 0; font-size: 14px; color: var(--text); overflow-wrap: anywhere; }
+.agent-result { margin: 6px 0 0; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.agent-result.tone-bad { color: var(--red); }
+.agent-result.tone-warn { color: var(--amber); }
+
+.agent-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 14px;
+}
+.agent-updated { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+.card-dispatch { padding: 7px 14px; font-size: 12px; }
+
+/* One rule per lifecycle state so the card reads at a glance. */
+.agent-card.state-working,
+.agent-card.state-thinking,
+.agent-card.state-researching { border-color: rgba(20, 224, 255, 0.55); }
+.agent-card.state-working .state-pill { color: var(--cyan); border-color: rgba(20, 224, 255, 0.5); }
+.agent-card.state-thinking .state-pill,
+.agent-card.state-researching .state-pill { color: var(--purple); border-color: rgba(139, 77, 255, 0.5); }
+.agent-card.state-working .state-dot,
+.agent-card.state-thinking .state-dot,
+.agent-card.state-researching .state-dot { background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+.agent-card.state-needs-input { border-color: rgba(255, 192, 77, 0.5); }
+.agent-card.state-needs-input .state-pill { color: var(--amber); border-color: rgba(255, 192, 77, 0.5); }
+.agent-card.state-needs-input .state-dot { background: var(--amber); box-shadow: 0 0 10px var(--amber); }
+.agent-card.state-alert { border-color: rgba(255, 59, 107, 0.6); }
+.agent-card.state-alert .state-pill { color: var(--red); border-color: rgba(255, 59, 107, 0.6); }
+.agent-card.state-alert .state-dot { background: var(--red); box-shadow: 0 0 10px var(--red); }
+.agent-card.state-complete .state-pill { color: var(--green); border-color: rgba(70, 245, 160, 0.5); }
+.agent-card.state-complete .state-dot { background: var(--green); }
+.agent-card.state-blocked .state-pill { color: var(--amber); }
+
+/* Only a genuinely busy agent pulses, so motion still means something. */
+.agent-card.is-busy::after { animation: deck-pulse 1.6s ease-in-out infinite; }
+@keyframes deck-pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .agent-card.is-busy::after { animation: none; }
+  .switch-knob { transition: none; }
+}
+
+.ops-line { display: flex; gap: 10px; align-items: baseline; }
+.ops-time { flex: none; font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+.ops-text { font-size: 13px; overflow-wrap: anywhere; }
+.tone-good .ops-text { color: var(--green); }
+.tone-bad .ops-text { color: var(--red); }
+.tone-warn .ops-text { color: var(--amber); }
+.tone-accent .ops-text { color: var(--cyan); }
+
+.mission-args { font-family: var(--font-mono); font-size: 12px; overflow-wrap: anywhere; }
+.mission-tools { display: flex; gap: 10px; }
+
+@media (max-width: 900px) {
+  .control-deck { grid-template-columns: 1fr; }
+}
+
+/* Idle is the resting state, so it stays quiet rather than shouting. */
+.agent-card.state-idle .state-pill { color: var(--muted); }
+.agent-card.state-idle .state-dot { background: var(--muted); }

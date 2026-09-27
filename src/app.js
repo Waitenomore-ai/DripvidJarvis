@@ -1005,10 +1005,31 @@ function createApp(options = {}) {
             return;
           }
 
+          const executor =
+            getExecutor();
+
+          // The executor keeps one task per employee, so a second dispatch to
+          // a busy agent is refused before it is accepted. Letting run() throw
+          // and swallowing it would answer 202 for work that never happens,
+          // and the caller would have no idea.
+          const busy = (
+            executor.snapshot().running || []
+          ).find(
+            (run) => run.employeeId === employeeId
+          );
+
+          if (busy) {
+            sendJson(res, 409, {
+              error:
+                `${employee.name} is already working on ${busy.taskId}`
+            });
+            return;
+          }
+
           const taskId =
             `task_${Date.now().toString(36)}`;
 
-          getExecutor()
+          executor
             .run({
               taskId,
               employeeId,
@@ -1016,10 +1037,16 @@ function createApp(options = {}) {
               detail: body.detail,
               trigger: 'manual'
             })
-            .catch(() => {
-              // Already published as run.failed on the stream. Swallowing it
-              // here stops a failed run becoming an unhandled rejection that
-              // could take the process down.
+            .catch((error) => {
+              // Anything unexpected still has to reach the deck rather than
+              // vanishing into an unhandled rejection.
+              broadcast({
+                type: 'run.refused',
+                employeeId,
+                taskId,
+                error: error.message || String(error),
+                at: Date.now()
+              });
             });
 
           sendJson(res, 202, {
@@ -1038,16 +1065,13 @@ function createApp(options = {}) {
         ) {
           const body = await readJson(req);
 
+          // setAutoDelegate publishes its own auto-delegate event through
+          // the executor, which is already wired to the stream. Broadcasting
+          // again here told every subscriber twice.
           const enabled =
             getExecutor().setAutoDelegate(
               Boolean(body.enabled)
             );
-
-          broadcast({
-            type: 'auto-delegate',
-            enabled,
-            at: Date.now()
-          });
 
           sendJson(res, 200, {
             autoDelegate: enabled

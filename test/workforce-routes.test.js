@@ -256,3 +256,90 @@ test('a failed run is reported on the stream, not silently dropped', async () =>
     assert.match(failed.error, /model is unreachable/);
   });
 });
+
+test('a second dispatch to a busy agent is refused, not silently dropped', async () => {
+  // A slow model keeps the first run in flight long enough to collide with
+  // the second. The route used to answer 202 for work that could never
+  // happen because the executor's refusal was swallowed.
+  await withServer(
+    stubJarvis({ delayMs: 400 }),
+    async (base) => {
+      const first = await post(base, '/api/workforce/run', {
+        employeeId: 'dev',
+        title: 'Start the build'
+      });
+
+      assert.equal(first.status, 202);
+
+      const second = await post(base, '/api/workforce/run', {
+        employeeId: 'dev',
+        title: 'Start it again'
+      });
+
+      assert.equal(second.status, 409);
+
+      const body = await second.json();
+
+      assert.match(body.error, /already working on task_/);
+    }
+  );
+});
+
+test('switching auto-delegation reaches each subscriber exactly once', async () => {
+  await withServer(stubJarvis(), async (base) => {
+    const received = [];
+
+    const connected = new Promise((resolve) => {
+      const request = http.get(
+        `${base}/api/workforce/stream`,
+        (response) => {
+          let buffer = '';
+          response.setEncoding('utf8');
+
+          response.on('data', (chunk) => {
+            buffer += chunk;
+
+            let index;
+
+            while ((index = buffer.indexOf('\n\n')) !== -1) {
+              const frame = buffer.slice(0, index);
+              buffer = buffer.slice(index + 2);
+
+              for (const line of frame.split('\n')) {
+                if (!line.startsWith('data: ')) {
+                  continue;
+                }
+
+                const event = JSON.parse(line.slice(6));
+
+                if (event.type === 'auto-delegate') {
+                  received.push(event.enabled);
+                }
+
+                if (received.length) {
+                  request.destroy();
+                  resolve();
+                }
+              }
+            }
+          });
+
+          response.on('error', () => {});
+        }
+      );
+
+      request.on('error', () => {});
+      setTimeout(resolve, 4000);
+    });
+
+    await connected;
+    await post(base, '/api/workforce/auto', { enabled: true });
+    await new Promise((resolve) => setTimeout(resolve, 400));
+
+    assert.deepEqual(
+      received,
+      [true],
+      `expected one auto-delegate event, got ${received.length}`
+    );
+  });
+});
