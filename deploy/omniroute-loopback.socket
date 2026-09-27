@@ -1,0 +1,15 @@
+[Unit]
+Description=Loopback front for OmniRoute (forwards to 172.24.0.1:20128)
+Documentation=man:systemd-socket-proxyd(8)
+After=network.target
+
+[Socket]
+# Loopback only. OmniRoute itself stays bound to the docker bridge gateway
+# because the dripvid-openbot container reaches it there; this gives local
+# processes (dripvid-jarvis health gate) a 127.0.0.1 endpoint without
+# exposing the proxy to the LAN.
+ListenStream=127.0.0.1:20128
+NoDelay=true
+
+[Install]
+WantedBy=sockets.target

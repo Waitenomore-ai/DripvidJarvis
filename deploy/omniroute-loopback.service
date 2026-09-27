@@ -1,0 +1,16 @@
+[Unit]
+Description=Proxy 127.0.0.1:20128 to OmniRoute on 172.24.0.1:20128
+Requires=omniroute-loopback.socket
+After=omniroute-loopback.socket
+
+[Service]
+ExecStart=/lib/systemd/systemd-socket-proxyd 172.24.0.1:20128
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+StandardOutput=null
+StandardError=journal
