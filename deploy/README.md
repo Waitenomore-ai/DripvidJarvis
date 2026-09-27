@@ -77,3 +77,49 @@ curl -u <admin-user> https://dripvid.uk/jarvis/api/health
 - do NOT publish port 3342 publicly. If the host firewall allows, restrict to loopback:
   `ufw deny 3342` (or omit the allow rule entirely).
 - Secrets live only in `/etc/dripvid-jarvis.env` (0600). Nothing is committed to git.
+
+## 5. OmniRoute loopback front
+
+`dripvid-jarvis` gates startup on OmniRoute being reachable on
+`http://127.0.0.1:20128`. OmniRoute (a **user** systemd unit, not Docker) runs
+with `OMNIROUTE_SERVER_HOST=172.24.0.1`, because the `dripvid-openbot`
+container calls it at the docker bridge gateway. That leaves no loopback
+endpoint, so JARVIS crash-loops even when OmniRoute is healthy.
+
+Rather than rebinding OmniRoute to loopback -- which would break the container
+-- these units add a loopback-only front door via `systemd-socket-proxyd`,
+which ships with systemd and needs no new package:
+
+```bash
+sudo install -m 0644 deploy/omniroute-loopback.socket /etc/systemd/system/
+sudo install -m 0644 deploy/omniroute-loopback.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now omniroute-loopback.socket
+```
+
+Then point the JARVIS health gate at the loopback endpoint:
+
+```bash
+sudo mkdir -p /etc/systemd/system/dripvid-jarvis.service.d
+sudo install -m 0644 deploy/dripvid-jarvis.service.d/omniroute-wait.conf \
+  /etc/systemd/system/dripvid-jarvis.service.d/
+sudo systemctl daemon-reload
+sudo systemctl restart dripvid-jarvis
+```
+
+Both consumers must keep working:
+
+```bash
+curl -fsS http://127.0.0.1:20128/api/monitoring/health    # local / JARVIS
+curl -fsS http://172.24.0.1:20128/api/monitoring/health   # openbot container
+```
+
+Nothing is bound to the LAN; `ss -ltn | grep 20128` should show only
+`127.0.0.1:20128` and `172.24.0.1:20128`.
+
+### Caveat
+
+`omniroute-loopback.service` pins its target to `172.24.0.1:20128`. If the
+docker bridge subnet is ever renumbered, update `ExecStart` here and on the
+host. The failure is loud -- JARVIS fails its startup health gate -- rather
+than silent.
