@@ -391,7 +391,28 @@ function createJarvis({
     return discovered.filter(Boolean);
   }
 
-  async function executeTool(tool, args = {}) {
+  function canUseToolName(allowlist, name) {
+    if (!Array.isArray(allowlist)) {
+      return true;
+    }
+
+    return allowlist.includes('*') || allowlist.includes(String(name || ''));
+  }
+
+  async function executeTool(tool, args = {}, context = {}) {
+    // Per-employee least privilege. A null allowlist means the operator
+    // is driving and keeps full access. A delegated employee is checked
+    // here as defence in depth: the model is only ever offered its
+    // permitted tools, but a hallucinated name must not slip past.
+    if (
+      Array.isArray(context.toolAllowlist) &&
+      !canUseToolName(context.toolAllowlist, tool.name)
+    ) {
+      throw new Error(
+        `Tool not permitted for this role: ${tool.name}`
+      );
+    }
+
     if (tool.source === 'brain') {
       if (tool.name === 'brain.remember') {
         const memory = await brain.remember({
@@ -499,7 +520,7 @@ function createJarvis({
     throw new Error(`Unsupported tool source: ${tool.source}`);
   }
 
-  function createConfirmation(tool, args = {}) {
+  function createConfirmation(tool, args = {}, context = {}) {
     const id = crypto.randomUUID();
     const createdAt = now();
     const expiresAt = createdAt + config.confirmationTtlMs;
@@ -508,6 +529,11 @@ function createJarvis({
       id,
       tool,
       args,
+      // Carried so confirm() can re-check at approval time. An employee
+      // cannot gain the operator's wider permissions by asking a human to
+      // confirm on its behalf.
+      toolAllowlist: context.toolAllowlist || null,
+      employeeId: context.employeeId || null,
       createdAt,
       expiresAt
     });
@@ -539,7 +565,10 @@ function createJarvis({
       throw new Error('Confirmation has expired');
     }
 
-    const result = await executeTool(action.tool, action.args);
+    const result = await executeTool(action.tool, action.args, {
+      toolAllowlist: action.toolAllowlist,
+      employeeId: action.employeeId
+    });
 
     return {
       confirmed: true,
@@ -551,7 +580,11 @@ function createJarvis({
   async function conversation({
     conversation = [],
     state = {},
-    options = {}
+    options = {},
+    // Present when this turn runs as a delegated employee. Null means the
+    // operator is driving.
+    toolAllowlist = null,
+    employeeId = null
   } = {}) {
     const availableTools = await tools();
     const messages = Array.isArray(conversation)
@@ -573,9 +606,21 @@ function createJarvis({
           : ''
       );
 
-    const modelTools = diagnosticMode
-      ? selectAutomaticDiagnosticTools(availableTools)
-      : availableTools;
+    const scopedAllowlist = Array.isArray(toolAllowlist)
+      ? toolAllowlist
+      : null;
+    const permitted = (list) =>
+      scopedAllowlist
+        ? list.filter((tool) => canUseToolName(scopedAllowlist, tool.name))
+        : list;
+
+    const modelTools = permitted(
+      diagnosticMode
+        ? selectAutomaticDiagnosticTools(availableTools)
+        : availableTools
+    );
+
+    const toolContext = { toolAllowlist: scopedAllowlist, employeeId };
 
     const toolByName = new Map(
       modelTools.map((tool) => [tool.name, tool])
@@ -894,7 +939,11 @@ function createJarvis({
               : {};
 
           if (tool.mutating) {
-            const confirmation = createConfirmation(tool, args);
+            const confirmation = createConfirmation(
+              tool,
+              args,
+              toolContext
+            );
             confirmations.push(confirmation);
             toolMessages.push({
               role: 'tool',
@@ -910,7 +959,7 @@ function createJarvis({
           }
 
           try {
-            const result = await executeTool(tool, args);
+            const result = await executeTool(tool, args, toolContext);
             toolResults.push({
               name: tool.name,
               ok: true,
@@ -1031,7 +1080,8 @@ function createJarvis({
             const startedAt = Date.now();
             const rawResult = await executeTool(
               entry.tool,
-              entry.args
+              entry.args,
+              toolContext
             );
             const result = {
               name: entry.tool.name,
@@ -1188,7 +1238,8 @@ function createJarvis({
             try {
               const result = await executeTool(
                 toolRecord,
-                call.arguments || {}
+                call.arguments || {},
+                toolContext
               );
               toolResults.push({ name: toolRecord.name, args: call.arguments || {} });
               finalConversation.push(

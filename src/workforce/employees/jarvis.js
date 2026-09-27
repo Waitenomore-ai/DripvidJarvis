@@ -4,6 +4,7 @@
 // staticToolCatalog() in test/workforce-roster.test.js.
 module.exports = {
   id: 'jarvis',
+  lead: true,
   name: 'JARVIS',
   role: 'Lead coordinator',
   room: 'core',
