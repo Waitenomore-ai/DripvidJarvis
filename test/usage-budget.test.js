@@ -20,7 +20,7 @@ test('triggers at the configured percentage', () => {
   const budget = createUsageBudget({
     budgets: { local: 100 },
     threshold: 0.9,
-    windowMs: 1000,
+    windowMs: 60000,
     now: () => time
   });
 
@@ -30,7 +30,7 @@ test('triggers at the configured percentage', () => {
   budget.record('local', { usage: { total_tokens: 1 } }, {});
   assert.equal(budget.shouldSkip('local'), true);
 
-  time = 1001;
+  time = 60001;
   assert.equal(budget.shouldSkip('local'), false);
 });
 
