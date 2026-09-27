@@ -20,8 +20,46 @@ const TASK_TRANSITIONS = Object.freeze({
 
 const DEFAULT_MAX_HISTORY = 50;
 
+// A task title and detail arrive from an HTTP body and are rewritten into the
+// state file on every operation, and the HQ pulls the whole file on a timer.
+// An uncapped field turns one large POST into a permanently large file.
+const MAX_TITLE = 300;
+const MAX_DETAIL = 20000;
+const MAX_ID = 200;
+const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]*$/;
+
+// Ids arrive from an HTTP body and are used as object keys and as identifiers
+// in URLs and logs. Restricting them to a plain character set means a task can
+// never be called "constructor" or "__proto__", so no lookup can be confused
+// with an inherited property and no id can smuggle a separator into a path.
+function assertTaskId(value) {
+  const id = String(value === undefined || value === null ? '' : value).trim();
+
+  if (!id) {
+    throw new Error('task requires an id');
+  }
+
+  if (id.length > MAX_ID || !SAFE_ID.test(id)) {
+    throw new Error(
+      'task id requires 1-200 characters of letters, digits, dot, colon, dash or underscore'
+    );
+  }
+
+  return id;
+}
+
 function clone(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+}
+
+function cap(value, max) {
+  const text = String(value === undefined || value === null ? '' : value);
+
+  if (text.length <= max) {
+    return text;
+  }
+
+  return `${text.slice(0, max - 1)}…`;
 }
 
 function createTaskManager({
@@ -58,9 +96,9 @@ function createTaskManager({
     }
 
     const state = read();
-    const taskId = id ? String(id) : String(idFactory());
+    const taskId = id ? assertTaskId(id) : String(idFactory());
 
-    if (state.tasks[taskId]) {
+    if (Object.prototype.hasOwnProperty.call(state.tasks, taskId)) {
       throw new Error(`task already exists: ${taskId}`);
     }
 
@@ -68,8 +106,8 @@ function createTaskManager({
 
     const task = {
       id: taskId,
-      title: cleanTitle,
-      detail: String(detail || ''),
+      title: cap(cleanTitle, MAX_TITLE),
+      detail: cap(detail, MAX_DETAIL),
       status: 'open',
       assignee: assignee ? String(assignee) : null,
       createdAt: at,
@@ -82,18 +120,24 @@ function createTaskManager({
     store.appendActivity(state, {
       kind: 'task.created',
       taskId,
-      title: cleanTitle
+      title: task.title
     });
 
+    store.pruneTasks(state);
     persist(state);
 
     return clone(task);
   }
 
   function get(id) {
-    const task = read().tasks[String(id)];
+    const key = String(id);
+    const state = read();
 
-    return task ? clone(task) : null;
+    if (!Object.prototype.hasOwnProperty.call(state.tasks, key)) {
+      return null;
+    }
+
+    return clone(state.tasks[key]);
   }
 
   function list() {
@@ -111,7 +155,7 @@ function createTaskManager({
     const state = read();
     const task = state.tasks[key];
 
-    if (!task) {
+    if (!Object.prototype.hasOwnProperty.call(state.tasks, key)) {
       throw new Error(`unknown task: ${key}`);
     }
 
@@ -140,11 +184,18 @@ function createTaskManager({
     const state = read();
     const task = state.tasks[key];
 
-    if (!task) {
+    if (!Object.prototype.hasOwnProperty.call(state.tasks, key)) {
       throw new Error(`unknown task: ${key}`);
     }
 
     const from = task.status;
+
+    // A status the table does not know cannot be transitioned away from.
+    // That state is only reachable from a hand-edited file, and guessing a
+    // transition would invent history.
+    if (!Object.prototype.hasOwnProperty.call(TASK_TRANSITIONS, from)) {
+      throw new Error(`unknown task status: ${from}`);
+    }
 
     if (from !== target && !TASK_TRANSITIONS[from].includes(target)) {
       throw new Error(`invalid task transition: ${from} -> ${target}`);
@@ -183,6 +234,10 @@ function createTaskManager({
 
 module.exports = {
   createTaskManager,
+  assertTaskId,
   TASK_STATUSES,
-  TASK_TRANSITIONS
+  TASK_TRANSITIONS,
+  MAX_TITLE,
+  MAX_DETAIL,
+  MAX_ID
 };

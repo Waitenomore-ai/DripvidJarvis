@@ -201,3 +201,61 @@ test('the snapshot is a copy and cannot corrupt stored state', () => {
     false
   );
 });
+
+test('a crash mid-block recovers the question from the task history', () => {
+  const ctx = setup();
+
+  ctx.workforce.assign('t-1', {
+    employeeId: 'scout',
+    title: 'Ship it'
+  });
+  ctx.workforce.setState('scout', 'working');
+
+  // Model a crash after the task was marked blocked but before the employee
+  // write landed: the question only exists in the task transition note.
+  const state = JSON.parse(
+    fs.readFileSync(
+      path.join(ctx.dir, 'workforce.json'),
+      'utf8'
+    )
+  );
+
+  state.tasks['t-1'].status = 'blocked';
+  state.tasks['t-1'].history.push({
+    at: 1,
+    from: 'in-progress',
+    to: 'blocked',
+    note: 'Which branch?'
+  });
+  state.employees.scout.state = 'working';
+  state.employees.scout.pendingQuestion = null;
+
+  fs.writeFileSync(
+    path.join(ctx.dir, 'workforce.json'),
+    JSON.stringify(state, null, 2),
+    'utf8'
+  );
+
+  const revived = createWorkforce({ dir: ctx.dir });
+  const scout = revived
+    .snapshot()
+    .employees.find((e) => e.id === 'scout');
+
+  assert.equal(scout.state, 'waiting');
+  assert.equal(scout.currentTaskId, 't-1');
+  assert.equal(
+    scout.pendingQuestion,
+    'Which branch?'
+  );
+
+  // A blocked task must not be resumable into a fabricated clean state.
+  revived.resume('t-1', { employeeId: 'scout' });
+
+  assert.equal(
+    revived
+      .snapshot()
+      .employees.find((e) => e.id === 'scout')
+      .pendingQuestion,
+    null
+  );
+});

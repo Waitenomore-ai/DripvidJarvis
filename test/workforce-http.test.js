@@ -259,6 +259,103 @@ test('POST /api/workforce reports a domain error as 400', async () => {
   );
 });
 
+test('GET /api/workforce hides a corrupt state file behind a 500', async () => {
+  const dir = tempDir();
+
+  // A state file that cannot be parsed is the server's problem, and its
+  // message names the file path. That detail is for the log, not the caller.
+  fs.writeFileSync(
+    path.join(dir, 'workforce.json'),
+    '{ not json',
+    'utf8'
+  );
+
+  await withServer(
+    stubJarvis(),
+    async (base) => {
+      const response =
+        await fetch(
+          `${base}/api/workforce`
+        );
+
+      assert.equal(
+        response.status,
+        500
+      );
+
+      const body =
+        await response.json();
+
+      assert.equal(
+        body.error,
+        'Internal server error'
+      );
+
+      assert.doesNotMatch(
+        JSON.stringify(body),
+        /workforce\.json|\/|\\/
+      );
+    },
+    { env: { JARVIS_WORKFORCE_PATH: dir } }
+  );
+});
+
+test('POST /api/workforce refuses a prototype id instead of storing it', async () => {
+  const dir = tempDir();
+
+  const workforce =
+    createWorkforce({ dir });
+
+  await withServer(
+    stubJarvis(),
+    async (base) => {
+      const response =
+        await fetch(
+          `${base}/api/workforce`,
+          {
+            method: 'POST',
+
+            headers: {
+              'content-type':
+                'application/json'
+            },
+
+            body: JSON.stringify({
+              action: 'assign',
+              taskId: '__proto__',
+              employeeId: 'scout',
+              title: 'Injected'
+            })
+          }
+        );
+
+      assert.equal(
+        response.status,
+        400
+      );
+
+      const body =
+        await response.json();
+
+      assert.match(
+        body.error,
+        /task id requires/
+      );
+    },
+    { workforce }
+  );
+
+  // Nothing was written, so the task list is still empty on disk.
+  const after =
+    createWorkforce({ dir })
+      .snapshot();
+
+  assert.equal(
+    after.tasks.length,
+    0
+  );
+});
+
 test('POST /api/workforce rejects malformed JSON', async () => {
   const dir = tempDir();
 

@@ -24,13 +24,17 @@ test('requires a directory', () => {
 test('returns an empty workforce when no state file exists', () => {
   const dir = tempDir();
   const store = createWorkforceStore({ dir });
+  const state = store.read();
 
-  assert.deepEqual(store.read(), {
-    employees: {},
-    tasks: {},
-    handoffs: [],
-    activity: []
-  });
+  assert.deepEqual(Object.keys(state.employees), []);
+  assert.deepEqual(Object.keys(state.tasks), []);
+  assert.deepEqual(state.handoffs, []);
+  assert.deepEqual(state.activity, []);
+
+  // The maps carry no prototype, so a lookup for an inherited key misses
+  // instead of returning a function or an object.
+  assert.equal(state.tasks.__proto__, undefined);
+  assert.equal(state.tasks.constructor, undefined);
 });
 
 test('round-trips employees and tasks through disk', () => {
@@ -117,8 +121,7 @@ test('surfaces corrupt state instead of silently resetting it', () => {
   assert.throws(() => store.read(), /workforce\.json/);
 });
 
-test('repairs a partially shaped state file', () => {
-  const dir = tempDir();
+test('repairs a partially shaped state file', () => {  const dir = tempDir();
   fs.writeFileSync(
     path.join(dir, 'workforce.json'),
     JSON.stringify({ employees: null, tasks: 7 }),
@@ -127,10 +130,26 @@ test('repairs a partially shaped state file', () => {
 
   const state = createWorkforceStore({ dir }).read();
 
-  assert.deepEqual(state, {
+  assert.deepEqual(Object.keys(state.employees), []);
+  assert.deepEqual(Object.keys(state.tasks), []);
+  assert.deepEqual(state.handoffs, []);
+  assert.deepEqual(state.activity, []);
+});
+
+test('a task key can never shadow an inherited property', () => {
+  const dir = tempDir();
+  const store = createWorkforceStore({ dir });
+
+  store.write({
     employees: {},
-    tasks: {},
+    tasks: { safe: { id: 'safe', status: 'open' } },
     handoffs: [],
     activity: []
   });
+
+  const state = store.read();
+
+  assert.equal(state.tasks.safe.id, 'safe');
+  assert.equal(state.tasks.toString, undefined);
+  assert.equal(state.tasks.hasOwnProperty, undefined);
 });

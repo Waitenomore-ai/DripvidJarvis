@@ -71,6 +71,9 @@ const {
 const {
   createWorkforce
 } = require('./workforce/workforce');
+const {
+  isInternalError
+} = require('./workforce/errors');
 
 const PUBLIC_DIR =
   path.resolve(__dirname, '..', 'public');
@@ -842,6 +845,27 @@ function createApp(options = {}) {
               workforce.snapshot()
             );
           } catch (error) {
+            // A rejected request is the caller's problem and is safe to
+            // describe. Anything the filesystem or the state file threw is
+            // not, and its message carries a path.
+            if (isInternalError(error)) {
+              console.error(
+                '[workforce] internal failure:',
+                error
+              );
+
+              sendJson(
+                res,
+                500,
+                {
+                  error:
+                    'workforce state is unavailable'
+                }
+              );
+
+              return;
+            }
+
             sendJson(
               res,
               400,
@@ -1414,6 +1438,27 @@ function createApp(options = {}) {
         const malformed =
           error.message ===
           'Malformed JSON';
+
+        // A filesystem or state-file failure is logged in full and reported
+        // without detail. Its message names real paths, and an error message
+        // is not a place to publish the server's directory layout.
+        if (isInternalError(error)) {
+          console.error(
+            '[jarvis] internal failure:',
+            error
+          );
+
+          sendJson(
+            res,
+            500,
+            {
+              error:
+                'Internal server error'
+            }
+          );
+
+          return;
+        }
 
         sendJson(
           res,
