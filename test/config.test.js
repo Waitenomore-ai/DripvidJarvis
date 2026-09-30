@@ -19,3 +19,10 @@ test('free model config honours an explicit fallback pool', () => {
   });
   assert.deepEqual(config.localFallbackModels, ['alpha', 'beta']);
 });
+
+test('local model timeout allows cold-start inference', () => {
+  const config = loadConfig({});
+  assert.equal(config.primaryChatTimeoutMs, 120000);
+  assert.equal(config.chatTimeoutMs, 120000);
+});
+
