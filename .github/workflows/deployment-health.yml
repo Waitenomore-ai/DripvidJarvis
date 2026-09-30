@@ -1,0 +1,32 @@
+name: Deployment Health Check
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jarvis-deployment-health
+  cancel-in-progress: false
+
+jobs:
+  health-check:
+    name: Verify deployed JARVIS Workforce HQ
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Check deployed service
+        env:
+          JARVIS_HEALTH_URL: ${{ vars.JARVIS_HEALTH_URL }}
+          JARVIS_WORKFORCE_URL: ${{ vars.JARVIS_WORKFORCE_URL }}
+        run: bash scripts/deployment-health-check.sh
