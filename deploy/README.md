@@ -78,6 +78,17 @@ Verify from outside:
 curl -u <admin-user> https://dripvid.uk/jarvis/api/health
 ```
 
+## Return-day verification
+
+After maintenance, run the real-stack check. It verifies the three systemd services,
+JARVIS core endpoints, dependency states, and a real model request:
+
+```bash
+npm run check:return
+```
+
+This is intentionally separate from the fast deployment health check because a cold
+local model load can take significantly longer than a simple HTTP health request.
 ## Verify end-to-end
 
 - Browser → `https://dripvid.uk/jarvis/` prompts for basic auth.
