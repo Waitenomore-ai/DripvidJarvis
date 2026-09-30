@@ -6,6 +6,7 @@ const { createSocialManager } = require('./social-manager');
 const { createSocialServer } = require('./social-http');
 const { createMetaProvider } = require('./social-meta');
 const { createReleaseAnnouncer } = require('./release-announcer');
+const { createWebSearchAdapter } = require('./adapters/web-search');
 const { createWorkforceRuntime } = require('./workforce');
 
 function createSocialManagerPath(env) { return env.JARVIS_SOCIAL_MANAGER_PATH || path.resolve(__dirname, '..', 'data', 'social-manager.json'); }
@@ -30,7 +31,8 @@ async function handleWorkforce(req,res,workforce){
 }
 function createJarvisServer({env=process.env,fetchImpl=globalThis.fetch,now}={}){
   const runtime=createRuntime({env,fetchImpl,now});
-  const workforce=createWorkforceRuntime({model:runtime.model,brain:runtime.brain,vault:runtime.vault,now});
+  const workforceWeb=runtime.config.webSearchEnabled?createWebSearchAdapter({config:runtime.config,fetchImpl}):null;
+  const workforce=createWorkforceRuntime({model:runtime.model,brain:runtime.brain,vault:runtime.vault,web:workforceWeb,dripvid:null,now});
   const baseServer=createApp({runtime}); const fallbackHandler=baseServer.listeners('request')[0];
   const socialManager=createSocialManager({config:{socialManagerPath:createSocialManagerPath(env)},now});
   let metaProvider=null; if(env.JARVIS_META_PAGE_ID&&env.JARVIS_META_INSTAGRAM_ID&&env.JARVIS_META_PAGE_TOKEN)metaProvider=createMetaProvider({env,fetchImpl});
