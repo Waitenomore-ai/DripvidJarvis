@@ -315,7 +315,7 @@ function loadConfig(env = process.env) {
     primaryChatTimeoutMs:
       parsePositiveInteger(
         env.JARVIS_PRIMARY_CHAT_TIMEOUT_MS,
-        5000
+        120000
       ),
 
     maxAgentIterations:
