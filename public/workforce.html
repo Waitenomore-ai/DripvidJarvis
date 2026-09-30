@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JARVIS HQ — Workforce</title>
+<link rel="stylesheet" href="workforce.css">
+</head>
+<body>
+<div class="shell">
+<header><div><span class="eyebrow">DRIPVID JARVIS</span><h1>Workforce HQ</h1><p>Watch the AI team work in real time.</p></div><div class="online"><i></i><b id="employeeCount">5</b> employees online</div></header>
+<main>
+<section class="hq-grid">
+<div class="room research" data-room="research-lab"><span class="room-label">🔎 RESEARCH LAB</span><div class="room-body" id="research-lab"></div></div>
+<div class="room command" data-room="command-centre"><span class="room-label">🧠 COMMAND CENTRE</span><div class="room-body" id="command-centre"></div></div>
+<div class="room social" data-room="social-studio"><span class="room-label">📱 SOCIAL STUDIO</span><div class="room-body" id="social-studio"></div></div>
+<div class="room taskhub" data-room="task-hub"><span class="room-label">📋 TASK HUB</span><div class="room-body" id="task-hub"></div></div>
+<div class="room dev" data-room="dev-workshop"><span class="room-label">💻 DEV WORKSHOP</span><div class="room-body" id="dev-workshop"></div></div>
+<div class="room ops" data-room="ops-room"><span class="room-label">🖥️ OPS ROOM</span><div class="room-body" id="ops-room"></div></div>
+<div class="room brain" data-room="brain-archive"><span class="room-label">🧠 BRAIN ARCHIVE</span><div class="room-body"><div class="archive">Knowledge Vault<br><small>Persistent organisational memory</small></div></div></div>
+</section>
+<aside class="activity"><div class="activity-head"><h2>Live Activity</h2><span id="connection">Connecting…</span></div><div id="activityList"></div><div id="detail" class="detail"><h3>Select an employee or task</h3><p>Click a live worker to inspect their current state.</p></div></aside>
+</main>
+<footer><a href="/">← JARVIS Console</a><span id="updated">Waiting for state…</span></footer>
+</div>
+<script src="workforce.js"></script>
+</body></n</html>
