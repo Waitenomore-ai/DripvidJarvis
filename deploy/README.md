@@ -35,7 +35,25 @@ sudo systemctl status dripvid-jarvis
 curl -s http://127.0.0.1:3342/api/health
 ```
 
-## 3. Optional auto-verify
+## 3. Host MCP service
+
+JARVIS includes a local read-only host MCP server on `127.0.0.1:8788/mcp`.
+Run it as a separate systemd service so MCP availability is independent of the
+main JARVIS HTTP process:
+
+```bash
+sudo install -m 0644 deploy/dripvid-jarvis-mcp.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now dripvid-jarvis-mcp.service
+sudo systemctl status dripvid-jarvis-mcp.service
+curl -s http://127.0.0.1:8788/
+```
+
+The service reads the same `/etc/dripvid-jarvis.env`, including
+`JARVIS_MCP_BEARER` when configured. It binds to loopback only and exposes
+read-only host/DripVid diagnostics.
+
+## 4. Optional auto-verify
 
 ```bash
 sudo install -m 0644 deploy/dripvid-jarvis-verify.service /etc/systemd/system/
