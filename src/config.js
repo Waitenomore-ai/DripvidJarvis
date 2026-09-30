@@ -189,11 +189,6 @@ function loadConfig(env = process.env) {
       env.JARVIS_GROQ_MODEL ||
       'openai/gpt-oss-120b',
 
-    localFallbackModels:
-      parseList(
-        env.JARVIS_LOCAL_FALLBACK_MODELS
-      ),
-
     modelFallbackCooldownMs:
       parsePositiveInteger(
         env.JARVIS_MODEL_FALLBACK_COOLDOWN_MS,
