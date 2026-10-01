@@ -3,144 +3,190 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#040812">
-<title>JARVIS HQ — Workforce</title>
+<meta name="theme-color" content="#030711">
+<title>DRIPVID JARVIS — Workforce HQ</title>
 <link rel="stylesheet" href="workforce.css">
 </head>
 <body>
 <div class="app-shell">
-<header class="topbar">
-  <div class="brand">
-    <div class="brand-mark">◉</div>
-    <div>
-      <span class="eyebrow">DRIPVID JARVIS</span>
-      <h1>Workforce HQ</h1>
-      <p>Your AI team. Research. Plan. Create. Deliver.</p>
-    </div>
-  </div>
 
-  <div class="top-stats">
-    <div class="stat-pill green"><i></i><strong id="employeeCount">6</strong><span>Agents Online</span></div>
-    <div class="stat-pill cyan"><i></i><strong id="workingCount">0</strong><span>Working</span></div>
-    <div class="stat-pill yellow"><i></i><strong id="needsHeaderCount">0</strong><span>Needs Input</span></div>
-    <div class="stat-pill blue"><i></i><strong id="idleCount">0</strong><span>Idle</span></div>
-  </div>
-
-  <div class="top-actions">
-    <div class="search-shell"><span>⌕</span><input placeholder="Search tasks, agents, ideas…" aria-label="Search Workforce"></div>
-    <button id="alertsButton" class="top-icon-button" type="button" aria-pressed="false" title="Workforce alerts">🔔</button>
-    <button id="presentationButton" class="top-icon-button" type="button" title="Presentation mode">⛶</button>
-    <div class="system-chip"><i></i><span id="connection">Connecting…</span></div>
-  </div>
-</header>
-
-<div id="alertToast" class="alert-toast" hidden role="status" aria-live="assertive">
-  <div class="alert-toast-icon">!</div>
-  <div>
-    <span class="eyebrow">WORKFORCE ALERT</span>
-    <strong id="alertToastTitle">Agent needs you</strong>
-    <p id="alertToastMessage"></p>
-  </div>
-  <button id="alertToastClose" type="button" aria-label="Dismiss alert">×</button>
-</div>
-
-<main class="command-layout">
-  <section class="command-stage">
-    <div class="section-head">
+  <aside class="left-nav" aria-label="JARVIS navigation">
+    <div class="nav-brand">
+      <div class="brand-mark">◉</div>
       <div>
-        <span class="eyebrow">LIVE COMMAND FLOOR</span>
-        <h2>Watch the team move work through the system</h2>
+        <span class="eyebrow">DRIPVID</span>
+        <strong>JARVIS</strong>
       </div>
-      <span id="updated" class="updated-stamp">Waiting for state…</span>
     </div>
 
-    <div class="stage-grid">
-      <article class="stage-room room research" data-room="research-lab">
-        <div class="room-meta"><span class="room-label">🔎 Research Lab</span><span class="room-status" data-room-status="research-lab">IDLE</span></div>
-        <div class="room-body" id="research-lab"></div>
-      </article>
+    <nav class="nav-main">
+      <a href="/" class="nav-item"><span>⌂</span>Home</a>
+      <a href="#" class="nav-item"><span>▣</span>Live TV</a>
+      <a href="#" class="nav-item"><span>◉</span>Movies</a>
+      <a href="#" class="nav-item"><span>▤</span>TV Shows</a>
+      <a href="#" class="nav-item"><span>♫</span>Music</a>
+      <a href="#" class="nav-item"><span>★</span>Kids</a>
+      <a href="/" class="nav-item"><span>✦</span>JARVIS</a>
+      <a href="#" class="nav-item active"><span>✧</span>Workforce HQ</a>
+      <a href="#" class="nav-item"><span>⌕</span>Research Lab</a>
+      <a href="#" class="nav-item"><span>◈</span>Command Centre</a>
+      <a href="#" class="nav-item"><span>◇</span>Social Studio</a>
+      <a href="#" class="nav-item"><span>▤</span>Task Hub</a>
+      <a href="#" class="nav-item"><span>⌘</span>Dev Workshop</a>
+      <a href="#" class="nav-item"><span>▣</span>Ops Room</a>
+      <a href="#" class="nav-item"><span>✺</span>Brain Archive</a>
+    </nav>
 
-      <article class="stage-room room command" data-room="command-centre">
-        <div class="room-meta"><span class="room-label">🧠 Command Centre</span><span class="room-status" data-room-status="command-centre">IDLE</span></div>
-        <div class="room-body" id="command-centre"></div>
-      </article>
-
-      <article class="stage-room room social" data-room="social-studio">
-        <div class="room-meta"><span class="room-label">🎨 Social Studio</span><span class="room-status" data-room-status="social-studio">IDLE</span></div>
-        <div class="room-body" id="social-studio"></div>
-      </article>
+    <div class="nav-bottom">
+      <a href="#" class="nav-item"><span>⚙</span>Settings</a>
+      <button id="sidebarCollapse" class="nav-item nav-button" type="button"><span>‹</span>Collapse</button>
     </div>
-
-    <div class="flow-strip">
-      <div class="flow-title"><span class="eyebrow">WORKFLOW</span><strong>Live handoff path</strong></div>
-      <div id="workflowFlow" class="flow-items"></div>
-    </div>
-
-    <div class="support-grid">
-      <article class="panel task-panel">
-        <div class="panel-head"><div><span class="eyebrow">CURRENT WORK</span><h3>Task Queue</h3></div><span class="panel-link">LIVE</span></div>
-        <div id="task-hub" class="task-hub"></div>
-      </article>
-
-      <article class="panel activity-panel">
-        <div class="panel-head"><div><span class="eyebrow">TELEMETRY</span><h3>Live Activity</h3></div><span class="panel-link">AUTO</span></div>
-        <div id="activityList" class="activity-list"></div>
-      </article>
-
-      <article class="panel agent-status-panel">
-        <div class="panel-head"><div><span class="eyebrow">WORKFORCE</span><h3>Agent Status</h3></div><span class="panel-link">6 TOTAL</span></div>
-        <div id="agentStatusList" class="agent-status-grid"></div>
-      </article>
-    </div>
-
-    <div class="utility-grid">
-      <article class="utility-room room dev" data-room="dev-workshop">
-        <div class="room-meta"><span class="room-label">💻 Dev Workshop</span><span class="room-status" data-room-status="dev-workshop">IDLE</span></div>
-        <div class="room-body" id="dev-workshop"></div>
-      </article>
-      <article class="utility-room room ops" data-room="ops-room">
-        <div class="room-meta"><span class="room-label">🖥️ Ops Room</span><span class="room-status" data-room-status="ops-room">IDLE</span></div>
-        <div class="room-body" id="ops-room"></div>
-      </article>
-    </div>
-  </section>
-
-  <aside class="command-rail">
-    <section id="needsPanel" class="needs-panel" hidden>
-      <div class="rail-head attention"><div><span class="eyebrow">ATTENTION REQUIRED</span><h3>Agent Needs You</h3></div><span id="needsCount" class="needs-count">0</span></div>
-      <div id="needsList"></div>
-    </section>
-
-    <section class="panel workflow-panel">
-      <div class="rail-head"><div><span class="eyebrow">ORCHESTRATION</span><h3>Campaign Workflows</h3></div><span id="workflowStatus" class="rail-state">READY</span></div>
-      <input id="workflowTitle" placeholder="Campaign title" autocomplete="off">
-      <textarea id="workflowBrief" rows="3" placeholder="What should the workforce research and prepare?"></textarea>
-      <button id="createWorkflow" class="primary-action">Start Campaign <span>→</span></button>
-      <div id="workflowList"></div>
-    </section>
-
-    <section class="panel reply-history-panel">
-      <div class="rail-head"><div><span class="eyebrow">CONVERSATION</span><h3>Reply History</h3></div><span class="panel-link">LIVE</span></div>
-      <div id="replyHistory" class="reply-history-list"><div class="empty-copy">Select an agent or task to see operator guidance.</div></div>
-    </section>
-
-    <section id="detail" class="panel inspector">
-      <span class="eyebrow">INSPECTOR</span>
-      <h3>Select an employee or task</h3>
-      <p>Click any live worker or task to inspect its current state.</p>
-    </section>
-
-    <section class="panel task-details-panel">
-      <div class="rail-head"><div><span class="eyebrow">TASK DETAILS</span><h3>Selected Task</h3></div><span id="selectedTaskStatus" class="panel-link">—</span></div>
-      <div id="taskDetails" class="task-details-copy">No task selected.</div>
-    </section>
   </aside>
-</main>
 
-<footer>
-  <a href="/">← JARVIS Console</a>
-  <span>Workforce state refreshes automatically</span>
-</footer>
+  <div class="main-surface">
+    <header class="topbar">
+      <div class="brand">
+        <div>
+          <span class="eyebrow">DRIPVID JARVIS</span>
+          <h1>Workforce HQ</h1>
+          <p>Your AI team. Research. Plan. Create. Deliver.</p>
+        </div>
+      </div>
+
+      <div class="top-stats">
+        <div class="stat-pill green"><i></i><strong id="employeeCount">6</strong><span>Agents Online</span></div>
+        <div class="stat-pill cyan"><i></i><strong id="workingCount">0</strong><span>Working</span></div>
+        <div class="stat-pill yellow"><i></i><strong id="needsHeaderCount">0</strong><span>Needs Input</span></div>
+        <div class="stat-pill blue"><i></i><strong id="idleCount">0</strong><span>Idle</span></div>
+      </div>
+
+      <div class="top-actions">
+        <div class="search-shell"><span>⌕</span><input placeholder="Search tasks, agents, ideas…" aria-label="Search Workforce"></div>
+        <button id="alertsButton" class="top-icon-button" type="button" aria-pressed="false" title="Workforce alerts">🔔</button>
+        <button id="presentationButton" class="top-icon-button" type="button" title="Presentation mode">⛶</button>
+        <div class="system-chip"><i></i><span id="connection">Connecting…</span></div>
+      </div>
+    </header>
+
+    <div id="alertToast" class="alert-toast" hidden role="status" aria-live="assertive">
+      <div class="alert-toast-icon">!</div>
+      <div>
+        <span class="eyebrow">WORKFORCE ALERT</span>
+        <strong id="alertToastTitle">Agent needs you</strong>
+        <p id="alertToastMessage"></p>
+      </div>
+      <button id="alertToastClose" type="button" aria-label="Dismiss alert">×</button>
+    </div>
+
+    <main class="command-layout">
+      <section class="command-stage">
+        <div class="section-head">
+          <div>
+            <span class="eyebrow">LIVE COMMAND FLOOR</span>
+            <h2>Watch the team move work through the system</h2>
+          </div>
+          <span id="updated" class="updated-stamp">Waiting for state…</span>
+        </div>
+
+        <div class="hero-floor">
+          <div class="floor-glow floor-glow-a"></div>
+          <div class="floor-glow floor-glow-b"></div>
+          <div class="hero-wall-label">WORKFORCE // LIVE OPERATIONS</div>
+
+          <article class="hero-agent-card scout-card" data-core-agent="scout">
+            <div class="hero-slot" id="hero-scout"></div>
+          </article>
+
+          <article class="hero-agent-card jarvis-card" data-core-agent="jarvis">
+            <div class="hero-slot" id="hero-jarvis"></div>
+          </article>
+
+          <article class="hero-agent-card penny-card" data-core-agent="penny">
+            <div class="hero-slot" id="hero-penny"></div>
+          </article>
+
+          <article class="hero-agent-card sosh-card" data-core-agent="sosh">
+            <div class="hero-slot" id="hero-sosh"></div>
+          </article>
+
+          <div class="hero-shelf">
+            <div class="shelf-light"></div>
+            <span>REAL-TIME WORKFORCE CONTROL</span>
+            <div class="shelf-light right"></div>
+          </div>
+        </div>
+
+        <div class="flow-strip">
+          <div class="flow-title"><span class="eyebrow">WORKFLOW</span><strong>Live handoff path</strong></div>
+          <div id="workflowFlow" class="flow-items"></div>
+        </div>
+
+        <div class="support-grid">
+          <article class="panel task-panel">
+            <div class="panel-head"><div><span class="eyebrow">CURRENT WORK</span><h3>Current Tasks</h3></div><span class="panel-link">VIEW ALL →</span></div>
+            <div id="task-hub" class="task-hub"></div>
+          </article>
+
+          <article class="panel activity-panel">
+            <div class="panel-head"><div><span class="eyebrow">TELEMETRY</span><h3>Live Activity</h3></div><span class="panel-link">AUTO-SCROLL</span></div>
+            <div id="activityList" class="activity-list"></div>
+          </article>
+
+          <article class="panel agent-status-panel">
+            <div class="panel-head"><div><span class="eyebrow">WORKFORCE</span><h3>Agent Status</h3></div><span class="panel-link">6 TOTAL</span></div>
+            <div id="agentStatusList" class="agent-status-grid"></div>
+          </article>
+        </div>
+
+        <div class="utility-grid">
+          <article class="utility-room room dev" data-room="dev-workshop">
+            <div class="room-meta"><span class="room-label">💻 Dev Workshop</span><span class="room-status" data-room-status="dev-workshop">IDLE</span></div>
+            <div class="room-body" id="dev-workshop"></div>
+          </article>
+          <article class="utility-room room ops" data-room="ops-room">
+            <div class="room-meta"><span class="room-label">🖥️ Ops Room</span><span class="room-status" data-room-status="ops-room">IDLE</span></div>
+            <div class="room-body" id="ops-room"></div>
+          </article>
+        </div>
+      </section>
+
+      <aside class="command-rail">
+        <section id="needsPanel" class="needs-panel" hidden>
+          <div class="rail-head attention"><div><span class="eyebrow">ATTENTION REQUIRED</span><h3>Agent Needs You</h3></div><span id="needsCount" class="needs-count">0</span></div>
+          <div id="needsList"></div>
+        </section>
+
+        <section class="panel workflow-panel">
+          <div class="rail-head"><div><span class="eyebrow">ORCHESTRATION</span><h3>Campaign Workflows</h3></div><span id="workflowStatus" class="rail-state">READY</span></div>
+          <input id="workflowTitle" placeholder="Campaign title" autocomplete="off">
+          <textarea id="workflowBrief" rows="3" placeholder="What should the workforce research and prepare?"></textarea>
+          <button id="createWorkflow" class="primary-action">Start Campaign <span>→</span></button>
+          <div id="workflowList"></div>
+        </section>
+
+        <section class="panel reply-history-panel">
+          <div class="rail-head"><div><span class="eyebrow">CONVERSATION</span><h3>Reply History</h3></div><span class="panel-link">LIVE</span></div>
+          <div id="replyHistory" class="reply-history-list"><div class="empty-copy">Select an agent or task to see operator guidance.</div></div>
+        </section>
+
+        <section id="detail" class="panel inspector">
+          <span class="eyebrow">INSPECTOR</span>
+          <h3>Select an employee or task</h3>
+          <p>Click any live worker or task to inspect its current state.</p>
+        </section>
+
+        <section class="panel task-details-panel">
+          <div class="rail-head"><div><span class="eyebrow">TASK DETAILS</span><h3>Selected Task</h3></div><span id="selectedTaskStatus" class="panel-link">—</span></div>
+          <div id="taskDetails" class="task-details-copy">No task selected.</div>
+        </section>
+      </aside>
+    </main>
+
+    <footer>
+      <a href="/">← JARVIS Console</a>
+      <span>Workforce state refreshes automatically</span>
+    </footer>
+  </div>
 </div>
 <script src="workforce.js"></script>
 </body>
