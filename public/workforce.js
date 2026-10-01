@@ -890,7 +890,7 @@ function activeWorkflowAgent(state) {
 }
 
 function handoffPoint(agentId, floorRect) {
-  const node = document.querySelector('[data-employee="' + CSS.escape(agentId) + '"]');
+  const node = document.querySelector('.hero-agent[data-employee="' + CSS.escape(agentId) + '"]');
   if (!node) return null;
   const rect = node.getBoundingClientRect();
   return {
@@ -1009,7 +1009,6 @@ function renderWorkforceState(state) {
   const tasks = state.tasks || [];
 
   checkForNewNeeds(tasks);
-  renderHandoffAnimation(state, previousState);
   renderWorkflowFlow(state);
   renderAgentStatus(employees, tasks);
   renderReplyHistory(tasks, employees);
@@ -1023,6 +1022,7 @@ function renderWorkforceState(state) {
   applyRoomTelemetry(employees);
 
   renderHeroAgents(employees, tasks);
+  renderHandoffAnimation(state, previousState);
 
   for (const room of ['dev-workshop','ops-room']) {
     const element = document.getElementById(room);
