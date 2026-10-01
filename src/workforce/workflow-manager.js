@@ -10,7 +10,8 @@ function createWorkflowManager({
   tasks,
   registry,
   now = () => new Date().toISOString(),
-  idFactory
+  idFactory,
+  socialManager = null
 } = {}) {
   if (!tasks || !registry) {
     throw new Error('Workflow manager requires tasks and registry');
@@ -157,6 +158,27 @@ function createWorkflowManager({
     const workflow = workflows.get(id);
     if (!workflow) throw new Error('Unknown workflow');
     if (workflow.status !== 'awaiting_approval') throw new Error('Workflow is not awaiting approval');
+    let socialCampaign = null;
+    if (socialManager && workflow.stage === 'approval') {
+      const rawSocial = workflow.outputs.social || '';
+      let socialDraft;
+
+      try {
+        socialDraft = JSON.parse(rawSocial);
+      } catch {
+        throw new Error('Approved workflow has no validated Sosh draft');
+      }
+
+      socialCampaign = socialManager.createWorkflowCampaign({
+        workflowId: workflow.id,
+        title: workflow.title,
+        brief: workflow.brief,
+        socialDraft
+      });
+
+      workflow.socialCampaignId = socialCampaign.id;
+    }
+
     workflow.status = 'approved';
     workflow.approval = {
       ...workflow.approval,
