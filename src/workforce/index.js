@@ -2,11 +2,13 @@
 
 const { createWorkforceRegistry } = require('./registry');
 const { createTaskManager } = require('./task-manager');
+const { createWorkflowManager } = require('./workflow-manager');
 
 function createWorkforceRuntime({ model = null, brain = null, vault = null, web = null, dripvid = null, now } = {}) {
   const registry = createWorkforceRegistry();
   const tasks = createTaskManager({ registry, now });
   const activity = [];
+  const workflows = createWorkflowManager({ tasks, registry, now });
   const clock = now || (() => new Date().toISOString());
   const record = (event) => { activity.unshift({ ...event, at: clock() }); activity.splice(30); };
 
@@ -15,6 +17,7 @@ function createWorkforceRuntime({ model = null, brain = null, vault = null, web 
       updatedAt: clock(),
       employees: registry.snapshot(),
       tasks: tasks.list(),
+      workflows: workflows.list(),
       activity: [...activity],
       rooms: [
         { id:'command-centre', name:'Command Centre', icon:'🧠' },
@@ -38,6 +41,24 @@ function createWorkforceRuntime({ model = null, brain = null, vault = null, web 
     const task = tasks.handoff(id, input);
     record({ type:'task.handoff', taskId:id, fromEmployeeId:input.fromEmployeeId, toEmployeeId:input.toEmployeeId, title:task.title });
     return task;
+  }
+
+  function createWorkflow(input) {
+    const workflow = workflows.create(input);
+    record({ type:'workflow.created', workflowId:workflow.id, title:workflow.title, stage:workflow.stage });
+    return workflow;
+  }
+
+  function approveWorkflow(id) {
+    const workflow = workflows.approve(id);
+    record({ type:'workflow.approved', workflowId:id, title:workflow.title });
+    return workflow;
+  }
+
+  function rejectWorkflow(id, reason) {
+    const workflow = workflows.reject(id, reason);
+    record({ type:'workflow.rejected', workflowId:id, title:workflow.title, reason:reason || '' });
+    return workflow;
   }
 
   async function executeTask(id) {
@@ -77,6 +98,22 @@ function createWorkforceRuntime({ model = null, brain = null, vault = null, web 
       const text = String(result && (result.message || result.content) || '');
       const updated = tasks.update(id, { status:'complete', progress:100, result:text });
       record({ type:'task.completed', taskId:id, employeeId:task.employeeId, title:task.title });
+
+      if (task.workflowId && task.stage) {
+        const workflow = workflows.advanceAfterTask(task, updated);
+        if (workflow) {
+          record({
+            type: workflow.status === 'awaiting_approval'
+              ? 'workflow.awaiting_approval'
+              : 'workflow.handoff',
+            workflowId: workflow.id,
+            title: workflow.title,
+            stage: workflow.stage,
+            taskId: workflow.taskId
+          });
+        }
+      }
+
       return updated;
     } catch (error) {
       const updated = tasks.update(id, { status:'error', error:error.message || 'Task execution failed' });
@@ -85,7 +122,19 @@ function createWorkforceRuntime({ model = null, brain = null, vault = null, web 
     }
   }
 
-  return { registry, tasks, snapshot, createTask, handoffTask, executeTask, dependencies:{ model, brain, vault, web, dripvid } };
+  return {
+    registry,
+    tasks,
+    workflows,
+    snapshot,
+    createTask,
+    createWorkflow,
+    handoffTask,
+    approveWorkflow,
+    rejectWorkflow,
+    executeTask,
+    dependencies:{ model, brain, vault, web, dripvid }
+  };
 }
 
 module.exports = { createWorkforceRuntime };
