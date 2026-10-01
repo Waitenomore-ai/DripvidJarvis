@@ -35,7 +35,7 @@ async function handleWorkforce(req,res,workforce){
     const handoffMatch=pathname.match(/^\/api\/workforce\/tasks\/([^/]+)\/handoff$/);
     if(req.method==='POST'&&handoffMatch){sendWorkforceJson(res,200,workforce.handoffTask(handoffMatch[1],await readWorkforceJson(req)));return true;}
     return false;
-  }catch(error){const message=error&&error.message||'Workforce request failed';const status=/unknown task/i.test(message)?404:/invalid|requires|missing/i.test(message)?400:500;sendWorkforceJson(res,status,{error:message});return true;}
+  }catch(error){const message=error&&error.message||'Workforce request failed';const status=/unknown task|unknown workflow/i.test(message)?404:/invalid|requires|missing|workflow is not/i.test(message)?400:500;sendWorkforceJson(res,status,{error:message});return true;}
 }
 function createJarvisServer({env=process.env,fetchImpl=globalThis.fetch,now}={}){
   const runtime=createRuntime({env,fetchImpl,now});
