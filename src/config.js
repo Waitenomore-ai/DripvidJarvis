@@ -104,7 +104,7 @@ function loadConfig(env = process.env) {
 
     localPrimaryModel:
       env.JARVIS_LOCAL_PRIMARY_MODEL ||
-      'qwen3.5:4b',
+      'llama3.2:3b',
 
     localFallbackBaseUrl:
       env.JARVIS_LOCAL_FALLBACK_BASE_URL ||
@@ -117,7 +117,7 @@ function loadConfig(env = process.env) {
     localFallbackModels:
       parseList(
         env.JARVIS_LOCAL_FALLBACK_MODELS ||
-        'phi4-mini:3.8b,qwen2.5-coder:3b,llama3.2:3b'
+        'phi4-mini:3.8b,qwen2.5-coder:3b,qwen3.5:4b'
       ),
 
     freeAgentUsageThreshold:
@@ -144,7 +144,7 @@ function loadConfig(env = process.env) {
     freeAgentBudgets:
       parseBudgets(
         env.JARVIS_FREE_AGENT_BUDGETS ||
-        'qwen3.5:4b=50000,phi4-mini:3.8b=50000,qwen2.5-coder:3b=50000,llama3.2:3b=50000'
+        'llama3.2:3b=50000,phi4-mini:3.8b=50000,qwen2.5-coder:3b=50000,qwen3.5:4b=50000'
       ),
 
     openAiBaseUrl:
