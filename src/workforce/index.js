@@ -58,6 +58,29 @@ function createWorkforceRuntime({ model = null, brain = null, vault = null, web 
     return workflow;
   }
 
+  function respondToTask(id, message) {
+    const task = tasks.respond(id, message);
+    record({
+      type:'task.operator_reply',
+      taskId:id,
+      employeeId:task.employeeId,
+      title:task.title
+    });
+    return task;
+  }
+
+  function requestOperatorInput(id, prompt, metadata = {}) {
+    const task = tasks.requestInput(id, prompt, metadata);
+    record({
+      type:'task.needs_input',
+      taskId:id,
+      employeeId:task.employeeId,
+      title:task.title,
+      kind:task.needsInput?.kind || 'operator'
+    });
+    return task;
+  }
+
   function rejectWorkflow(id, reason) {
     const workflow = workflows.reject(id, reason);
     record({ type:'workflow.rejected', workflowId:id, title:workflow.title, reason:reason || '' });
@@ -72,7 +95,7 @@ function createWorkforceRuntime({ model = null, brain = null, vault = null, web 
     record({ type:'task.started', taskId:id, employeeId:task.employeeId, title:task.title });
 
     if (!model) {
-      return tasks.update(id, { status:'needs_input', progress:5, result:'No model adapter is available for execution.' });
+      return requestOperatorInput(id, 'The AI engine is unavailable. Reply with any additional instruction once the model service is ready, or retry this task after the service recovers.', { kind:'runtime', title:'AI engine unavailable' });
     }
 
     try {
@@ -82,12 +105,9 @@ function createWorkforceRuntime({ model = null, brain = null, vault = null, web 
 
       if (task.employeeId === 'scout') {
         if (!scout) {
-          return tasks.update(id, {
-            status:'needs_input',
-            progress:5,
-            result:'Scout research is unavailable because no web research adapter is configured.',
-            grounding:{ verified:false, reason:'research_adapter_unavailable' }
-          });
+          const blocked = requestOperatorInput(id, 'Scout cannot research this task because the web research adapter is unavailable. You can reply with a useful DripVid source or instruction, or retry once web research is back online.', { kind:'research', title:'Scout needs research access' });
+          tasks.update(id, { grounding:{ verified:false, reason:'research_adapter_unavailable' } });
+          return blocked;
         }
 
         scoutResearchResult = await scout.research(task);
@@ -101,10 +121,8 @@ function createWorkforceRuntime({ model = null, brain = null, vault = null, web 
             reason:'No verified DripVid sources found'
           });
 
-          return tasks.update(id, {
-            status:'needs_input',
-            progress:25,
-            result:'Scout could not verify any DripVid-specific source pages for this task. No downstream campaign stage was started.',
+          const blocked = requestOperatorInput(id, 'Scout could not verify a DripVid-specific source for this request. Reply with a narrower objective, the name of an official DripVid page, or another useful clue so Scout can try again.', { kind:'research', title:'Scout needs guidance' });
+          tasks.update(id, {
             grounding:{
               verified:false,
               allowedDomains:scoutResearchResult.allowedDomains,
@@ -113,6 +131,7 @@ function createWorkforceRuntime({ model = null, brain = null, vault = null, web 
               sourceUrls:[]
             }
           });
+          return blocked;
         }
 
         researchContext = [
@@ -161,10 +180,19 @@ Return JSON only with this exact shape:
 Choose only platforms that are relevant to the brief and write the complete post text for every selected platform. Do not publish anything. Do not invent facts, prices, customers, statistics or product claims; use only the approved brief and research provided.`
           : `You are ${employee.name}, the ${employee.role} in DripVid JARVIS. Return a concise, useful result for the assigned task.`;
 
+      const operatorContext = Array.isArray(task.operatorMessages) && task.operatorMessages.length
+        ? [
+            '',
+            'OPERATOR REPLIES — TREAT THESE AS DIRECT HUMAN GUIDANCE:',
+            ...task.operatorMessages.map((message, index) => `REPLY ${index + 1}: ${message.content}`),
+            ''
+          ].join('\n')
+        : '';
+
       const result = await model.chat({
         conversation: [
           { role:'system', content:systemPrompt },
-          { role:'user', content:`${task.description || task.title}${researchContext}` }
+          { role:'user', content:`${task.description || task.title}${operatorContext}${researchContext}` }
         ]
       });
 
@@ -201,10 +229,8 @@ Choose only platforms that are relevant to the brief and write the complete post
           }
           return updated;
         } catch (validationError) {
+          const blocked = requestOperatorInput(id, `Scout found verified sources but could not produce a validated research response. Model error: ${validationError.message || 'Scout response validation failed'}. Reply with any clarification you want Scout to use on its retry.`, { kind:'research', title:'Scout needs clarification' });
           return tasks.update(id, {
-            status:'needs_input',
-            progress:70,
-            result:'Scout research was found, but the model response failed grounding validation. No downstream campaign stage was started.',
             error:validationError.message || 'Scout response validation failed',
             grounding:{
               ...(tasks.get(id).grounding || {}),
@@ -240,10 +266,8 @@ Choose only platforms that are relevant to the brief and write the complete post
           }
           return updated;
         } catch (validationError) {
+          const blocked = requestOperatorInput(id, `Sosh produced a social draft but it failed structural validation. Model error: ${validationError.message || 'Sosh response validation failed'}. Reply with any change or clarification for Sosh to use on its retry.`, { kind:'social', title:'Sosh needs clarification' });
           return tasks.update(id, {
-            status:'needs_input',
-            progress:70,
-            result:'Sosh produced a social draft, but it failed structural validation. No approval or publishing stage was started.',
             error:validationError.message || 'Sosh response validation failed'
           });
         }
@@ -285,6 +309,7 @@ Choose only platforms that are relevant to the brief and write the complete post
     handoffTask,
     approveWorkflow,
     rejectWorkflow,
+    respondToTask,
     executeTask,
     dependencies:{ model, brain, vault, web, dripvid }
   };

@@ -30,6 +30,12 @@ async function handleWorkforce(req,res,workforce){
     if(req.method==='POST'&&pathname==='/api/workforce/tasks'){sendWorkforceJson(res,201,workforce.createTask(await readWorkforceJson(req)));return true;}
     const executeMatch=pathname.match(/^\/api\/workforce\/tasks\/([^/]+)\/execute$/);
     if(req.method==='POST'&&executeMatch){sendWorkforceJson(res,200,await workforce.executeTask(executeMatch[1]));return true;}
+    const respondMatch=pathname.match(/^\/api\/workforce\/tasks\/([^/]+)\/respond$/);
+    if(req.method==='POST'&&respondMatch){
+      const body=await readWorkforceJson(req);
+      sendWorkforceJson(res,200,workforce.respondToTask(respondMatch[1],body.message));
+      return true;
+    }
     const taskMatch=pathname.match(/^\/api\/workforce\/tasks\/([^/]+)$/);
     if(req.method==='GET'&&taskMatch){const task=workforce.tasks.get(taskMatch[1]);if(!task){sendWorkforceJson(res,404,{error:'Task not found'});return true;}sendWorkforceJson(res,200,task);return true;}
     const handoffMatch=pathname.match(/^\/api\/workforce\/tasks\/([^/]+)\/handoff$/);

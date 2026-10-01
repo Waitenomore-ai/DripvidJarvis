@@ -94,5 +94,5 @@ test('workforce execution requires a model rather than silently pretending to wo
   const result = await runtime.executeTask(task.id);
 
   assert.equal(result.status, 'needs_input');
-  assert.match(result.result, /model adapter/i);
+  assert.match(result.result, /AI engine is unavailable/i);
 });

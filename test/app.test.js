@@ -95,7 +95,7 @@ test(
 
     assert.equal(
       config.chatTimeoutMs,
-      30000
+      120000
     );
 
     assert.equal(
