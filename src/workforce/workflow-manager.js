@@ -77,6 +77,21 @@ function createWorkflowManager({
     if (!workflow || workflow.status !== 'active') return workflow ? clone(workflow) : null;
     if (completedTask.status !== 'complete') return clone(workflow);
 
+    if (task.stage === 'research' && (!completedTask.grounding || completedTask.grounding.verified !== true || completedTask.grounding.responseValidated !== true)) {
+      workflow.status = 'blocked';
+      workflow.updatedAt = now();
+      workflow.history.push({
+        stage: 'research',
+        taskId: task.id,
+        employeeId: task.employeeId,
+        at: now(),
+        blocked: true,
+        reason: 'Scout research did not pass grounding validation'
+      });
+      registry.setState('jarvis', 'needs_input', task.id);
+      return clone(workflow);
+    }
+
     workflow.outputs[task.stage] = completedTask.result || '';
 
     if (task.stage === 'research') {
