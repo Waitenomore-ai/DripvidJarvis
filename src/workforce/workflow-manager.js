@@ -4,7 +4,7 @@ function clone(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
 }
 
-const STAGES = Object.freeze(['research', 'copy', 'social', 'approval']);
+const STAGES = Object.freeze(['research', 'planning', 'copy', 'social', 'approval']);
 
 function createWorkflowManager({
   tasks,
@@ -97,9 +97,28 @@ function createWorkflowManager({
 
     if (task.stage === 'research') {
       const next = tasks.create({
+        title: `Plan: ${workflow.title}`,
+        description:
+          `Build the campaign execution plan for Penny and Sosh using only the brief and Scout's validated research.\n\nBRIEF:\n${workflow.brief}\n\nSCOUT RESEARCH:\n${completedTask.result || '(no research result)'}`,
+        employeeId: 'jarvis',
+        workflowId: workflow.id,
+        stage: 'planning',
+        priority: 'normal'
+      });
+      workflow.stage = 'planning';
+      workflow.taskId = next.id;
+      workflow.taskIds.push(next.id);
+      workflow.history.push({ stage: 'planning', taskId: next.id, employeeId: 'jarvis', at: now() });
+      workflow.updatedAt = now();
+      registry.setState('jarvis', 'thinking', next.id);
+      return clone(workflow);
+    }
+
+    if (task.stage === 'planning') {
+      const next = tasks.create({
         title: `Copy: ${workflow.title}`,
         description:
-          `Create the copy for this campaign using the brief and Scout's research.\n\nBRIEF:\n${workflow.brief}\n\nSCOUT RESEARCH:\n${completedTask.result || '(no research result)'}`,
+          `Create the campaign copy using the brief, Scout research and JARVIS execution plan.\n\nBRIEF:\n${workflow.brief}\n\nSCOUT RESEARCH:\n${workflow.outputs.research || '(none)'}\n\nJARVIS PLAN:\n${completedTask.result || '(none)'}`,
         employeeId: 'penny',
         workflowId: workflow.id,
         stage: 'copy',
@@ -110,7 +129,7 @@ function createWorkflowManager({
       workflow.taskIds.push(next.id);
       workflow.history.push({ stage: 'copy', taskId: next.id, employeeId: 'penny', at: now() });
       workflow.updatedAt = now();
-      registry.setState('jarvis', 'thinking', next.id);
+      registry.setState('jarvis', 'waiting', next.id);
       return clone(workflow);
     }
 
@@ -118,7 +137,7 @@ function createWorkflowManager({
       const next = tasks.create({
         title: `Social Draft: ${workflow.title}`,
         description:
-          `Turn the campaign brief, research and copy into a concise social media campaign draft. Do not publish anything. Return the proposed post copy, suggested platform(s), call to action, and any important caveats.\n\nBRIEF:\n${workflow.brief}\n\nRESEARCH:\n${workflow.outputs.research || '(none)'}\n\nCOPY:\n${completedTask.result || '(none)'}`,
+          `Turn the campaign brief, research, JARVIS plan and copy into a concise social media campaign draft. Do not publish anything. Return the proposed post copy, suggested platform(s), call to action, and any important caveats.\n\nBRIEF:\n${workflow.brief}\n\nRESEARCH:\n${workflow.outputs.research || '(none)'}\n\nJARVIS PLAN:\n${workflow.outputs.planning || '(none)'}\n\nCOPY:\n${completedTask.result || '(none)'}`,
         employeeId: 'sosh',
         workflowId: workflow.id,
         stage: 'social',

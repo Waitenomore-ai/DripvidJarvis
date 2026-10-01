@@ -5,6 +5,7 @@ const { createTaskManager } = require('./task-manager');
 const { createWorkflowManager } = require('./workflow-manager');
 const { createScoutResearch, validateScoutResponse } = require('./scout-research');
 const { validateSocialDraftResponse } = require('./social-draft');
+const { validatePlanningResponse } = require('./planning');
 const { createWorkforcePersistence } = require('./persistence');
 
 function createWorkforceRuntime({
@@ -302,11 +303,17 @@ Return JSON only with this exact shape:
 {"summary":"...","findings":[{"claim":"...","sourceUrls":["https://..."]}],"sourceCount":0,"sourceUrls":["https://..."]}
 Every factual finding MUST cite one or more URLs from VERIFIED DRIPVID SOURCES below.
 Do not use general knowledge. Do not use unrelated "Drip" sources. Do not invent facts, customers, prices, features, statistics, dates, or URLs. If a detail is not supported by the verified sources, leave it out.`
+        : employee.id === 'jarvis' && task.stage === 'planning'
+          ? `You are JARVIS, the Team Leader and planning lead in DripVid JARVIS.
+Create the execution plan that Penny and Sosh will follow.
+Return JSON only with this exact shape:
+{"summary":"...","objectives":["..."],"contentAngle":"...","audience":"...","callToAction":"...","caveats":[]}
+Use only the supplied campaign brief and Scout research. Do not invent product facts, prices, customers, statistics, dates or capabilities. Separate strategic recommendations from factual claims. Keep the plan actionable and concise.`
         : employee.id === 'sosh' && task.stage === 'social'
           ? `You are Sosh, the Social Media Manager in DripVid JARVIS.
 Return JSON only with this exact shape:
 {"summary":"...","platforms":["facebook","instagram"],"posts":{"facebook":"...","instagram":"..."},"cta":"...","caveats":[]}
-Choose only platforms that are relevant to the brief and write the complete post text for every selected platform. Do not publish anything. Do not invent facts, prices, customers, statistics or product claims; use only the approved brief and research provided.`
+Choose only platforms that are relevant to the brief and write the complete post text for every selected platform. Do not publish anything. Do not invent facts, prices, customers, statistics or product claims; use only the approved brief, Scout research and JARVIS plan provided.`
           : `You are ${employee.name}, the ${employee.role} in DripVid JARVIS. Return a concise, useful result for the assigned task.`;
 
       const operatorContext = Array.isArray(task.operatorMessages) && task.operatorMessages.length
@@ -366,6 +373,36 @@ Choose only platforms that are relevant to the brief and write the complete post
               verified:true,
               responseValidated:false
             }
+          });
+        }
+      }
+
+      if (employee.id === 'jarvis' && task.stage === 'planning') {
+        try {
+          const validatedPlan = validatePlanningResponse(text);
+          const updated = tasks.update(id, {
+            status:'complete',
+            progress:100,
+            result:JSON.stringify(validatedPlan, null, 2)
+          });
+          record({ type:'task.completed', taskId:id, employeeId:task.employeeId, title:task.title });
+          if (task.workflowId && task.stage) {
+            const workflow = workflows.advanceAfterTask(task, updated);
+            if (workflow) {
+              record({
+                type:'workflow.handoff',
+                workflowId:workflow.id,
+                title:workflow.title,
+                stage:workflow.stage,
+                taskId:workflow.taskId
+              });
+            }
+          }
+          return updated;
+        } catch (validationError) {
+          requestOperatorInput(id, `JARVIS produced a plan but it failed structural validation. Model error: ${validationError.message || 'JARVIS planning validation failed'}. Reply with any clarification for JARVIS to use on its retry.`, { kind:'planning', title:'JARVIS needs clarification' });
+          return tasks.update(id, {
+            error:validationError.message || 'JARVIS planning validation failed'
           });
         }
       }

@@ -32,7 +32,7 @@ async function waitFor(predicate, timeoutMs = 2000) {
   throw new Error('Timed out waiting for Workforce autopilot');
 }
 
-test('Workforce autopilot runs Scout, Penny and Sosh through approval', async () => {
+test('Workforce autopilot runs Scout, JARVIS, Penny and Sosh through approval', async () => {
   let modelCalls = 0;
   const runtime = createWorkforceRuntime({
     autoRunWorkflows: true,
@@ -54,7 +54,19 @@ test('Workforce autopilot runs Scout, Penny and Sosh through approval', async ()
             })
           };
         }
-        if (modelCalls === 2) return { message: 'Campaign copy complete.' };
+        if (modelCalls === 2) {
+          return {
+            message: JSON.stringify({
+              summary: 'Plan complete.',
+              objectives: ['Lead with the clearest supported campaign message.'],
+              contentAngle: 'Clear and useful.',
+              audience: 'DripVid viewers.',
+              callToAction: 'Watch DripVid.',
+              caveats: []
+            })
+          };
+        }
+        if (modelCalls === 3) return { message: 'Campaign copy complete.' };
         return {
           message: JSON.stringify({
             summary: 'Social campaign ready.',
@@ -78,10 +90,11 @@ test('Workforce autopilot runs Scout, Penny and Sosh through approval', async ()
     return current?.status === 'awaiting_approval' ? current : null;
   });
 
-  assert.equal(modelCalls, 3);
+  assert.equal(modelCalls, 4);
   assert.equal(completed.stage, 'approval');
+  assert.ok(completed.outputs.planning.includes('Plan complete.'));
   assert.equal(completed.approval.status, 'pending');
-  assert.equal(runtime.tasks.list().filter((task) => task.workflowId === workflow.id).length, 3);
+  assert.equal(runtime.tasks.list().filter((task) => task.workflowId === workflow.id).length, 4);
   assert.equal(runtime.snapshot().automation.workflowAutopilot, true);
 
   const eventTypes = runtime.snapshot().activity.map((event) => event.type);
@@ -128,7 +141,19 @@ test('Workforce autopilot pauses for operator input and resumes', async () => {
             })
           };
         }
-        if (modelCalls === 2) return { message: 'Copy complete.' };
+        if (modelCalls === 2) {
+          return {
+            message: JSON.stringify({
+              summary: 'Plan complete.',
+              objectives: ['Follow the validated campaign objective.'],
+              contentAngle: 'Clear and useful.',
+              audience: 'DripVid viewers.',
+              callToAction: 'Watch DripVid.',
+              caveats: []
+            })
+          };
+        }
+        if (modelCalls === 3) return { message: 'Copy complete.' };
         return {
           message: JSON.stringify({
             summary: 'Social campaign ready.',
@@ -167,6 +192,6 @@ test('Workforce autopilot pauses for operator input and resumes', async () => {
   });
 
   assert.equal(researchCalls, 2);
-  assert.equal(modelCalls, 3);
+  assert.equal(modelCalls, 4);
   assert.equal(completed.approval.status, 'pending');
 });
