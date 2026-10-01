@@ -60,7 +60,8 @@ function createJarvisServer({env=process.env,fetchImpl=globalThis.fetch,now}={})
     scoutAllowedDomains:runtime.config.scoutAllowedDomains,
     now,
     autoRunWorkflows:workforceAutoRun,
-    autoRunDelayMs:Number.isFinite(workforceAutoRunDelayMs)?Math.max(0,workforceAutoRunDelayMs):25
+    autoRunDelayMs:Number.isFinite(workforceAutoRunDelayMs)?Math.max(0,workforceAutoRunDelayMs):25,
+    statePath:env.JARVIS_WORKFORCE_STATE_PATH||path.resolve(__dirname,'..','data','workforce-state.json')
   });
   let metaProvider=null; if(env.JARVIS_META_PAGE_ID&&env.JARVIS_META_INSTAGRAM_ID&&env.JARVIS_META_PAGE_TOKEN)metaProvider=createMetaProvider({env,fetchImpl});
   const releaseAnnouncer=createReleaseAnnouncer({statePath:env.JARVIS_RELEASE_ANNOUNCEMENT_PATH||path.resolve(__dirname,'..','data','release-announcements.json'),socialManager,metaProvider,env,fetchImpl,now});

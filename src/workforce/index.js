@@ -5,22 +5,54 @@ const { createTaskManager } = require('./task-manager');
 const { createWorkflowManager } = require('./workflow-manager');
 const { createScoutResearch, validateScoutResponse } = require('./scout-research');
 const { validateSocialDraftResponse } = require('./social-draft');
+const { createWorkforcePersistence } = require('./persistence');
 
 function createWorkforceRuntime({
   model = null, brain = null, vault = null, web = null, dripvid = null,
   socialManager = null, scoutResearch = null,
   scoutAllowedDomains = ['dripvid.uk', 'www.dripvid.uk'], now,
-  autoRunWorkflows = false, autoRunDelayMs = 25
+  autoRunWorkflows = false, autoRunDelayMs = 25,
+  statePath = null
 } = {}) {
   const registry = createWorkforceRegistry();
-  const tasks = createTaskManager({ registry, now });
-  const activity = [];
-  const workflows = createWorkflowManager({ tasks, registry, now, socialManager });
-  const scout = scoutResearch || (web ? createScoutResearch({ web, allowedDomains: scoutAllowedDomains }) : null);
   const clock = now || (() => new Date().toISOString());
+  const tasks = createTaskManager({ registry, now:clock });
+  const activity = [];
+  const workflows = createWorkflowManager({ tasks, registry, now:clock, socialManager });
+  const persistence = createWorkforcePersistence({ statePath, now:clock });
+  const scout = scoutResearch || (web ? createScoutResearch({ web, allowedDomains: scoutAllowedDomains }) : null);
   const record = (event) => { activity.unshift({ ...event, at: clock() }); activity.splice(30); };
   const activeWorkflowRuns = new Set();
   const scheduledWorkflowRuns = new Set();
+
+  function persistState() {
+    if (!persistence) return;
+    persistence.save({
+      tasks: tasks.exportState(),
+      workflows: workflows.exportState(),
+      activity
+    });
+  }
+
+  function restorePersistedState() {
+    if (!persistence) return;
+    const saved = persistence.load();
+    if (!saved) return;
+    tasks.restoreState(saved.tasks || []);
+    workflows.restoreState(saved.workflows || []);
+    activity.splice(0, activity.length, ...(Array.isArray(saved.activity) ? saved.activity.slice(0, 30) : []));
+
+    for (const workflow of workflows.list()) {
+      if (workflow.status === 'active' && workflow.taskId) {
+        registry.setState('jarvis', 'thinking', workflow.taskId);
+      } else if (workflow.status === 'awaiting_approval' && workflow.taskId) {
+        registry.setState('jarvis', 'waiting', workflow.taskId);
+        registry.setState('sosh', 'waiting', workflow.taskId);
+      } else if (workflow.status === 'approved') {
+        registry.setState('jarvis', 'complete', null);
+      }
+    }
+  }
 
   function snapshot() {
     return {
@@ -45,12 +77,14 @@ function createWorkforceRuntime({
   function createTask(input) {
     const task = tasks.create(input);
     record({ type:'task.created', taskId:task.id, employeeId:task.employeeId, title:task.title });
+    persistState();
     return task;
   }
 
   function handoffTask(id, input) {
     const task = tasks.handoff(id, input);
     record({ type:'task.handoff', taskId:id, fromEmployeeId:input.fromEmployeeId, toEmployeeId:input.toEmployeeId, title:task.title });
+    persistState();
     return task;
   }
 
@@ -70,6 +104,7 @@ function createWorkforceRuntime({
   function createWorkflow(input) {
     const workflow = workflows.create(input);
     record({ type:'workflow.created', workflowId:workflow.id, title:workflow.title, stage:workflow.stage });
+    persistState();
     queueWorkflowRun(workflow.id);
     return workflow;
   }
@@ -77,6 +112,7 @@ function createWorkforceRuntime({
   function approveWorkflow(id) {
     const workflow = workflows.approve(id);
     record({ type:'workflow.approved', workflowId:id, title:workflow.title });
+    persistState();
     return workflow;
   }
 
@@ -89,6 +125,7 @@ function createWorkforceRuntime({
       title:task.title
     });
     if (task.workflowId) queueWorkflowRun(task.workflowId);
+    persistState();
     return task;
   }
 
@@ -107,6 +144,7 @@ function createWorkforceRuntime({
   function rejectWorkflow(id, reason) {
     const workflow = workflows.reject(id, reason);
     record({ type:'workflow.rejected', workflowId:id, title:workflow.title, reason:reason || '' });
+    persistState();
     return workflow;
   }
 
@@ -174,10 +212,11 @@ function createWorkforceRuntime({
       return workflows.get(id);
     } finally {
       activeWorkflowRuns.delete(id);
+      persistState();
     }
   }
 
-  async function executeTask(id) {
+  async function executeTaskInternal(id) {
     const task = tasks.get(id);
     if (!task) throw new Error('Unknown task');
 
@@ -389,6 +428,20 @@ Choose only platforms that are relevant to the brief and write the complete post
     }
   }
 
+  async function executeTask(id) {
+    try {
+      return await executeTaskInternal(id);
+    } finally {
+      persistState();
+    }
+  }
+
+  restorePersistedState();
+  if (autoRunWorkflows) {
+    for (const workflow of workflows.list()) {
+      if (workflow.status === 'active' && workflow.taskId) queueWorkflowRun(workflow.id);
+    }
+  }
   return {
     registry,
     tasks,
@@ -402,6 +455,7 @@ Choose only platforms that are relevant to the brief and write the complete post
     respondToTask,
     executeTask,
     runWorkflow,
+    persistState,
     dependencies:{ model, brain, vault, web, dripvid }
   };
 }
