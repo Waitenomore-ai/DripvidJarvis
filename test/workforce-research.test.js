@@ -4,14 +4,50 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createWorkforceRuntime } = require('../src/workforce');
 
-test('Scout executes a research task and stores a structured result', async () => {
+function groundedScoutResearch() {
+  return {
+    async research() {
+      return {
+        grounded: true,
+        allowedDomains: ['dripvid.uk'],
+        queries: ['site:dripvid.uk test'],
+        sources: [
+          {
+            title: 'DripVid',
+            url: 'https://dripvid.uk/',
+            snippet: 'Verified DripVid source.',
+            content: 'Verified DripVid page.',
+            opened: true
+          }
+        ],
+        sourceUrls: ['https://dripvid.uk/'],
+        rejectedCount: 0
+      };
+    }
+  };
+}
+
+test('Scout executes a research task and stores a grounded structured result', async () => {
   const calls = [];
   const runtime = createWorkforceRuntime({
+    scoutResearch: groundedScoutResearch(),
     now: () => '2026-09-30T22:10:00.000Z',
     model: {
       async chat(payload) {
         calls.push(payload);
-        return { content: JSON.stringify({ summary: 'Three useful streaming trends', findings: ['FAST', 'KIDS', 'LIVE'], sources: 3 }) };
+        return {
+          content: JSON.stringify({
+            summary: 'Three useful streaming trends',
+            findings: [
+              {
+                claim: 'Live TV remains a useful content area.',
+                sourceUrls: ['https://dripvid.uk/']
+              }
+            ],
+            sourceCount: 1,
+            sourceUrls: ['https://dripvid.uk/']
+          })
+        };
       }
     }
   });
@@ -27,6 +63,8 @@ test('Scout executes a research task and stores a structured result', async () =
   assert.equal(result.status, 'complete');
   assert.equal(result.progress, 100);
   assert.match(result.result, /streaming trends/i);
+  assert.equal(result.grounding.verified, true);
+  assert.equal(result.grounding.responseValidated, true);
   assert.equal(calls.length, 1);
   assert.match(calls[0].conversation[0].content, /Scout/);
   assert.match(calls[0].conversation[1].content, /current streaming trends/);
@@ -35,6 +73,7 @@ test('Scout executes a research task and stores a structured result', async () =
 
 test('workforce execution records model failures as task errors', async () => {
   const runtime = createWorkforceRuntime({
+    scoutResearch: groundedScoutResearch(),
     model: {
       async chat() { throw new Error('model offline'); }
     }
