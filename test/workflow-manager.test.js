@@ -53,7 +53,7 @@ test('campaign workflow advances research to copy to social', () => {
   });
 
   let current = tasks.get(workflow.taskId);
-  current = tasks.update(current.id, { status: 'complete', result: 'Research result' });
+  current = tasks.update(current.id, { status: 'complete', result: 'Research result', grounding: { verified: true, responseValidated: true } });
   let state = workflows.advanceAfterTask(current, current);
   assert.equal(state.stage, 'copy');
   assert.equal(tasks.get(state.taskId).employeeId, 'penny');
