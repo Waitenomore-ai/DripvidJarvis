@@ -148,7 +148,43 @@ function createTaskManager({ registry, now = () => new Date().toISOString(), idF
     return clone(task);
   }
 
-  return { create, get, list, update, requestInput, respond, handoff };
+  function exportState() {
+    return [...tasks.values()].map(clone);
+  }
+
+  function restoreState(items = []) {
+    tasks.clear();
+    for (const item of Array.isArray(items) ? items : []) {
+      if (!item || !item.id || !item.employeeId || !registry.get(item.employeeId)) continue;
+      const task = {
+        ...clone(item),
+        dependencies:[...(item.dependencies || [])],
+        operatorMessages:[...(item.operatorMessages || [])],
+        handoffs:[...(item.handoffs || [])]
+      };
+      if (task.status === 'running') {
+        task.status = 'queued';
+        task.updatedAt = now();
+      }
+      tasks.set(task.id, task);
+    }
+    for (const task of tasks.values()) {
+      registry.setState(
+        task.employeeId,
+        task.status === 'needs_input'
+          ? 'needs_input'
+          : task.status === 'complete' || task.status === 'error'
+            ? (task.status === 'complete' ? 'complete' : 'error')
+            : task.status === 'running'
+              ? 'working'
+              : 'waiting',
+        task.status === 'complete' || task.status === 'error' ? null : task.id
+      );
+    }
+    return exportState();
+  }
+
+  return { create, get, list, update, requestInput, respond, handoff, exportState, restoreState };
 }
 
 module.exports = { createTaskManager };
