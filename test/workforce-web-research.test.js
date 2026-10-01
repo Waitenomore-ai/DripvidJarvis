@@ -70,6 +70,6 @@ test('Scout uses the injected web adapter with DripVid source grounding before s
   assert.equal(openCalls[0], 'https://dripvid.uk/');
   assert.equal(modelCalls.length, 1);
   assert.match(modelCalls[0].conversation[1].content, /DripVid/);
-  assert.match(modelCalls[0].conversation[1].content, /https://dripvid\.uk\//);
+  assert.match(modelCalls[0].conversation[1].content, /https:\/\/dripvid\.uk\//);
   assert.doesNotMatch(modelCalls[0].conversation[1].content, /https://drip\.com/);
 });
