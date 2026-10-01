@@ -744,6 +744,46 @@ function renderTaskDetails(tasks, employees) {
   `;
 }
 
+function parseWorkflowOutput(value) {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function approvalPreview(workflow) {
+  if (workflow.status !== 'awaiting_approval') return '';
+  const plan = parseWorkflowOutput(workflow.outputs?.planning);
+  const social = parseWorkflowOutput(workflow.outputs?.social);
+  const summary = plan?.summary || social?.summary || 'Campaign package is ready for your review.';
+  const platforms = Array.isArray(social?.platforms) ? social.platforms : [];
+  const posts = social?.posts && typeof social.posts === 'object' ? social.posts : {};
+  const firstPost = platforms.find((platform) => posts[platform]) || Object.keys(posts)[0];
+  const postText = firstPost ? String(posts[firstPost] || '') : '';
+
+  return `
+    <div class="workflow-preview">
+      <div class="workflow-preview-head">
+        <span>JARVIS REVIEW PACKAGE</span>
+        <strong>READY FOR APPROVAL</strong>
+      </div>
+      <p class="workflow-preview-summary">${esc(summary)}</p>
+      ${plan?.objectives?.length
+        ? `<div class="workflow-preview-block"><span>PLAN</span><ul>${plan.objectives.slice(0,3).map((objective) => `<li>${esc(objective)}</li>`).join('')}</ul></div>`
+        : ''}
+      ${platforms.length
+        ? `<div class="workflow-preview-block"><span>PLATFORMS</span><b>${platforms.map((platform) => esc(platform)).join(' · ')}</b></div>`
+        : ''}
+      ${postText
+        ? `<div class="workflow-preview-block"><span>DRAFT PREVIEW · ${esc(firstPost)}</span><p>${esc(postText.slice(0, 260))}${postText.length > 260 ? '…' : ''}</p></div>`
+        : ''}
+    </div>
+  `;
+}
+
 function renderWorkflows(workflows) {
   const el = document.getElementById('workflowList');
   if (!el) return;
@@ -769,6 +809,7 @@ function renderWorkflows(workflows) {
               <b>${esc(workflow.title)}</b>
               <small>${esc(workflow.stage)} · ${esc(workflow.status.replaceAll('_', ' '))}</small>
             </div>
+            ${approvalPreview(workflow)}
             <div class="workflow-actions">
               ${runnable
                 ? `<button data-workflow-run="${esc(workflow.taskId)}">▶ Run stage</button>`
