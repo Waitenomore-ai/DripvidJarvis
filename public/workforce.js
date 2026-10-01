@@ -297,6 +297,8 @@ function statusPriority(state) {
   }[state] ?? 0;
 }
 
+let avatarSerial = 0;
+
 const agentThemes = {
   scout: { accent:'#45d9ff', deep:'#0b78b0', glow:'#45d9ff', eye:'#9df1ff' },
   jarvis: { accent:'#a877ff', deep:'#5d37bd', glow:'#a877ff', eye:'#d6c4ff' },
@@ -306,23 +308,24 @@ const agentThemes = {
 
 function agentAvatar(id, compact = false) {
   const t = agentThemes[id] || agentThemes.jarvis;
+  const uid = `${id}-${++avatarSerial}`;
   const scale = compact ? 'scale(.78)' : 'scale(1)';
   return `
     <svg class="robot-avatar-svg" style="--accent:${t.accent};--deep:${t.deep};--glow:${t.glow};--eye:${t.eye};transform:${scale}" viewBox="0 0 180 190" aria-hidden="true">
       <defs>
-        <linearGradient id="body-${id}" x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id="body-${uid}" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stop-color="${t.accent}" stop-opacity=".92"/>
           <stop offset=".42" stop-color="${t.deep}" stop-opacity=".96"/>
           <stop offset="1" stop-color="#050a12"/>
         </linearGradient>
-        <radialGradient id="halo-${id}" cx="50%" cy="35%">
+        <radialGradient id="halo-${uid}" cx="50%" cy="35%">
           <stop offset="0" stop-color="${t.glow}" stop-opacity=".36"/>
           <stop offset="1" stop-color="${t.glow}" stop-opacity="0"/>
         </radialGradient>
       </defs>
-      <ellipse cx="90" cy="86" rx="78" ry="74" fill="url(#halo-${id})"/>
+      <ellipse cx="90" cy="86" rx="78" ry="74" fill="url(#halo-${uid})"/>
       <ellipse cx="90" cy="169" rx="54" ry="8" fill="${t.glow}" opacity=".18"/>
-      <rect x="48" y="62" width="84" height="73" rx="28" fill="url(#body-${id})" stroke="${t.accent}" stroke-opacity=".65" stroke-width="2"/>
+      <rect x="48" y="62" width="84" height="73" rx="28" fill="url(#body-${uid})" stroke="${t.accent}" stroke-opacity=".65" stroke-width="2"/>
       <rect x="60" y="47" width="60" height="61" rx="22" fill="#07111e" stroke="${t.accent}" stroke-width="3"/>
       <path d="M74 55 Q90 40 106 55" fill="none" stroke="${t.accent}" stroke-opacity=".62" stroke-width="3" stroke-linecap="round"/>
       <circle cx="90" cy="35" r="5" fill="${t.eye}" opacity=".95"/>
@@ -330,10 +333,10 @@ function agentAvatar(id, compact = false) {
       <circle cx="77" cy="84" r="7" fill="${t.eye}" opacity=".95"/>
       <circle cx="103" cy="84" r="7" fill="${t.eye}" opacity=".95"/>
       <path d="M72 108 Q90 119 108 108" fill="none" stroke="${t.accent}" stroke-width="4" stroke-linecap="round"/>
-      <path d="M48 93 L28 108 L38 122 L56 110" fill="url(#body-${id})" stroke="${t.accent}" stroke-opacity=".55" stroke-width="2"/>
-      <path d="M132 93 L152 108 L142 122 L124 110" fill="url(#body-${id})" stroke="${t.accent}" stroke-opacity=".55" stroke-width="2"/>
-      <path d="M63 136 L54 163 L76 169 L84 140" fill="url(#body-${id})"/>
-      <path d="M117 136 L126 163 L104 169 L96 140" fill="url(#body-${id})"/>
+      <path d="M48 93 L28 108 L38 122 L56 110" fill="url(#body-${uid})" stroke="${t.accent}" stroke-opacity=".55" stroke-width="2"/>
+      <path d="M132 93 L152 108 L142 122 L124 110" fill="url(#body-${uid})" stroke="${t.accent}" stroke-opacity=".55" stroke-width="2"/>
+      <path d="M63 136 L54 163 L76 169 L84 140" fill="url(#body-${uid})"/>
+      <path d="M117 136 L126 163 L104 169 L96 140" fill="url(#body-${uid})"/>
       <rect x="74" y="127" width="32" height="25" rx="9" fill="#08111b" stroke="${t.accent}" stroke-opacity=".7" stroke-width="2"/>
       <circle cx="90" cy="139" r="5" fill="${t.eye}" opacity=".9"/>
     </svg>
@@ -646,7 +649,7 @@ function renderWorkflowFlow(state) {
 
     return `
       <div class="flow-node ${mode}">
-        <div class="flow-avatar">${stage.icon}</div>
+        <div class="flow-avatar">${agentAvatar(stage.id, true)}</div>
         <div>
           <strong>${stage.name}</strong>
           <span>${stage.role} · ${esc(employee?.state || 'idle').replaceAll('_',' ')}</span>
@@ -966,7 +969,7 @@ function selectEmployee(id) {
     : null;
 
   document.getElementById('detail').innerHTML = `
-    <span class="detail-kicker">${icons[id] || '🤖'} ${esc(employee.role)}</span>
+    <span class="detail-kicker"><span class="detail-avatar">${agentAvatar(id, true)}</span> ${esc(employee.role)}</span>
     <h3>${esc(employee.name)}</h3>
     <p>${esc(employee.description)}</p>
     <div class="detail-grid">
