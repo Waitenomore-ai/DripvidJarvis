@@ -1692,3 +1692,97 @@ footer a{color:#55d8ff}
 .detail-avatar{display:inline-flex;width:18px;height:18px;align-items:center;justify-content:center;overflow:hidden}
 .detail-avatar .robot-avatar-svg{width:19px;height:19px}
 .flow-avatar .robot-avatar-svg{width:30px;height:30px}
+
+
+/* Live task handoff animation */
+.handoff-layer{
+  position:absolute;
+  inset:0;
+  z-index:12;
+  pointer-events:none;
+  overflow:hidden;
+}
+.handoff-token{
+  position:absolute;
+  left:0;
+  top:0;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  transform-origin:center center;
+  will-change:transform,opacity;
+  transition:transform .72s cubic-bezier(.2,.9,.22,1),opacity .3s ease;
+  filter:drop-shadow(0 0 14px #45d9ff66);
+}
+.handoff-token-moving{z-index:20}
+.handoff-token-travel{
+  transition-duration:.92s;
+  transition-timing-function:cubic-bezier(.15,.7,.18,1);
+}
+.handoff-token-settled{
+  opacity:.98;
+  z-index:19;
+  animation:handoffSettle 2.6s ease-out forwards;
+}
+.handoff-orb{
+  width:14px;
+  height:14px;
+  flex:0 0 14px;
+  border-radius:50%;
+  border:1px solid #8ff0ff;
+  background:radial-gradient(circle at 35% 32%,#ffffff 0 12%,#7eeaff 28%,#238ec7 52%,#0b2535 100%);
+  box-shadow:0 0 8px #45d9ffcc,0 0 22px #45d9ff55,inset 0 0 5px #ffffff99;
+  animation:handoffPulse .75s ease-in-out infinite;
+}
+.handoff-label{
+  max-width:170px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  padding:4px 7px;
+  border:1px solid #2d526e;
+  border-radius:999px;
+  background:#06111bef;
+  color:#cfe9f7;
+  box-shadow:0 8px 20px #0008;
+  font-size:7px;
+  font-weight:800;
+  letter-spacing:.04em;
+}
+.handoff-trail{
+  position:absolute;
+  height:2px;
+  transform-origin:0 50%;
+  background:linear-gradient(90deg,#45d9ff00,#45d9ffbb,#a877ffbb,#45d9ff00);
+  filter:blur(.1px) drop-shadow(0 0 7px #45d9ff66);
+  opacity:0;
+  pointer-events:none;
+  z-index:18;
+  transition:opacity .18s ease;
+}
+.handoff-trail-live{
+  opacity:1;
+  animation:handoffTrail .92s ease-out forwards;
+}
+@keyframes handoffPulse{
+  0%,100%{transform:scale(.82);box-shadow:0 0 7px #45d9ff99,0 0 18px #45d9ff44,inset 0 0 4px #ffffff88}
+  50%{transform:scale(1.14);box-shadow:0 0 11px #8ff0ffcc,0 0 28px #45d9ff66,inset 0 0 6px #ffffffbb}
+}
+@keyframes handoffTrail{
+  0%{opacity:0;filter:blur(1px)}
+  16%{opacity:1}
+  75%{opacity:.75}
+  100%{opacity:0;filter:blur(2px)}
+}
+@keyframes handoffSettle{
+  0%{opacity:1}
+  70%{opacity:.98}
+  100%{opacity:0}
+}
+@media(max-width:850px){
+  .handoff-label{max-width:120px;font-size:6px;padding:3px 5px}
+  .handoff-orb{width:12px;height:12px;flex-basis:12px}
+}
+@media(prefers-reduced-motion:reduce){
+  .handoff-token,.handoff-trail{transition:none!important;animation:none!important}
+}

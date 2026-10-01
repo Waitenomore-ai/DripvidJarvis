@@ -863,7 +863,146 @@ function applyRoomTelemetry(employees) {
   }
 }
 
+let lastWorkflowAgentId = null;
+
+function activeWorkflowAgent(state) {
+  const workflow = (state.workflows || []).find((item) =>
+    ['active', 'awaiting_approval', 'blocked'].includes(item.status)
+  );
+  if (!workflow) return null;
+
+  const task = workflow.taskId
+    ? (state.tasks || []).find((item) => item.id === workflow.taskId)
+    : null;
+
+  const taskAgent = task?.employeeId && ['scout', 'jarvis', 'penny', 'sosh'].includes(task.employeeId)
+    ? task.employeeId
+    : null;
+
+  if (taskAgent) return taskAgent;
+
+  return ({
+    research: 'scout',
+    copy: 'penny',
+    social: 'sosh',
+    approval: 'jarvis'
+  })[workflow.stage] || null;
+}
+
+function handoffPoint(agentId, floorRect) {
+  const node = document.querySelector('.hero-agent[data-employee="' + CSS.escape(agentId) + '"]');
+  if (!node) return null;
+  const rect = node.getBoundingClientRect();
+  return {
+    x: rect.left - floorRect.left + rect.width / 2,
+    y: rect.top - floorRect.top + Math.min(rect.height * 0.56, rect.height - 70)
+  };
+}
+
+function renderHandoffToken(layer, point, taskTitle, agentId) {
+  if (!layer || !point) return;
+  const token = layer.querySelector('.handoff-token') || document.createElement('div');
+  token.className = 'handoff-token';
+  token.dataset.agent = agentId || '';
+  token.innerHTML = '<span class="handoff-orb"></span><span class="handoff-label">' + esc(taskTitle || 'Task') + '</span>';
+  token.style.transform = 'translate3d(' + point.x + 'px,' + point.y + 'px,0)';
+  if (!token.parentNode) layer.appendChild(token);
+}
+
+function animateHandoff(previousAgentId, nextAgentId, taskTitle) {
+  const layer = document.getElementById('handoffLayer');
+  const floor = document.querySelector('.hero-floor');
+  if (!layer || !floor || !nextAgentId) return;
+
+  const floorRect = floor.getBoundingClientRect();
+  const target = handoffPoint(nextAgentId, floorRect);
+  if (!target) return;
+
+  if (!previousAgentId || previousAgentId === nextAgentId) {
+    renderHandoffToken(layer, target, taskTitle, nextAgentId);
+    return;
+  }
+
+  const source = handoffPoint(previousAgentId, floorRect);
+  if (!source) {
+    renderHandoffToken(layer, target, taskTitle, nextAgentId);
+    return;
+  }
+
+  const token = document.createElement('div');
+  token.className = 'handoff-token handoff-token-moving';
+  token.innerHTML = '<span class="handoff-orb"></span><span class="handoff-label">' + esc(taskTitle || 'Task handoff') + '</span>';
+  token.style.transform = 'translate3d(' + source.x + 'px,' + source.y + 'px,0)';
+  layer.appendChild(token);
+
+  const trail = document.createElement('span');
+  trail.className = 'handoff-trail';
+  const dx = target.x - source.x;
+  const dy = target.y - source.y;
+  const length = Math.max(1, Math.hypot(dx, dy));
+  const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+  trail.style.width = length + 'px';
+  trail.style.left = source.x + 'px';
+  trail.style.top = source.y + 'px';
+  trail.style.transform = 'rotate(' + angle + 'deg)';
+  layer.appendChild(trail);
+
+  requestAnimationFrame(() => {
+    token.classList.add('handoff-token-travel');
+    token.style.transform = 'translate3d(' + target.x + 'px,' + target.y + 'px,0)';
+    trail.classList.add('handoff-trail-live');
+  });
+
+  window.setTimeout(() => {
+    trail.classList.remove('handoff-trail-live');
+    trail.remove();
+    token.remove();
+
+    const settled = document.createElement('div');
+    settled.className = 'handoff-token handoff-token-settled';
+    settled.innerHTML = '<span class="handoff-orb"></span><span class="handoff-label">' + esc(taskTitle || 'Task') + '</span>';
+    settled.style.transform = 'translate3d(' + target.x + 'px,' + target.y + 'px,0)';
+    layer.appendChild(settled);
+    window.setTimeout(() => settled.remove(), 2600);
+  }, 980);
+}
+
+function renderHandoffAnimation(state, previousState) {
+  const layer = document.getElementById('handoffLayer');
+  const floor = document.querySelector('.hero-floor');
+  if (!layer || !floor) return;
+
+  const currentAgentId = activeWorkflowAgent(state);
+  const previousAgentId = activeWorkflowAgent(previousState || {});
+  const workflow = (state.workflows || []).find((item) =>
+    ['active', 'awaiting_approval', 'blocked'].includes(item.status)
+  );
+  const task = workflow?.taskId
+    ? (state.tasks || []).find((item) => item.id === workflow.taskId)
+    : null;
+
+  if (!currentAgentId) {
+    lastWorkflowAgentId = null;
+    layer.innerHTML = '';
+    return;
+  }
+
+  const floorRect = floor.getBoundingClientRect();
+  const currentPoint = handoffPoint(currentAgentId, floorRect);
+  if (!currentPoint) return;
+
+  const sourceAgent = lastWorkflowAgentId || previousAgentId;
+  if (sourceAgent && sourceAgent !== currentAgentId) {
+    animateHandoff(sourceAgent, currentAgentId, task?.title || workflow?.title || 'Workflow task');
+  } else {
+    renderHandoffToken(layer, currentPoint, task?.title || workflow?.title || 'Workflow task', currentAgentId);
+  }
+
+  lastWorkflowAgentId = currentAgentId;
+}
+
 function renderWorkforceState(state) {
+  const previousState = lastState;
   lastState = state;
 
   const employees = state.employees || [];
@@ -883,6 +1022,7 @@ function renderWorkforceState(state) {
   applyRoomTelemetry(employees);
 
   renderHeroAgents(employees, tasks);
+  renderHandoffAnimation(state, previousState);
 
   for (const room of ['dev-workshop','ops-room']) {
     const element = document.getElementById(room);
