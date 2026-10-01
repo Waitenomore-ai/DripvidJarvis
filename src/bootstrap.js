@@ -19,6 +19,14 @@ async function handleWorkforce(req,res,workforce){
     if(req.method==='GET'&&pathname==='/api/workforce/state'){sendWorkforceJson(res,200,workforce.snapshot());return true;}
     if(req.method==='GET'&&pathname==='/api/workforce/employees'){sendWorkforceJson(res,200,{employees:workforce.registry.list()});return true;}
     if(req.method==='GET'&&pathname==='/api/workforce/tasks'){sendWorkforceJson(res,200,{tasks:workforce.tasks.list({employeeId:url.searchParams.get('employeeId')||undefined,status:url.searchParams.get('status')||undefined})});return true;}
+    if(req.method==='GET'&&pathname==='/api/workforce/workflows'){sendWorkforceJson(res,200,{workflows:workforce.workflows.list()});return true;}
+    if(req.method==='POST'&&pathname==='/api/workforce/workflows'){sendWorkforceJson(res,201,workforce.createWorkflow(await readWorkforceJson(req)));return true;}
+    const workflowMatch=pathname.match(/^\/api\/workforce\/workflows\/([^/]+)$/);
+    if(req.method==='GET'&&workflowMatch){const workflow=workforce.workflows.get(workflowMatch[1]);if(!workflow){sendWorkforceJson(res,404,{error:'Workflow not found'});return true;}sendWorkforceJson(res,200,workflow);return true;}
+    const workflowApprove=pathname.match(/^\/api\/workforce\/workflows\/([^/]+)\/approve$/);
+    if(req.method==='POST'&&workflowApprove){sendWorkforceJson(res,200,workforce.approveWorkflow(workflowApprove[1]));return true;}
+    const workflowReject=pathname.match(/^\/api\/workforce\/workflows\/([^/]+)\/reject$/);
+    if(req.method==='POST'&&workflowReject){const body=await readWorkforceJson(req);sendWorkforceJson(res,200,workforce.rejectWorkflow(workflowReject[1],body.reason));return true;}
     if(req.method==='POST'&&pathname==='/api/workforce/tasks'){sendWorkforceJson(res,201,workforce.createTask(await readWorkforceJson(req)));return true;}
     const executeMatch=pathname.match(/^\/api\/workforce\/tasks\/([^/]+)\/execute$/);
     if(req.method==='POST'&&executeMatch){sendWorkforceJson(res,200,await workforce.executeTask(executeMatch[1]));return true;}
