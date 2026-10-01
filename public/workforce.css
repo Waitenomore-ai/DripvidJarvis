@@ -1000,3 +1000,127 @@ footer a{color:var(--cyan);text-decoration:none}
     transition-duration:.01ms!important;
   }
 }
+
+
+.alerts-button{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  min-height:38px;
+  padding:8px 11px;
+  border:1px solid #2b4057;
+  border-radius:11px;
+  background:#08111b;
+  color:#a8b6c7;
+  font:inherit;
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.05em;
+  cursor:pointer;
+  box-shadow:0 10px 25px #0005;
+  transition:border-color .2s ease,box-shadow .2s ease,transform .2s ease,color .2s ease;
+}
+
+.alerts-button:hover{
+  transform:translateY(-1px);
+  border-color:#4a7190;
+  color:var(--text);
+  box-shadow:0 14px 30px #0007,0 0 18px #56d8ff08;
+}
+
+.alerts-button.alerts-enabled{
+  border-color:#2f7058;
+  color:#8ff1bc;
+  box-shadow:0 0 20px #55e39a0c inset,0 10px 25px #0005;
+}
+
+.alerts-icon{
+  font-size:14px;
+  filter:drop-shadow(0 0 8px #f3cf6230);
+}
+
+.alert-toast{
+  position:fixed;
+  z-index:1000;
+  top:22px;
+  right:22px;
+  width:min(410px,calc(100vw - 32px));
+  display:grid;
+  grid-template-columns:38px minmax(0,1fr) 26px;
+  gap:10px;
+  align-items:start;
+  padding:12px;
+  border:1px solid #806d38;
+  border-radius:15px;
+  background:linear-gradient(145deg,#171609f5,#0b1118f5);
+  box-shadow:0 22px 70px #000b,0 0 35px #f3cf620c inset;
+  backdrop-filter:blur(14px);
+  opacity:0;
+  transform:translateY(-10px) scale(.98);
+  pointer-events:none;
+  transition:opacity .25s ease,transform .25s ease;
+}
+
+.alert-toast-show{
+  opacity:1;
+  transform:translateY(0) scale(1);
+  pointer-events:auto;
+}
+
+.alert-toast-icon{
+  display:grid;
+  place-items:center;
+  width:36px;
+  height:36px;
+  border-radius:11px;
+  background:#241f0f;
+  border:1px solid #78652f;
+  color:var(--yellow);
+  font-weight:950;
+  box-shadow:0 0 20px #f3cf6214;
+  animation:countPulse 1.2s ease-in-out infinite;
+}
+
+.alert-toast strong{
+  display:block;
+  margin-top:3px;
+  font-size:12px;
+}
+
+.alert-toast p{
+  margin:4px 0 0;
+  color:#bac4d0;
+  font-size:10px;
+  line-height:1.45;
+}
+
+.alert-toast button{
+  width:26px;
+  height:26px;
+  border:1px solid #30415a;
+  border-radius:8px;
+  background:#0a121b;
+  color:#8ea0b4;
+  cursor:pointer;
+  font-size:16px;
+  line-height:1;
+}
+
+.alert-toast button:hover{
+  border-color:#536d8b;
+  color:var(--text);
+}
+
+@media(max-width:760px){
+  .alerts-button{
+    width:100%;
+    justify-content:center;
+  }
+
+  .alert-toast{
+    top:12px;
+    right:12px;
+    left:12px;
+    width:auto;
+  }
+}
