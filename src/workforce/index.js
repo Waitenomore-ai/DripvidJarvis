@@ -305,21 +305,27 @@ function createWorkforceRuntime({
 
       const systemPrompt = employee.id === 'scout'
         ? `You are Scout, the Research & Trends specialist in DripVid JARVIS.
-Return JSON only with this exact shape:
+Return ONLY valid JSON using this exact shape:
 {"summary":"...","findings":[{"claim":"...","sourceUrls":["https://..."]}],"sourceCount":0,"sourceUrls":["https://..."]}
+Use strict JSON syntax: double quotes for all keys and string values, no comments, no trailing commas, no Markdown fences, and escape any quotation marks inside strings.
 Every factual finding MUST cite one or more URLs from VERIFIED DRIPVID SOURCES below.
-Do not use general knowledge. Do not use unrelated "Drip" sources. Do not invent facts, customers, prices, features, statistics, dates, or URLs. If a detail is not supported by the verified sources, leave it out.`
+Do not use general knowledge. Do not use unrelated "Drip" sources. Do not invent facts, customers, prices, features, statistics, dates, or URLs. If a detail is not supported by the verified sources, leave it out.
+Before sending, ensure the entire response parses as JSON.`
         : employee.id === 'jarvis' && task.stage === 'planning'
           ? `You are JARVIS, the Team Leader and planning lead in DripVid JARVIS.
 Create the execution plan that Penny and Sosh will follow.
-Return JSON only with this exact shape:
+Return ONLY valid JSON using this exact shape:
 {"summary":"...","objectives":["..."],"contentAngle":"...","audience":"...","callToAction":"...","caveats":[]}
-Use only the supplied campaign brief and Scout research. Do not invent product facts, prices, customers, statistics, dates or capabilities. Separate strategic recommendations from factual claims. Keep the plan actionable and concise.`
+Use strict JSON syntax: double quotes for all keys and string values, no comments, no trailing commas, no Markdown fences, and escape any quotation marks inside strings.
+Use only the supplied campaign brief and Scout research. Do not invent product facts, prices, customers, statistics, dates or capabilities. Separate strategic recommendations from factual claims. Keep the plan actionable and concise.
+Before sending, ensure the entire response parses as JSON.`
         : employee.id === 'sosh' && task.stage === 'social'
           ? `You are Sosh, the Social Media Manager in DripVid JARVIS.
-Return JSON only with this exact shape:
+Return ONLY valid JSON using this exact shape:
 {"summary":"...","platforms":["facebook","instagram"],"posts":{"facebook":"...","instagram":"..."},"cta":"...","caveats":[]}
-Choose only platforms that are relevant to the brief and write the complete post text for every selected platform. Do not publish anything. Do not invent facts, prices, customers, statistics or product claims; use only the approved brief, Scout research and JARVIS plan provided.`
+Use strict JSON syntax: double quotes for all keys and string values, no comments, no trailing commas, no Markdown fences, and escape any quotation marks inside strings.
+Choose only platforms that are relevant to the brief and write the complete post text for every selected platform. Do not publish anything. Do not invent facts, prices, customers, statistics or product claims; use only the approved brief, Scout research and JARVIS plan provided.
+Before sending, ensure the entire response parses as JSON.`
           : `You are ${employee.name}, the ${employee.role} in DripVid JARVIS. Return a concise, useful result for the assigned task.`;
 
       const operatorContext = Array.isArray(task.operatorMessages) && task.operatorMessages.length
@@ -331,14 +337,46 @@ Choose only platforms that are relevant to the brief and write the complete post
           ].join('\n')
         : '';
 
+      const modelInput = `${task.description || task.title}${operatorContext}${researchContext}`;
       const result = await model.chat({
         conversation: [
           { role:'system', content:systemPrompt },
-          { role:'user', content:`${task.description || task.title}${operatorContext}${researchContext}` }
+          { role:'user', content:modelInput }
         ]
       });
 
       const text = String(result && (result.message || result.content) || '');
+
+      const retryStructured = async (label, validationError) => {
+        record({
+          type:'task.structured_retry',
+          taskId:id,
+          employeeId:task.employeeId,
+          title:task.title,
+          label,
+          error:validationError?.message || 'Structured response validation failed'
+        });
+
+        const retryResult = await model.chat({
+          conversation: [
+            { role:'system', content:systemPrompt },
+            { role:'user', content:modelInput },
+            {
+              role:'user',
+              content:[
+                'Your previous response failed structural validation.',
+                `Validation error: ${validationError?.message || 'Invalid JSON'}`,
+                'Retry now.',
+                'Return ONLY one complete, valid JSON object matching the required schema.',
+                'Do not include Markdown, commentary, code fences, trailing commas, or any text before or after the JSON object.',
+                'Double-check that the full response parses as strict JSON before sending it.'
+              ].join(' ')
+            }
+          ]
+        });
+
+        return String(retryResult && (retryResult.message || retryResult.content) || '');
+      };
 
       if (employee.id === 'scout') {
         try {
@@ -371,15 +409,50 @@ Choose only platforms that are relevant to the brief and write the complete post
           }
           return updated;
         } catch (validationError) {
-          const blocked = requestOperatorInput(id, `Scout found verified sources but could not produce a validated research response. Model error: ${validationError.message || 'Scout response validation failed'}. Reply with any clarification you want Scout to use on its retry.`, { kind:'research', title:'Scout needs clarification' });
-          return tasks.update(id, {
-            error:validationError.message || 'Scout response validation failed',
-            grounding:{
-              ...(tasks.get(id).grounding || {}),
-              verified:true,
-              responseValidated:false
+          try {
+            const retryText = await retryStructured('scout', validationError);
+            const validatedRetry = validateScoutResponse(retryText, scoutResearchResult.sourceUrls);
+            const groundedResult = JSON.stringify(validatedRetry, null, 2);
+            const updated = tasks.update(id, {
+              status:'complete',
+              progress:100,
+              result:groundedResult,
+              error:null,
+              grounding:{
+                ...(tasks.get(id).grounding || {}),
+                verified:true,
+                responseValidated:true,
+                automaticRetry:true
+              }
+            });
+            record({ type:'task.completed', taskId:id, employeeId:task.employeeId, title:task.title, automaticRetry:true });
+            if (task.workflowId && task.stage) {
+              const workflow = workflows.advanceAfterTask(task, updated);
+              if (workflow) {
+                record({
+                  type: workflow.status === 'awaiting_approval'
+                    ? 'workflow.awaiting_approval'
+                    : 'workflow.handoff',
+                  workflowId: workflow.id,
+                  title: workflow.title,
+                  stage: workflow.stage,
+                  taskId: workflow.taskId
+                });
+              }
             }
-          });
+            return updated;
+          } catch (retryError) {
+            const blocked = requestOperatorInput(id, `Scout found verified sources but could not produce a validated research response after an automatic retry. Model error: ${retryError.message || validationError.message || 'Scout response validation failed'}. Reply with any clarification you want Scout to use on its retry.`, { kind:'research', title:'Scout needs clarification' });
+            return tasks.update(id, {
+              error:retryError.message || validationError.message || 'Scout response validation failed',
+              grounding:{
+                ...(tasks.get(id).grounding || {}),
+                verified:true,
+                responseValidated:false,
+                automaticRetry:false
+              }
+            });
+          }
         }
       }
 
@@ -406,10 +479,35 @@ Choose only platforms that are relevant to the brief and write the complete post
           }
           return updated;
         } catch (validationError) {
-          requestOperatorInput(id, `JARVIS produced a plan but it failed structural validation. Model error: ${validationError.message || 'JARVIS planning validation failed'}. Reply with any clarification for JARVIS to use on its retry.`, { kind:'planning', title:'JARVIS needs clarification' });
-          return tasks.update(id, {
-            error:validationError.message || 'JARVIS planning validation failed'
-          });
+          try {
+            const retryText = await retryStructured('planning', validationError);
+            const validatedRetry = validatePlanningResponse(retryText);
+            const updated = tasks.update(id, {
+              status:'complete',
+              progress:100,
+              result:JSON.stringify(validatedRetry, null, 2),
+              error:null
+            });
+            record({ type:'task.completed', taskId:id, employeeId:task.employeeId, title:task.title, automaticRetry:true });
+            if (task.workflowId && task.stage) {
+              const workflow = workflows.advanceAfterTask(task, updated);
+              if (workflow) {
+                record({
+                  type:'workflow.handoff',
+                  workflowId: workflow.id,
+                  title: workflow.title,
+                  stage: workflow.stage,
+                  taskId: workflow.taskId
+                });
+              }
+            }
+            return updated;
+          } catch (retryError) {
+            requestOperatorInput(id, `JARVIS produced a plan that failed validation twice. Model error: ${retryError.message || validationError.message || 'JARVIS planning validation failed'}. Reply with any clarification for JARVIS to use on its retry.`, { kind:'planning', title:'JARVIS needs clarification' });
+            return tasks.update(id, {
+              error:retryError.message || validationError.message || 'JARVIS planning validation failed'
+            });
+          }
         }
       }
 
@@ -438,10 +536,37 @@ Choose only platforms that are relevant to the brief and write the complete post
           }
           return updated;
         } catch (validationError) {
-          const blocked = requestOperatorInput(id, `Sosh produced a social draft but it failed structural validation. Model error: ${validationError.message || 'Sosh response validation failed'}. Reply with any change or clarification for Sosh to use on its retry.`, { kind:'social', title:'Sosh needs clarification' });
-          return tasks.update(id, {
-            error:validationError.message || 'Sosh response validation failed'
-          });
+          try {
+            const retryText = await retryStructured('social', validationError);
+            const validatedRetry = validateSocialDraftResponse(retryText);
+            const updated = tasks.update(id, {
+              status:'complete',
+              progress:100,
+              result:JSON.stringify(validatedRetry, null, 2),
+              error:null
+            });
+            record({ type:'task.completed', taskId:id, employeeId:task.employeeId, title:task.title, automaticRetry:true });
+            if (task.workflowId && task.stage) {
+              const workflow = workflows.advanceAfterTask(task, updated);
+              if (workflow) {
+                record({
+                  type: workflow.status === 'awaiting_approval'
+                    ? 'workflow.awaiting_approval'
+                    : 'workflow.handoff',
+                  workflowId: workflow.id,
+                  title: workflow.title,
+                  stage: workflow.stage,
+                  taskId: workflow.taskId
+                });
+              }
+            }
+            return updated;
+          } catch (retryError) {
+            const blocked = requestOperatorInput(id, `Sosh produced a social draft that failed validation twice. Model error: ${retryError.message || validationError.message || 'Sosh response validation failed'}. Reply with any change or clarification for Sosh to use on its retry.`, { kind:'social', title:'Sosh needs clarification' });
+            return tasks.update(id, {
+              error:retryError.message || validationError.message || 'Sosh response validation failed'
+            });
+          }
         }
       }
 
