@@ -25,7 +25,36 @@ function createWorkforceRuntime({
   const activeWorkflowRuns = new Set();
   const scheduledWorkflowRuns = new Set();
 
-  function persistState() {,    if (!persistence) return;,    persistence.save({,      tasks: tasks.exportState(),,      workflows: workflows.exportState(),,      activity,    });,  },,  function restorePersistedState() {,    if (!persistence) return;,    const saved = persistence.load();,    if (!saved) return;,    tasks.restoreState(saved.tasks || []);,    workflows.restoreState(saved.workflows || []);,    activity.splice(0, activity.length, ...(Array.isArray(saved.activity) ? saved.activity.slice(0, 30) : []));,,    for (const workflow of workflows.list()) {,      if (workflow.status === 'active' && workflow.taskId) {,        registry.setState('jarvis', 'thinking', workflow.taskId);,      } else if (workflow.status === 'awaiting_approval' && workflow.taskId) {,        registry.setState('jarvis', 'waiting', workflow.taskId);,        registry.setState('sosh', 'waiting', workflow.taskId);,      } else if (workflow.status === 'approved') {,        registry.setState('jarvis', 'complete', null);,      },    },  },  function snapshot() {
+  function persistState() {
+    if (!persistence) return;
+    persistence.save({
+      tasks: tasks.exportState(),
+      workflows: workflows.exportState(),
+      activity
+    });
+  }
+
+  function restorePersistedState() {
+    if (!persistence) return;
+    const saved = persistence.load();
+    if (!saved) return;
+    tasks.restoreState(saved.tasks || []);
+    workflows.restoreState(saved.workflows || []);
+    activity.splice(0, activity.length, ...(Array.isArray(saved.activity) ? saved.activity.slice(0, 30) : []));
+
+    for (const workflow of workflows.list()) {
+      if (workflow.status === 'active' && workflow.taskId) {
+        registry.setState('jarvis', 'thinking', workflow.taskId);
+      } else if (workflow.status === 'awaiting_approval' && workflow.taskId) {
+        registry.setState('jarvis', 'waiting', workflow.taskId);
+        registry.setState('sosh', 'waiting', workflow.taskId);
+      } else if (workflow.status === 'approved') {
+        registry.setState('jarvis', 'complete', null);
+      }
+    }
+  }
+
+  function snapshot() {
     return {
       updatedAt: clock(),
       employees: registry.snapshot(),
