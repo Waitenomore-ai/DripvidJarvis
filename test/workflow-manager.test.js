@@ -143,6 +143,23 @@ test('workflow approval bridges validated Sosh output into Social Manager', () =
 
   let state = workflows.advanceAfterTask(task, task);
   task = tasks.get(state.taskId);
+  assert.equal(task.employeeId, 'jarvis');
+  task = tasks.update(task.id, {
+    status: 'complete',
+    result: JSON.stringify({
+      approvedFormat: true,
+      summary: 'Plan ready.',
+      objectives: ['Keep the campaign grounded and actionable.'],
+      contentAngle: 'Clear and useful.',
+      audience: 'DripVid viewers.',
+      callToAction: 'Watch DripVid.',
+      caveats: []
+    })
+  });
+  state = workflows.advanceAfterTask(task, task);
+
+  task = tasks.get(state.taskId);
+  assert.equal(task.employeeId, 'penny');
   task = tasks.update(task.id, { status: 'complete', result: 'Copy result' });
   state = workflows.advanceAfterTask(task, task);
 
