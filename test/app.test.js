@@ -71,7 +71,11 @@ test(
 
     assert.deepEqual(
       config.localFallbackModels,
-      []
+      [
+        'phi4-mini:3.8b',
+        'qwen2.5-coder:3b',
+        'qwen3.5:4b'
+      ]
     );
 
     assert.equal(
