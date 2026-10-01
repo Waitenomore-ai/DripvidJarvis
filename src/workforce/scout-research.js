@@ -26,7 +26,7 @@ function isAllowedSource(url, allowedDomains) {
   const hostname = parsed.hostname.toLowerCase().replace(/^www\./, '');
   return allowedDomains.some((domain) => {
     const normalized = normalizeDomain(domain);
-    return hostname === normalized || hostname.endsWith(`.\${normalized}`);
+    return hostname === normalized || hostname.endsWith('.' + normalized);
   });
 }
 
