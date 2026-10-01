@@ -209,7 +209,25 @@ function createWorkflowManager({
     return clone(workflow);
   }
 
-  return { create, get, list, advanceAfterTask, approve, reject, stages: STAGES };
+  function exportState() {
+    return [...workflows.values()].map(clone);
+  }
+
+  function restoreState(items = []) {
+    workflows.clear();
+    for (const item of Array.isArray(items) ? items : []) {
+      if (!item || !item.id || !item.title) continue;
+      workflows.set(item.id, {
+        ...clone(item),
+        taskIds:[...(item.taskIds || [])],
+        outputs:{...(item.outputs || {})},
+        history:[...(item.history || [])]
+      });
+    }
+    return exportState();
+  }
+
+  return { create, get, list, advanceAfterTask, approve, reject, exportState, restoreState, stages: STAGES };
 }
 
 module.exports = { createWorkflowManager, STAGES };
