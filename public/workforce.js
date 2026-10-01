@@ -517,6 +517,140 @@ function renderNeedsPanel(tasks) {
     });
   });
 }
+function taskForEmployee(employee, tasks) {
+  return employee.currentTaskId
+    ? tasks.find((task) => task.id === employee.currentTaskId) || null
+    : null;
+}
+
+function renderWorkflowFlow(state) {
+  const el = document.getElementById('workflowFlow');
+  if (!el) return;
+
+  const employees = state.employees || [];
+  const tasks = state.tasks || [];
+  const stages = [
+    { id:'scout', name:'Scout', role:'Research', icon:icons.scout },
+    { id:'jarvis', name:'JARVIS', role:'Planning', icon:icons.jarvis },
+    { id:'penny', name:'Penny', role:'Creative', icon:icons.penny },
+    { id:'sosh', name:'Sosh', role:'Execution', icon:icons.sosh }
+  ];
+
+  const workflow = (state.workflows || []).find((item) =>
+    ['active','awaiting_approval','blocked'].includes(item.status)
+  );
+
+  const currentStage = workflow?.stage || null;
+
+  el.innerHTML = stages.map((stage, index) => {
+    const employee = employees.find((item) => item.id === stage.id);
+    const task = employee ? taskForEmployee(employee, tasks) : null;
+
+    let mode = 'idle';
+    if (employee?.state === 'needs_input' || task?.status === 'needs_input') mode = 'alert';
+    else if (employee?.state === 'complete' || task?.status === 'complete') mode = 'done';
+    else if (workflow && currentStage === (stage.id === 'scout' ? 'research' : stage.id === 'penny' ? 'copy' : stage.id === 'sosh' ? 'social' : 'approval')) mode = 'active';
+    else if (['working','researching','thinking'].includes(employee?.state)) mode = 'active';
+
+    const progress = Math.max(0, Math.min(100, Number(task?.progress) || (mode === 'done' ? 100 : mode === 'active' ? 48 : 0)));
+
+    return `
+      <div class="flow-node ${mode}">
+        <div class="flow-avatar">${stage.icon}</div>
+        <div>
+          <strong>${stage.name}</strong>
+          <span>${stage.role} · ${esc(employee?.state || 'idle').replaceAll('_',' ')}</span>
+          <div class="flow-progress"><i style="width:${progress}%"></i></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderAgentStatus(employees, tasks) {
+  const el = document.getElementById('agentStatusList');
+  if (!el) return;
+
+  el.innerHTML = employees.map((employee) => {
+    const task = taskForEmployee(employee, tasks);
+    const progress = task ? Math.max(0, Math.min(100, Number(task.progress) || 0)) : 0;
+    const cls = employee.state === 'needs_input' || employee.state === 'error'
+      ? 'alert'
+      : ['working','researching','thinking'].includes(employee.state)
+        ? 'active'
+        : '';
+
+    return `
+      <button class="agent-status-card ${cls}" data-status-employee="${esc(employee.id)}">
+        <div class="status-line">
+          <strong>${icons[employee.id] || '🤖'} ${esc(employee.name)}</strong>
+          <span class="state">${esc(employee.state.replaceAll('_',' '))}</span>
+        </div>
+        <small>${esc(task?.title || employee.role)}</small>
+        <div class="mini-bar"><i style="width:${progress}%"></i></div>
+      </button>
+    `;
+  }).join('');
+
+  document.querySelectorAll('[data-status-employee]').forEach((button) => {
+    button.addEventListener('click', () => selectEmployee(button.dataset.statusEmployee));
+  });
+}
+
+function renderReplyHistory(tasks, employees) {
+  const el = document.getElementById('replyHistory');
+  if (!el) return;
+
+  const entries = [];
+  for (const task of tasks) {
+    const employee = employees.find((item) => item.id === task.employeeId);
+    for (const reply of (task.operatorMessages || []).slice(-3)) {
+      entries.push({
+        at: reply.at,
+        agent: employee?.name || task.employeeId,
+        content: reply.content
+      });
+    }
+  }
+
+  entries.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+
+  el.innerHTML = entries.length
+    ? entries.slice(0, 5).map((entry) => `
+        <div class="reply-entry">
+          <div class="reply-avatar">You</div>
+          <div><strong>You · ${esc(entry.agent)}</strong><p>${esc(entry.content)}</p></div>
+        </div>`).join('')
+    : '<div class="empty-copy">No operator guidance has been recorded yet.</div>';
+}
+
+function renderTaskDetails(tasks, employees) {
+  const el = document.getElementById('taskDetails');
+  const status = document.getElementById('selectedTaskStatus');
+  if (!el || !status) return;
+
+  const selected = window.selectedTaskId
+    ? tasks.find((task) => task.id === window.selectedTaskId)
+    : null;
+
+  if (!selected) {
+    status.textContent = '—';
+    el.innerHTML = 'Select a task from the queue to inspect it here.';
+    return;
+  }
+
+  const employee = employees.find((item) => item.id === selected.employeeId);
+  status.textContent = selected.status.replaceAll('_',' ').toUpperCase();
+
+  el.innerHTML = `
+    <div class="task-detail-line"><span>Assigned to</span><strong>${esc(employee?.name || selected.employeeId)}</strong></div>
+    <div class="task-detail-line"><span>Stage</span><strong>${esc(selected.stage || 'standalone')}</strong></div>
+    <div class="task-detail-line"><span>Progress</span><strong>${Number(selected.progress) || 0}%</strong></div>
+    <div class="task-detail-line"><span>Priority</span><strong>${esc(selected.priority || 'normal')}</strong></div>
+    ${selected.needsInput ? `<div class="detail-alert"><b>Needs your input</b><p>${esc(selected.needsInput.prompt)}</p></div>` : ''}
+  `;
+}
+
 function renderWorkflows(workflows) {
   const el = document.getElementById('workflowList');
   if (!el) return;
@@ -643,8 +777,15 @@ function renderWorkforceState(state) {
   const tasks = state.tasks || [];
 
   checkForNewNeeds(tasks);
+  renderWorkflowFlow(state);
+  renderAgentStatus(employees, tasks);
+  renderReplyHistory(tasks, employees);
+  renderTaskDetails(tasks, employees);
 
   document.getElementById('employeeCount').textContent = employees.length;
+  document.getElementById('workingCount').textContent = employees.filter((employee) => ['working','researching','thinking'].includes(employee.state)).length;
+  document.getElementById('needsHeaderCount').textContent = employees.filter((employee) => employee.state === 'needs_input').length;
+  document.getElementById('idleCount').textContent = employees.filter((employee) => ['idle','waiting'].includes(employee.state)).length;
 
   applyRoomTelemetry(employees);
 
@@ -750,6 +891,7 @@ function selectEmployee(id) {
 }
 
 function selectTask(id) {
+  window.selectedTaskId = id;
   const task = (lastState?.tasks || []).find((item) => item.id === id);
   if (!task) return;
 
@@ -822,4 +964,9 @@ document.getElementById('createWorkflow')?.addEventListener('click', async () =>
 });
 
 setupWorkforceAlerts();
+document.getElementById('presentationButton')?.addEventListener('click', (event) => {
+  document.body.classList.toggle('presentation-mode');
+  event.currentTarget.classList.toggle('active');
+});
+
 startWorkforcePolling();
