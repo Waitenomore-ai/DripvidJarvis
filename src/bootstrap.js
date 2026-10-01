@@ -40,9 +40,9 @@ async function handleWorkforce(req,res,workforce){
 function createJarvisServer({env=process.env,fetchImpl=globalThis.fetch,now}={}){
   const runtime=createRuntime({env,fetchImpl,now});
   const workforceWeb=runtime.config.webSearchEnabled?createWebSearchAdapter({config:runtime.config,fetchImpl}):null;
-  const workforce=createWorkforceRuntime({model:runtime.model,brain:runtime.brain,vault:runtime.vault,web:workforceWeb,dripvid:runtime.dripvid,scoutAllowedDomains:runtime.config.scoutAllowedDomains,now});
   const baseServer=createApp({runtime}); const fallbackHandler=baseServer.listeners('request')[0];
   const socialManager=createSocialManager({config:{socialManagerPath:createSocialManagerPath(env)},now});
+  const workforce=createWorkforceRuntime({model:runtime.model,brain:runtime.brain,vault:runtime.vault,web:workforceWeb,dripvid:runtime.dripvid,socialManager,scoutAllowedDomains:runtime.config.scoutAllowedDomains,now});
   let metaProvider=null; if(env.JARVIS_META_PAGE_ID&&env.JARVIS_META_INSTAGRAM_ID&&env.JARVIS_META_PAGE_TOKEN)metaProvider=createMetaProvider({env,fetchImpl});
   const releaseAnnouncer=createReleaseAnnouncer({statePath:env.JARVIS_RELEASE_ANNOUNCEMENT_PATH||path.resolve(__dirname,'..','data','release-announcements.json'),socialManager,metaProvider,env,fetchImpl,now});
   const server=createSocialServer({socialManager,metaProvider,releaseAnnouncer,fallbackHandler:async(req,res)=>{if(await handleWorkforce(req,res,workforce))return;if(req.method==='GET'&&new URL(req.url,'http://127.0.0.1').pathname==='/workforce')req.url='/workforce.html';return fallbackHandler(req,res);}});
