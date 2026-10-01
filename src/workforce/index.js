@@ -4,12 +4,13 @@ const { createWorkforceRegistry } = require('./registry');
 const { createTaskManager } = require('./task-manager');
 const { createWorkflowManager } = require('./workflow-manager');
 const { createScoutResearch, validateScoutResponse } = require('./scout-research');
+const { validateSocialDraftResponse } = require('./social-draft');
 
-function createWorkforceRuntime({ model = null, brain = null, vault = null, web = null, dripvid = null, scoutResearch = null, scoutAllowedDomains = ['dripvid.uk', 'www.dripvid.uk'], now } = {}) {
+function createWorkforceRuntime({ model = null, brain = null, vault = null, web = null, dripvid = null, socialManager = null, scoutResearch = null, scoutAllowedDomains = ['dripvid.uk', 'www.dripvid.uk'], now } = {}) {
   const registry = createWorkforceRegistry();
   const tasks = createTaskManager({ registry, now });
   const activity = [];
-  const workflows = createWorkflowManager({ tasks, registry, now });
+  const workflows = createWorkflowManager({ tasks, registry, now, socialManager });
   const scout = scoutResearch || (web ? createScoutResearch({ web, allowedDomains: scoutAllowedDomains }) : null);
   const clock = now || (() => new Date().toISOString());
   const record = (event) => { activity.unshift({ ...event, at: clock() }); activity.splice(30); };
@@ -153,7 +154,12 @@ Return JSON only with this exact shape:
 {"summary":"...","findings":[{"claim":"...","sourceUrls":["https://..."]}],"sourceCount":0,"sourceUrls":["https://..."]}
 Every factual finding MUST cite one or more URLs from VERIFIED DRIPVID SOURCES below.
 Do not use general knowledge. Do not use unrelated "Drip" sources. Do not invent facts, customers, prices, features, statistics, dates, or URLs. If a detail is not supported by the verified sources, leave it out.`
-        : `You are ${employee.name}, the ${employee.role} in DripVid JARVIS. Return a concise, useful result for the assigned task.`;
+        : employee.id === 'sosh' && task.stage === 'social'
+          ? `You are Sosh, the Social Media Manager in DripVid JARVIS.
+Return JSON only with this exact shape:
+{"summary":"...","platforms":["facebook","instagram"],"posts":{"facebook":"...","instagram":"..."},"cta":"...","caveats":[]}
+Choose only platforms that are relevant to the brief and write the complete post text for every selected platform. Do not publish anything. Do not invent facts, prices, customers, statistics or product claims; use only the approved brief and research provided.`
+          : `You are ${employee.name}, the ${employee.role} in DripVid JARVIS. Return a concise, useful result for the assigned task.`;
 
       const result = await model.chat({
         conversation: [
@@ -205,6 +211,40 @@ Do not use general knowledge. Do not use unrelated "Drip" sources. Do not invent
               verified:true,
               responseValidated:false
             }
+          });
+        }
+      }
+
+      if (employee.id === 'sosh' && task.stage === 'social') {
+        try {
+          const validatedSocial = validateSocialDraftResponse(text);
+          const updated = tasks.update(id, {
+            status:'complete',
+            progress:100,
+            result:JSON.stringify(validatedSocial, null, 2)
+          });
+          record({ type:'task.completed', taskId:id, employeeId:task.employeeId, title:task.title });
+          if (task.workflowId && task.stage) {
+            const workflow = workflows.advanceAfterTask(task, updated);
+            if (workflow) {
+              record({
+                type: workflow.status === 'awaiting_approval'
+                  ? 'workflow.awaiting_approval'
+                  : 'workflow.handoff',
+                workflowId: workflow.id,
+                title: workflow.title,
+                stage: workflow.stage,
+                taskId: workflow.taskId
+              });
+            }
+          }
+          return updated;
+        } catch (validationError) {
+          return tasks.update(id, {
+            status:'needs_input',
+            progress:70,
+            result:'Sosh produced a social draft, but it failed structural validation. No approval or publishing stage was started.',
+            error:validationError.message || 'Sosh response validation failed'
           });
         }
       }
