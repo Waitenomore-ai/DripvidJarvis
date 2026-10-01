@@ -16,10 +16,24 @@
     <p>Watch the AI team work, intervene when they need you, and approve what they produce.</p>
   </div>
   <div class="header-status">
+    <button id="alertsButton" class="alerts-button" type="button" aria-pressed="false">
+      <span class="alerts-icon">🔔</span>
+      <span id="alertsLabel">Enable Alerts</span>
+    </button>
     <div class="system-pulse"><i></i><span id="connection">Connecting…</span></div>
     <div class="online"><i></i><b id="employeeCount">6</b><span>employees online</span></div>
   </div>
 </header>
+
+<div id="alertToast" class="alert-toast" hidden role="status" aria-live="assertive">
+  <div class="alert-toast-icon">!</div>
+  <div>
+    <span class="eyebrow">WORKFORCE ALERT</span>
+    <strong id="alertToastTitle">Agent needs you</strong>
+    <p id="alertToastMessage"></p>
+  </div>
+  <button id="alertToastClose" type="button" aria-label="Dismiss alert">×</button>
+</div>
 
 <main>
 <section class="hq-grid">
