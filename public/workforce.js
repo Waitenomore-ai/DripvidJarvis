@@ -1,16 +1,18 @@
 'use strict';
 
 const icons = { jarvis: '🧠', sosh: '📱', scout: '🔎', penny: '✍️', dev: '💻', ops: '🖥️' };
+const apiBase = window.location.pathname.startsWith('/jarvis/workforce') ? '/jarvis' : '';
+const workforceApi = (path) => `${apiBase}${path}`;
 let lastState = null;
 
 async function loadWorkforceState() {
-  const response = await fetch('/api/workforce/state', { cache: 'no-store' });
+  const response = await fetch(workforceApi('/api/workforce/state', { cache: 'no-store' });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response.json();
 }
 
 async function executeWorkforceTask(id) {
-  const response = await fetch(`/api/workforce/tasks/${encodeURIComponent(id)}/execute`, {
+  const response = await fetch(workforceApi(`/api/workforce/tasks/${encodeURIComponent(id)}/execute`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: '{}'
@@ -42,7 +44,7 @@ async function createWorkflow() {
     document.getElementById('workflowStatus').textContent = 'Title and brief required';
     return;
   }
-  const response = await fetch('/api/workforce/workflows', {
+  const response = await fetch(workforceApi('/api/workforce/workflows', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ title, brief, type: 'content_campaign' })
@@ -53,7 +55,7 @@ async function createWorkflow() {
 }
 
 async function runWorkflowStage(taskId) {
-  const response = await fetch(`/api/workforce/tasks/${encodeURIComponent(taskId)}/execute`, {
+  const response = await fetch(workforceApi(`/api/workforce/tasks/${encodeURIComponent(taskId)}/execute`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: '{}'
@@ -62,7 +64,7 @@ async function runWorkflowStage(taskId) {
 }
 
 async function approveWorkflow(id) {
-  const response = await fetch(`/api/workforce/workflows/${encodeURIComponent(id)}/approve`, {
+  const response = await fetch(workforceApi(`/api/workforce/workflows/${encodeURIComponent(id)}/approve`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: '{}'
@@ -72,7 +74,7 @@ async function approveWorkflow(id) {
 
 async function rejectWorkflow(id) {
   const reason = window.prompt('Reason for rejection:', '') || '';
-  const response = await fetch(`/api/workforce/workflows/${encodeURIComponent(id)}/reject`, {
+  const response = await fetch(workforceApi(`/api/workforce/workflows/${encodeURIComponent(id)}/reject`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ reason })
