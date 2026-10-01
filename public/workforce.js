@@ -297,12 +297,84 @@ function statusPriority(state) {
   }[state] ?? 0;
 }
 
+const agentThemes = {
+  scout: { accent:'#45d9ff', deep:'#0b78b0', glow:'#45d9ff', eye:'#9df1ff' },
+  jarvis: { accent:'#a877ff', deep:'#5d37bd', glow:'#a877ff', eye:'#d6c4ff' },
+  penny: { accent:'#ff8d49', deep:'#b34c24', glow:'#ff8d49', eye:'#ffd0a8' },
+  sosh: { accent:'#57b6ff', deep:'#2467b5', glow:'#57b6ff', eye:'#bfe5ff' }
+};
+
+function agentAvatar(id, compact = false) {
+  const t = agentThemes[id] || agentThemes.jarvis;
+  const scale = compact ? 'scale(.78)' : 'scale(1)';
+  return `
+    <svg class="robot-avatar-svg" style="--accent:${t.accent};--deep:${t.deep};--glow:${t.glow};--eye:${t.eye};transform:${scale}" viewBox="0 0 180 190" aria-hidden="true">
+      <defs>
+        <linearGradient id="body-${id}" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="${t.accent}" stop-opacity=".92"/>
+          <stop offset=".42" stop-color="${t.deep}" stop-opacity=".96"/>
+          <stop offset="1" stop-color="#050a12"/>
+        </linearGradient>
+        <radialGradient id="halo-${id}" cx="50%" cy="35%">
+          <stop offset="0" stop-color="${t.glow}" stop-opacity=".36"/>
+          <stop offset="1" stop-color="${t.glow}" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <ellipse cx="90" cy="86" rx="78" ry="74" fill="url(#halo-${id})"/>
+      <ellipse cx="90" cy="169" rx="54" ry="8" fill="${t.glow}" opacity=".18"/>
+      <rect x="48" y="62" width="84" height="73" rx="28" fill="url(#body-${id})" stroke="${t.accent}" stroke-opacity=".65" stroke-width="2"/>
+      <rect x="60" y="47" width="60" height="61" rx="22" fill="#07111e" stroke="${t.accent}" stroke-width="3"/>
+      <path d="M74 55 Q90 40 106 55" fill="none" stroke="${t.accent}" stroke-opacity=".62" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="90" cy="35" r="5" fill="${t.eye}" opacity=".95"/>
+      <path d="M77 75 Q90 67 103 75" fill="none" stroke="${t.eye}" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="77" cy="84" r="7" fill="${t.eye}" opacity=".95"/>
+      <circle cx="103" cy="84" r="7" fill="${t.eye}" opacity=".95"/>
+      <path d="M72 108 Q90 119 108 108" fill="none" stroke="${t.accent}" stroke-width="4" stroke-linecap="round"/>
+      <path d="M48 93 L28 108 L38 122 L56 110" fill="url(#body-${id})" stroke="${t.accent}" stroke-opacity=".55" stroke-width="2"/>
+      <path d="M132 93 L152 108 L142 122 L124 110" fill="url(#body-${id})" stroke="${t.accent}" stroke-opacity=".55" stroke-width="2"/>
+      <path d="M63 136 L54 163 L76 169 L84 140" fill="url(#body-${id})"/>
+      <path d="M117 136 L126 163 L104 169 L96 140" fill="url(#body-${id})"/>
+      <rect x="74" y="127" width="32" height="25" rx="9" fill="#08111b" stroke="${t.accent}" stroke-opacity=".7" stroke-width="2"/>
+      <circle cx="90" cy="139" r="5" fill="${t.eye}" opacity=".9"/>
+    </svg>
+  `;
+}
+
+function heroAgentCard(employee, task) {
+  const state = String(employee?.state || 'idle');
+  const progress = task ? Math.max(0, Math.min(100, Number(task.progress) || 0)) : 0;
+  const role = employee?.role || '';
+  const title = task?.title || role || 'Standing by';
+  const statusLabel = state.replaceAll('_',' ');
+  const accentClass = state === 'needs_input' || state === 'error'
+    ? 'hero-alert'
+    : ['working','researching','thinking'].includes(state)
+      ? 'hero-active'
+      : state === 'complete'
+        ? 'hero-complete'
+        : '';
+
+  return `
+    <button class="hero-agent ${accentClass}" data-employee="${esc(employee?.id || '')}" aria-label="Inspect ${esc(employee?.name || '')}">
+      <div class="hero-topline"><span class="hero-role">${esc(role)}</span><span class="hero-state">${esc(statusLabel)}</span></div>
+      <div class="hero-figure">${agentAvatar(employee.id)}</div>
+      <div class="hero-nameplate">
+        <strong>${esc(employee.name)}</strong>
+        <span>${esc(title)}</span>
+      </div>
+      <div class="hero-progress"><i style="width:${progress}%"></i></div>
+      ${task?.status === 'needs_input' ? '<span class="hero-needs">NEEDS INPUT</span>' : ''}
+      ${state === 'complete' ? '<span class="hero-complete-badge">COMPLETE</span>' : ''}
+    </button>
+  `;
+}
+
 function employeeCard(employee) {
   const state = String(employee.state || 'idle');
   return `
     <button class="agent ${esc(state)}" data-employee="${esc(employee.id)}" aria-label="Inspect ${esc(employee.name)}">
       <span class="agent-halo" aria-hidden="true"></span>
-      <div class="avatar">${icons[employee.id] || '🤖'}</div>
+      <div class="avatar-wrap">${agentAvatar(employee.id, true)}</div>
       <strong>${esc(employee.name)}</strong>
       <div class="state">${esc(state.replaceAll('_', ' '))}</div>
       ${employee.currentTaskId ? '<span class="agent-link">ACTIVE TASK</span>' : ''}
@@ -523,6 +595,24 @@ function taskForEmployee(employee, tasks) {
     : null;
 }
 
+function renderHeroAgents(employees, tasks) {
+  const core = ['scout','jarvis','penny','sosh'];
+  for (const id of core) {
+    const slot = document.getElementById(`hero-${id}`);
+    if (!slot) continue;
+    const employee = employees.find((item) => item.id === id);
+    const task = employee ? taskForEmployee(employee, tasks) : null;
+    if (!employee) {
+      slot.innerHTML = '<span class="state">Agent unavailable</span>';
+      continue;
+    }
+    slot.innerHTML = heroAgentCard(employee, task);
+    slot.querySelector('[data-employee]')?.addEventListener('click', () => {
+      selectEmployee(id);
+    });
+  }
+}
+
 function renderWorkflowFlow(state) {
   const el = document.getElementById('workflowFlow');
   if (!el) return;
@@ -583,7 +673,7 @@ function renderAgentStatus(employees, tasks) {
     return `
       <button class="agent-status-card ${cls}" data-status-employee="${esc(employee.id)}">
         <div class="status-line">
-          <strong>${icons[employee.id] || '🤖'} ${esc(employee.name)}</strong>
+          <strong><span class="status-avatar">${agentAvatar(employee.id, true)}</span> ${esc(employee.name)}</strong>
           <span class="state">${esc(employee.state.replaceAll('_',' '))}</span>
         </div>
         <small>${esc(task?.title || employee.role)}</small>
@@ -789,13 +879,9 @@ function renderWorkforceState(state) {
 
   applyRoomTelemetry(employees);
 
-  for (const room of [
-    'command-centre',
-    'social-studio',
-    'research-lab',
-    'dev-workshop',
-    'ops-room'
-  ]) {
+  renderHeroAgents(employees, tasks);
+
+  for (const room of ['dev-workshop','ops-room']) {
     const element = document.getElementById(room);
     if (!element) continue;
 
@@ -964,6 +1050,12 @@ document.getElementById('createWorkflow')?.addEventListener('click', async () =>
 });
 
 setupWorkforceAlerts();
+document.getElementById('sidebarCollapse')?.addEventListener('click', (event) => {
+  document.body.classList.toggle('sidebar-collapsed');
+  event.currentTarget.querySelector('span').textContent =
+    document.body.classList.contains('sidebar-collapsed') ? '›' : '‹';
+});
+
 document.getElementById('presentationButton')?.addEventListener('click', (event) => {
   document.body.classList.toggle('presentation-mode');
   event.currentTarget.classList.toggle('active');
