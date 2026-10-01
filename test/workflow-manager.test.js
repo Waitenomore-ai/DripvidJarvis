@@ -7,7 +7,7 @@ const { createWorkforceRegistry } = require('../src/workforce/registry');
 const { createTaskManager } = require('../src/workforce/task-manager');
 const { createWorkflowManager } = require('../src/workforce/workflow-manager');
 
-function setup() {
+function setup(socialManager = null) {
   let tick = 0;
   const now = () => new Date(2026, 0, 1, 0, 0, 0, tick++).toISOString();
   const registry = createWorkforceRegistry();
@@ -19,6 +19,7 @@ function setup() {
     registry,
     tasks,
     now,
+    socialManager,
     idFactory: (() => {
       let n = 0;
       return () => `workflow-test-${++n}`;
@@ -109,4 +110,54 @@ test('campaign workflow blocks when Scout grounding is missing', () => {
 
   assert.equal(state.status, 'blocked');
   assert.equal(registry.get('jarvis').state, 'needs_input');
+});
+
+
+test('workflow approval bridges validated Sosh output into Social Manager', () => {
+  let created = null;
+  const socialManager = {
+    createWorkflowCampaign(input) {
+      created = input;
+      return { id: 'campaign-workforce-1' };
+    }
+  };
+
+  const { workflows, tasks } = setup(socialManager);
+  const workflow = workflows.create({
+    title: 'Bridge test',
+    brief: 'Create a social campaign.'
+  });
+
+  let task = tasks.get(workflow.taskId);
+  task = tasks.update(task.id, {
+    status: 'complete',
+    result: 'Research result',
+    grounding: { verified: true, responseValidated: true }
+  });
+
+  let state = workflows.advanceAfterTask(task, task);
+  task = tasks.get(state.taskId);
+  task = tasks.update(task.id, { status: 'complete', result: 'Copy result' });
+  state = workflows.advanceAfterTask(task, task);
+
+  task = tasks.get(state.taskId);
+  task = tasks.update(task.id, {
+    status: 'complete',
+    result: JSON.stringify({
+      approvedFormat: true,
+      summary: 'Campaign ready.',
+      platforms: ['facebook'],
+      posts: { facebook: 'Approved Facebook draft.' },
+      cta: 'Watch on DripVid.',
+      caveats: []
+    })
+  });
+  state = workflows.advanceAfterTask(task, task);
+
+  const approved = workflows.approve(workflow.id);
+
+  assert.equal(approved.status, 'approved');
+  assert.equal(approved.socialCampaignId, 'campaign-workforce-1');
+  assert.equal(created.workflowId, workflow.id);
+  assert.equal(created.socialDraft.platforms[0], 'facebook');
 });

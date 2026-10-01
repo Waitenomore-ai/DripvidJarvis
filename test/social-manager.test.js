@@ -119,6 +119,75 @@ test(
 );
 
 test(
+  'approved Workforce campaign is created as publish-ready but not published',
+  () => {
+    const social = manager();
+
+    const campaign =
+      social.createWorkflowCampaign({
+        workflowId: 'workflow-123',
+        title: 'Weekend DripVid campaign',
+        brief: 'Promote a verified campaign.',
+        socialDraft: {
+          approvedFormat: true,
+          summary: 'Campaign summary.',
+          platforms: ['facebook', 'instagram'],
+          posts: {
+            facebook: 'Facebook post text.',
+            instagram: 'Instagram post text.'
+          },
+          cta: 'Watch on DripVid.',
+          caveats: []
+        }
+      });
+
+    assert.equal(campaign.eventType, 'workforce_campaign');
+    assert.equal(campaign.status, 'approved');
+    assert.deepEqual(
+      campaign.platforms,
+      ['facebook', 'instagram']
+    );
+    assert.equal(
+      campaign.drafts.facebook,
+      'Facebook post text.'
+    );
+    assert.equal(
+      campaign.audit[0].action,
+      'created_from_workforce'
+    );
+
+    const prepared =
+      social.prepareFacebookPublish(campaign.id);
+
+    assert.equal(
+      prepared.message,
+      'Facebook post text.'
+    );
+
+    assert.equal(
+      social.listCampaigns().length,
+      1
+    );
+
+    const duplicate =
+      social.createWorkflowCampaign({
+        workflowId: 'workflow-123',
+        title: 'Weekend DripVid campaign',
+        brief: 'Promote a verified campaign.',
+        socialDraft: {
+          approvedFormat: true,
+          summary: 'Different input should remain idempotent.',
+          platforms: ['facebook'],
+          posts: { facebook: 'Different.' }
+        }
+      });
+
+    assert.equal(duplicate.id, campaign.id);
+    assert.equal(social.listCampaigns().length, 1);
+  }
+);
+
+test(
   'campaign must be approved before it can be scheduled',
   () => {
     const social = manager();

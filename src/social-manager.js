@@ -383,6 +383,91 @@ function createSocialManager({
     };
   }
 
+  function createWorkflowCampaign({
+    workflowId,
+    title,
+    brief,
+    socialDraft
+  } = {}) {
+    const normalizedWorkflowId = cleanText(workflowId);
+    if (!normalizedWorkflowId) {
+      throw new Error('workflowId is required');
+    }
+
+    if (!socialDraft || typeof socialDraft !== 'object') {
+      throw new Error('A validated social draft is required');
+    }
+
+    const platforms = Array.isArray(socialDraft.platforms)
+      ? [...new Set(socialDraft.platforms.map((platform) => cleanText(platform).toLowerCase()))]
+      : [];
+
+    if (!platforms.length) {
+      throw new Error('A workflow campaign requires at least one platform');
+    }
+
+    for (const platform of platforms) {
+      if (!Object.prototype.hasOwnProperty.call(PLATFORM_LABELS, platform)) {
+        throw new Error(`Unsupported social platform: ${platform}`);
+      }
+    }
+
+    const existing = listCampaigns().find(
+      (campaign) =>
+        campaign &&
+        campaign.sourceEvent &&
+        campaign.sourceEvent.automation === 'jarvis_workforce' &&
+        campaign.sourceEvent.workflowId === normalizedWorkflowId
+    );
+
+    if (existing) {
+      return existing;
+    }
+
+    const drafts = {};
+    for (const platform of platforms) {
+      const message = cleanText(socialDraft.posts && socialDraft.posts[platform]);
+      if (!message) {
+        throw new Error(`Workflow campaign has no draft for ${platform}`);
+      }
+      drafts[platform] = message;
+    }
+
+    const timestamp = normalizeNow(now).toISOString();
+    const campaign = {
+      id: createId(),
+      eventType: 'workforce_campaign',
+      sourceEvent: {
+        automation: 'jarvis_workforce',
+        workflowId: normalizedWorkflowId,
+        brief: cleanText(brief)
+      },
+      priority: 'P3',
+      title: cleanText(title, 'DripVid workforce campaign'),
+      audience: 'DripVid audience',
+      recommendedTiming: 'Operator-controlled after JARVIS approval',
+      platforms,
+      drafts,
+      status: 'approved',
+      scheduledAt: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      audit: [
+        {
+          action: 'created_from_workforce',
+          at: timestamp,
+          detail: `Created from approved JARVIS workflow ${normalizedWorkflowId}`
+        }
+      ]
+    };
+
+    const store = readStore();
+    store.campaigns.push(campaign);
+    writeStore(store);
+
+    return clone(campaign);
+  }
+
   function mutateCampaign(id, mutate) {
     const store = readStore();
     const index =
@@ -687,6 +772,7 @@ function createSocialManager({
     rules,
     listCampaigns,
     ingestEvent,
+    createWorkflowCampaign,
     updateFacebookDraft,
     approveCampaign,
     approveAutomationCampaign,
