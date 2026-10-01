@@ -747,6 +747,9 @@ function renderTaskDetails(tasks, employees) {
 function renderWorkflows(workflows) {
   const el = document.getElementById('workflowList');
   if (!el) return;
+  const autoRun = lastState?.automation?.workflowAutopilot === true;
+  const mode = document.getElementById('workflowStatus');
+  if (mode) mode.textContent = autoRun ? 'AUTOPILOT ON' : 'MANUAL';
 
   el.innerHTML = workflows.length
     ? workflows.slice(0, 4).map((workflow) => {
@@ -755,7 +758,8 @@ function renderWorkflows(workflows) {
           (item) => item.id === workflow.taskId
         );
         const needsInput = task?.status === 'needs_input';
-        const runnable = workflow.status === 'active' &&
+        const runnable = !autoRun &&
+          workflow.status === 'active' &&
           workflow.taskId &&
           !needsInput;
 
@@ -768,7 +772,9 @@ function renderWorkflows(workflows) {
             <div class="workflow-actions">
               ${runnable
                 ? `<button data-workflow-run="${esc(workflow.taskId)}">▶ Run stage</button>`
-                : ''}
+                : workflow.status === 'active' && !needsInput && autoRun
+                  ? '<span class="workflow-auto">● AUTO</span>'
+                  : ''}
               ${needsInput
                 ? '<span class="workflow-needs">Waiting for you</span>'
                 : ''}
