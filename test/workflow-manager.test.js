@@ -46,7 +46,7 @@ test('campaign workflow creates Scout research stage', () => {
   assert.equal(registry.get('scout').state, 'waiting');
 });
 
-test('campaign workflow advances research to copy to social', () => {
+test('campaign workflow advances research to JARVIS planning to copy to social', () => {
   const { workflows, tasks, registry } = setup();
   const workflow = workflows.create({
     title: 'Weekend push',
@@ -56,11 +56,17 @@ test('campaign workflow advances research to copy to social', () => {
   let current = tasks.get(workflow.taskId);
   current = tasks.update(current.id, { status: 'complete', result: 'Research result', grounding: { verified: true, responseValidated: true } });
   let state = workflows.advanceAfterTask(current, current);
+  assert.equal(state.stage, 'planning');
+  assert.equal(tasks.get(state.taskId).employeeId, 'jarvis');
+
+  current = tasks.get(state.taskId);
+  current = tasks.update(current.id, { status: 'complete', result: 'Plan result' });
+  state = workflows.advanceAfterTask(current, current);
   assert.equal(state.stage, 'copy');
   assert.equal(tasks.get(state.taskId).employeeId, 'penny');
 
   current = tasks.get(state.taskId);
-  current = tasks.update(current.id, { status: 'complete', result: 'Copy result', grounding: { verified: true, responseValidated: true } });
+  current = tasks.update(current.id, { status: 'complete', result: 'Copy result' });
   state = workflows.advanceAfterTask(current, current);
   assert.equal(state.stage, 'social');
   assert.equal(tasks.get(state.taskId).employeeId, 'sosh');
@@ -80,7 +86,7 @@ test('campaign workflow approval changes workflow state without publishing', () 
   const workflow = workflows.create({ title: 'Approved', brief: 'Test approval.' });
 
   let task = tasks.get(workflow.taskId);
-  for (const result of ['research','copy','social']) {
+  for (const result of ['research','planning','copy','social']) {
     task = tasks.update(task.id, { status: 'complete', result, grounding: result === 'research' ? { verified: true, responseValidated: true } : null });
     const state = workflows.advanceAfterTask(task, task);
     task = state.taskId ? tasks.get(state.taskId) : task;
