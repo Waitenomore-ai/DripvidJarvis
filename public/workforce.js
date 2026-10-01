@@ -642,7 +642,7 @@ function renderWorkflowFlow(state) {
     let mode = 'idle';
     if (employee?.state === 'needs_input' || task?.status === 'needs_input') mode = 'alert';
     else if (employee?.state === 'complete' || task?.status === 'complete') mode = 'done';
-    else if (workflow && currentStage === (stage.id === 'scout' ? 'research' : stage.id === 'penny' ? 'copy' : stage.id === 'sosh' ? 'social' : 'approval')) mode = 'active';
+    else if (workflow && currentStage === (stage.id === 'scout' ? 'research' : stage.id === 'jarvis' ? 'planning' : stage.id === 'penny' ? 'copy' : 'social')) mode = 'active';
     else if (['working','researching','thinking'].includes(employee?.state)) mode = 'active';
 
     const progress = Math.max(0, Math.min(100, Number(task?.progress) || (mode === 'done' ? 100 : mode === 'active' ? 48 : 0)));
@@ -889,6 +889,7 @@ function activeWorkflowAgent(state) {
 
   return ({
     research: 'scout',
+    planning: 'jarvis',
     copy: 'penny',
     social: 'sosh',
     approval: 'jarvis'
