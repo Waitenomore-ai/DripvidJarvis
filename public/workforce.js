@@ -90,7 +90,7 @@ function unlockAlertAudio() {
 
 function playAttentionSound() {
   const prefs = getAlertPreferences();
-  if (!prefs.enabled || prefs.sound) {
+  if (prefs.enabled && prefs.sound) {
     try {
       unlockAlertAudio();
       if (!alertAudioContext) return;
