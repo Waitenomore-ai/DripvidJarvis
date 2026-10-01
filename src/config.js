@@ -238,6 +238,12 @@ function loadConfig(env = process.env) {
         6
       ),
 
+    scoutAllowedDomains:
+      parseList(
+        env.JARVIS_SCOUT_ALLOWED_DOMAINS ||
+        'dripvid.uk,www.dripvid.uk'
+      ),
+
     brainPath:
       env.JARVIS_BRAIN_PATH ||
       path.resolve(

@@ -3,12 +3,14 @@
 const { createWorkforceRegistry } = require('./registry');
 const { createTaskManager } = require('./task-manager');
 const { createWorkflowManager } = require('./workflow-manager');
+const { createScoutResearch, validateScoutResponse } = require('./scout-research');
 
-function createWorkforceRuntime({ model = null, brain = null, vault = null, web = null, dripvid = null, now } = {}) {
+function createWorkforceRuntime({ model = null, brain = null, vault = null, web = null, dripvid = null, scoutResearch = null, scoutAllowedDomains = ['dripvid.uk', 'www.dripvid.uk'], now } = {}) {
   const registry = createWorkforceRegistry();
   const tasks = createTaskManager({ registry, now });
   const activity = [];
   const workflows = createWorkflowManager({ tasks, registry, now });
+  const scout = scoutResearch || (web ? createScoutResearch({ web, allowedDomains: scoutAllowedDomains }) : null);
   const clock = now || (() => new Date().toISOString());
   const record = (event) => { activity.unshift({ ...event, at: clock() }); activity.splice(30); };
 
@@ -75,17 +77,82 @@ function createWorkforceRuntime({ model = null, brain = null, vault = null, web 
     try {
       const employee = registry.get(task.employeeId);
       let researchContext = '';
+      let scoutResearchResult = null;
 
-      if (task.employeeId === 'scout' && web) {
-        const search = await web.search(task.description || task.title);
-        const results = Array.isArray(search.results) ? search.results.slice(0, 6) : [];
-        researchContext = `\n\nLive web research results:\n${results.map((item, index) => `${index + 1}. ${item.title}\nURL: ${item.url}\n${item.snippet || ''}`).join('\n\n')}`;
-        record({ type:'research.completed', taskId:id, employeeId:'scout', title:task.title, sources:results.length });
-        tasks.update(id, { progress:55 });
+      if (task.employeeId === 'scout') {
+        if (!scout) {
+          return tasks.update(id, {
+            status:'needs_input',
+            progress:5,
+            result:'Scout research is unavailable because no web research adapter is configured.',
+            grounding:{ verified:false, reason:'research_adapter_unavailable' }
+          });
+        }
+
+        scoutResearchResult = await scout.research(task);
+
+        if (!scoutResearchResult.grounded) {
+          record({
+            type:'research.blocked',
+            taskId:id,
+            employeeId:'scout',
+            title:task.title,
+            reason:'No verified DripVid sources found'
+          });
+
+          return tasks.update(id, {
+            status:'needs_input',
+            progress:25,
+            result:'Scout could not verify any DripVid-specific source pages for this task. No downstream campaign stage was started.',
+            grounding:{
+              verified:false,
+              allowedDomains:scoutResearchResult.allowedDomains,
+              queries:scoutResearchResult.queries,
+              rejectedCount:scoutResearchResult.rejectedCount,
+              sourceUrls:[]
+            }
+          });
+        }
+
+        researchContext = [
+          '',
+          'VERIFIED DRIPVID SOURCES — USE ONLY THESE SOURCES:',
+          ...scoutResearchResult.sources.map((source, index) => [
+            `SOURCE ${index + 1}`,
+            `Title: ${source.title}`,
+            `URL: ${source.url}`,
+            `Snippet: ${source.snippet || '(none)'}`,
+            `Page content: ${source.content || '(page could not be opened; use snippet only)'}`
+          ].join('\n')),
+          ''
+        ].join('\n');
+
+        tasks.update(id, {
+          progress:55,
+          grounding:{
+            verified:true,
+            allowedDomains:scoutResearchResult.allowedDomains,
+            sourceUrls:scoutResearchResult.sourceUrls,
+            openedSources:scoutResearchResult.sources.filter((source) => source.opened).length,
+            rejectedCount:scoutResearchResult.rejectedCount
+          }
+        });
+
+        record({
+          type:'research.completed',
+          taskId:id,
+          employeeId:'scout',
+          title:task.title,
+          sources:scoutResearchResult.sources.length
+        });
       }
 
       const systemPrompt = employee.id === 'scout'
-        ? `You are Scout, the Research & Trends specialist in DripVid JARVIS. Analyse the supplied live research and task objective. Return a concise structured research result with: summary, findings, sourceCount, and sourceUrls. Do not invent sources or facts not supported by the supplied material.`
+        ? `You are Scout, the Research & Trends specialist in DripVid JARVIS.
+Return JSON only with this exact shape:
+{"summary":"...","findings":[{"claim":"...","sourceUrls":["https://..."]}],"sourceCount":0,"sourceUrls":["https://..."]}
+Every factual finding MUST cite one or more URLs from VERIFIED DRIPVID SOURCES below.
+Do not use general knowledge. Do not use unrelated "Drip" sources. Do not invent facts, customers, prices, features, statistics, dates, or URLs. If a detail is not supported by the verified sources, leave it out.`
         : `You are ${employee.name}, the ${employee.role} in DripVid JARVIS. Return a concise, useful result for the assigned task.`;
 
       const result = await model.chat({
@@ -96,6 +163,52 @@ function createWorkforceRuntime({ model = null, brain = null, vault = null, web 
       });
 
       const text = String(result && (result.message || result.content) || '');
+
+      if (employee.id === 'scout') {
+        try {
+          const validated = validateScoutResponse(text, scoutResearchResult.sourceUrls);
+          const groundedResult = JSON.stringify(validated, null, 2);
+          const updated = tasks.update(id, {
+            status:'complete',
+            progress:100,
+            result:groundedResult,
+            grounding:{
+              ...(tasks.get(id).grounding || {}),
+              verified:true,
+              responseValidated:true
+            }
+          });
+          record({ type:'task.completed', taskId:id, employeeId:task.employeeId, title:task.title });
+          if (task.workflowId && task.stage) {
+            const workflow = workflows.advanceAfterTask(task, updated);
+            if (workflow) {
+              record({
+                type: workflow.status === 'awaiting_approval'
+                  ? 'workflow.awaiting_approval'
+                  : 'workflow.handoff',
+                workflowId: workflow.id,
+                title: workflow.title,
+                stage: workflow.stage,
+                taskId: workflow.taskId
+              });
+            }
+          }
+          return updated;
+        } catch (validationError) {
+          return tasks.update(id, {
+            status:'needs_input',
+            progress:70,
+            result:'Scout research was found, but the model response failed grounding validation. No downstream campaign stage was started.',
+            error:validationError.message || 'Scout response validation failed',
+            grounding:{
+              ...(tasks.get(id).grounding || {}),
+              verified:true,
+              responseValidated:false
+            }
+          });
+        }
+      }
+
       const updated = tasks.update(id, { status:'complete', progress:100, result:text });
       record({ type:'task.completed', taskId:id, employeeId:task.employeeId, title:task.title });
 
