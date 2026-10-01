@@ -6,7 +6,12 @@ const { createWorkflowManager } = require('./workflow-manager');
 const { createScoutResearch, validateScoutResponse } = require('./scout-research');
 const { validateSocialDraftResponse } = require('./social-draft');
 
-function createWorkforceRuntime({ model = null, brain = null, vault = null, web = null, dripvid = null, socialManager = null, scoutResearch = null, scoutAllowedDomains = ['dripvid.uk', 'www.dripvid.uk'], now } = {}) {
+function createWorkforceRuntime({
+  model = null, brain = null, vault = null, web = null, dripvid = null,
+  socialManager = null, scoutResearch = null,
+  scoutAllowedDomains = ['dripvid.uk', 'www.dripvid.uk'], now,
+  autoRunWorkflows = false, autoRunDelayMs = 25
+} = {}) {
   const registry = createWorkforceRegistry();
   const tasks = createTaskManager({ registry, now });
   const activity = [];
@@ -14,6 +19,8 @@ function createWorkforceRuntime({ model = null, brain = null, vault = null, web 
   const scout = scoutResearch || (web ? createScoutResearch({ web, allowedDomains: scoutAllowedDomains }) : null);
   const clock = now || (() => new Date().toISOString());
   const record = (event) => { activity.unshift({ ...event, at: clock() }); activity.splice(30); };
+  const activeWorkflowRuns = new Set();
+  const scheduledWorkflowRuns = new Set();
 
   function snapshot() {
     return {
@@ -22,6 +29,7 @@ function createWorkforceRuntime({ model = null, brain = null, vault = null, web 
       tasks: tasks.list(),
       workflows: workflows.list(),
       activity: [...activity],
+      automation: { workflowAutopilot: Boolean(autoRunWorkflows) },
       rooms: [
         { id:'command-centre', name:'Command Centre', icon:'🧠' },
         { id:'social-studio', name:'Social Studio', icon:'📱' },
@@ -46,9 +54,23 @@ function createWorkforceRuntime({ model = null, brain = null, vault = null, web 
     return task;
   }
 
+  function queueWorkflowRun(id) {
+    if (!autoRunWorkflows || activeWorkflowRuns.has(id) || scheduledWorkflowRuns.has(id)) return;
+    scheduledWorkflowRuns.add(id);
+    const run = () => {
+      scheduledWorkflowRuns.delete(id);
+      runWorkflow(id).catch((error) => {
+        record({ type:'workflow.autorun_error', workflowId:id, error:error?.message || 'Autonomous workflow execution failed' });
+      });
+    };
+    if (autoRunDelayMs > 0) setTimeout(run, autoRunDelayMs);
+    else setImmediate(run);
+  }
+
   function createWorkflow(input) {
     const workflow = workflows.create(input);
     record({ type:'workflow.created', workflowId:workflow.id, title:workflow.title, stage:workflow.stage });
+    queueWorkflowRun(workflow.id);
     return workflow;
   }
 
@@ -66,6 +88,7 @@ function createWorkforceRuntime({ model = null, brain = null, vault = null, web 
       employeeId:task.employeeId,
       title:task.title
     });
+    if (task.workflowId) queueWorkflowRun(task.workflowId);
     return task;
   }
 
@@ -85,6 +108,73 @@ function createWorkforceRuntime({ model = null, brain = null, vault = null, web 
     const workflow = workflows.reject(id, reason);
     record({ type:'workflow.rejected', workflowId:id, title:workflow.title, reason:reason || '' });
     return workflow;
+  }
+
+  async function runWorkflow(id) {
+    if (activeWorkflowRuns.has(id)) return workflows.get(id);
+    activeWorkflowRuns.add(id);
+    record({ type:'workflow.autorun_started', workflowId:id });
+
+    try {
+      for (let guard = 0; guard < 6; guard += 1) {
+        const workflow = workflows.get(id);
+        if (!workflow) throw new Error('Unknown workflow');
+        if (workflow.status !== 'active') return workflow;
+        if (!workflow.taskId) throw new Error('Active workflow has no current task');
+
+        const task = tasks.get(workflow.taskId);
+        if (!task) throw new Error(`Workflow task not found: ${workflow.taskId}`);
+        if (task.status === 'needs_input') {
+          record({ type:'workflow.autorun_paused', workflowId:id, taskId:task.id, reason:'needs_input' });
+          return workflow;
+        }
+        if (task.status === 'error') {
+          requestOperatorInput(task.id,
+            `The ${task.employeeId} task failed: ${task.error || 'Unknown error'}. Reply with any guidance you want the agent to use when retrying.`,
+            { kind:'runtime', title:'Workflow needs your help' });
+          record({ type:'workflow.autorun_paused', workflowId:id, taskId:task.id, reason:'task_error' });
+          return workflows.get(id);
+        }
+        if (!['queued','waiting'].includes(task.status)) return workflow;
+
+        const result = await executeTask(task.id);
+        if (result.status === 'needs_input') {
+          record({ type:'workflow.autorun_paused', workflowId:id, taskId:task.id, reason:'needs_input' });
+          return workflows.get(id);
+        }
+        if (result.status === 'error') {
+          requestOperatorInput(task.id,
+            `The ${task.employeeId} task failed: ${result.error || 'Unknown error'}. Reply with any guidance you want the agent to use when retrying.`,
+            { kind:'runtime', title:'Workflow needs your help' });
+          record({ type:'workflow.autorun_paused', workflowId:id, taskId:task.id, reason:'task_error' });
+          return workflows.get(id);
+        }
+
+        const next = workflows.get(id);
+        if (!next || next.status !== 'active') {
+          record({ type:'workflow.autorun_finished', workflowId:id, status:next?.status || 'missing' });
+          return next;
+        }
+        if (next.taskId === task.id) {
+          requestOperatorInput(task.id,
+            'The workflow completed a stage but could not create the next stage. Reply with any instruction to help JARVIS continue.',
+            { kind:'runtime', title:'Workflow handoff needs attention' });
+          record({ type:'workflow.autorun_paused', workflowId:id, taskId:task.id, reason:'handoff_missing' });
+          return workflows.get(id);
+        }
+      }
+
+      const current = workflows.get(id);
+      if (current?.taskId) {
+        requestOperatorInput(current.taskId,
+          'JARVIS reached the autonomous workflow safety limit. Reply with guidance to continue from the current stage.',
+          { kind:'runtime', title:'Workflow safety limit reached' });
+      }
+      record({ type:'workflow.autorun_paused', workflowId:id, reason:'safety_limit' });
+      return workflows.get(id);
+    } finally {
+      activeWorkflowRuns.delete(id);
+    }
   }
 
   async function executeTask(id) {
@@ -311,6 +401,7 @@ Choose only platforms that are relevant to the brief and write the complete post
     rejectWorkflow,
     respondToTask,
     executeTask,
+    runWorkflow,
     dependencies:{ model, brain, vault, web, dripvid }
   };
 }
