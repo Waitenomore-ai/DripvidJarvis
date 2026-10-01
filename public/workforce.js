@@ -16,6 +16,10 @@ const apiBase = window.location.pathname.startsWith('/jarvis/workforce')
 const workforceApi = (path) => `${apiBase}${path}`;
 
 let lastState = null;
+let alertsInitialized = false;
+const knownNeeds = new Map();
+let alertToastTimer = null;
+let alertAudioContext = null;
 
 async function loadWorkforceState() {
   const response = await fetch(workforceApi('/api/workforce/state'), {
@@ -59,6 +63,216 @@ async function respondToTask(id, message) {
   }
 
   return response.json();
+}
+
+function getAlertPreferences() {
+  try {
+    return JSON.parse(localStorage.getItem('jarvis.workforce.alerts') || '{"enabled":false,"sound":true}');
+  } catch {
+    return { enabled:false, sound:true };
+  }
+}
+
+function setAlertPreferences(prefs) {
+  localStorage.setItem('jarvis.workforce.alerts', JSON.stringify(prefs));
+}
+
+function unlockAlertAudio() {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    if (!alertAudioContext) alertAudioContext = new AudioContext();
+    if (alertAudioContext.state === 'suspended') alertAudioContext.resume();
+  } catch {
+    // Sound is optional; visual and browser alerts still work.
+  }
+}
+
+function playAttentionSound() {
+  const prefs = getAlertPreferences();
+  if (!prefs.enabled || prefs.sound) {
+    try {
+      unlockAlertAudio();
+      if (!alertAudioContext) return;
+      const now = alertAudioContext.currentTime;
+      const gain = alertAudioContext.createGain();
+      const oscillator = alertAudioContext.createOscillator();
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(660, now);
+      oscillator.frequency.exponentialRampToValueAtTime(880, now + 0.12);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.055, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
+      oscillator.connect(gain);
+      gain.connect(alertAudioContext.destination);
+      oscillator.start(now);
+      oscillator.stop(now + 0.3);
+    } catch {
+      // Browsers may block audio until the user interacts with the page.
+    }
+  }
+}
+
+function showAlertToast(task, employee) {
+  const toast = document.getElementById('alertToast');
+  const title = document.getElementById('alertToastTitle');
+  const message = document.getElementById('alertToastMessage');
+  if (!toast || !title || !message) return;
+
+  title.textContent = `${employee?.name || task.employeeId} needs you`;
+  message.textContent = task.needsInput?.prompt || 'This agent needs your input.';
+  toast.hidden = false;
+  toast.classList.remove('alert-toast-show');
+  requestAnimationFrame(() => toast.classList.add('alert-toast-show'));
+
+  clearTimeout(alertToastTimer);
+  alertToastTimer = window.setTimeout(() => {
+    toast.classList.remove('alert-toast-show');
+    window.setTimeout(() => { toast.hidden = true; }, 250);
+  }, 9000);
+}
+
+function notifyAgentNeeds(task, employee) {
+  showAlertToast(task, employee);
+  playAttentionSound();
+
+  const prefs = getAlertPreferences();
+  if (
+    prefs.enabled &&
+    'Notification' in window &&
+    window.isSecureContext &&
+    Notification.permission === 'granted'
+  ) {
+    try {
+      const notification = new Notification(
+        `${employee?.name || task.employeeId} needs you`,
+        {
+          body: task.needsInput?.prompt || 'An agent is waiting for your guidance.',
+          tag: `jarvis-workforce-${task.id}`,
+          renotify: false
+        }
+      );
+      notification.onclick = () => {
+        window.focus();
+        document.querySelector(`[data-needs-card="${CSS.escape(task.id)}"] textarea`)?.focus();
+        notification.close();
+      };
+    } catch {
+      // In-page alert remains available when browser notifications are unavailable.
+    }
+  }
+
+  document.title = '⚠ Agent needs you — JARVIS HQ';
+  window.setTimeout(() => {
+    if (document.visibilityState === 'visible') {
+      document.title = 'JARVIS HQ — Workforce';
+    }
+  }, 4500);
+}
+
+async function enableWorkforceAlerts() {
+  const button = document.getElementById('alertsButton');
+  const label = document.getElementById('alertsLabel');
+  const prefs = getAlertPreferences();
+
+  unlockAlertAudio();
+
+  let permission = 'unsupported';
+  if ('Notification' in window) {
+    if (!window.isSecureContext) {
+      permission = 'insecure';
+    } else if (Notification.permission === 'default') {
+      permission = await Notification.requestPermission();
+    } else {
+      permission = Notification.permission;
+    }
+  }
+
+  prefs.enabled = permission === 'granted' || permission === 'unsupported';
+  prefs.sound = true;
+  setAlertPreferences(prefs);
+
+  if (button) {
+    button.classList.toggle('alerts-enabled', prefs.enabled);
+    button.setAttribute('aria-pressed', String(prefs.enabled));
+  }
+
+  if (label) {
+    if (permission === 'granted') {
+      label.textContent = 'Alerts On';
+    } else if (permission === 'insecure') {
+      label.textContent = 'Sound + In-Page Alerts';
+    } else if (permission === 'denied') {
+      label.textContent = 'In-Page Alerts';
+    } else {
+      label.textContent = 'Alerts On';
+    }
+  }
+
+  const connection = document.getElementById('connection');
+  if (connection && permission === 'insecure') {
+    connection.title = 'Browser notifications require HTTPS; in-page alerts and sound remain available.';
+  }
+}
+
+function setupWorkforceAlerts() {
+  const button = document.getElementById('alertsButton');
+  const toastClose = document.getElementById('alertToastClose');
+  const prefs = getAlertPreferences();
+
+  if (button) {
+    button.classList.toggle('alerts-enabled', prefs.enabled);
+    button.setAttribute('aria-pressed', String(prefs.enabled));
+    const label = document.getElementById('alertsLabel');
+
+    if (label) {
+      if (prefs.enabled && 'Notification' in window && window.isSecureContext && Notification.permission === 'granted') {
+        label.textContent = 'Alerts On';
+      } else if (prefs.enabled) {
+        label.textContent = 'Sound + In-Page Alerts';
+      }
+    }
+
+    button.addEventListener('click', enableWorkforceAlerts);
+  }
+
+  document.addEventListener('pointerdown', unlockAlertAudio, { once:true, passive:true });
+
+  toastClose?.addEventListener('click', () => {
+    const toast = document.getElementById('alertToast');
+    if (!toast) return;
+    clearTimeout(alertToastTimer);
+    toast.classList.remove('alert-toast-show');
+    window.setTimeout(() => { toast.hidden = true; }, 250);
+  });
+}
+
+function checkForNewNeeds(tasks) {
+  const current = new Map(
+    tasks
+      .filter((task) => task.status === 'needs_input' && task.needsInput)
+      .map((task) => [task.id, `${task.id}:${task.needsInput.requestedAt || task.updatedAt || ''}`])
+  );
+
+  if (!alertsInitialized) {
+    knownNeeds.clear();
+    current.forEach((signature, id) => knownNeeds.set(id, signature));
+    alertsInitialized = true;
+    return;
+  }
+
+  for (const [id, signature] of current) {
+    if (knownNeeds.get(id) === signature) continue;
+    const task = tasks.find((item) => item.id === id);
+    const employee = (lastState?.employees || []).find((item) => item.id === task?.employeeId);
+    if (task) notifyAgentNeeds(task, employee);
+  }
+
+  for (const id of knownNeeds.keys()) {
+    if (!current.has(id)) knownNeeds.delete(id);
+  }
+
+  current.forEach((signature, id) => knownNeeds.set(id, signature));
 }
 
 function esc(value) {
@@ -428,6 +642,8 @@ function renderWorkforceState(state) {
   const employees = state.employees || [];
   const tasks = state.tasks || [];
 
+  checkForNewNeeds(tasks);
+
   document.getElementById('employeeCount').textContent = employees.length;
 
   applyRoomTelemetry(employees);
@@ -605,4 +821,5 @@ document.getElementById('createWorkflow')?.addEventListener('click', async () =>
   }
 });
 
+setupWorkforceAlerts();
 startWorkforcePolling();
