@@ -1786,3 +1786,19 @@ footer a{color:#55d8ff}
 @media(prefers-reduced-motion:reduce){
   .handoff-token,.handoff-trail{transition:none!important;animation:none!important}
 }
+
+/* Autonomous workflow indicator */
+.workflow-auto{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  padding:4px 6px;
+  border:1px solid #28624d;
+  border-radius:999px;
+  background:#081a14;
+  color:#6fe0ad;
+  font-size:7px;
+  font-weight:900;
+  letter-spacing:.08em;
+  box-shadow:0 0 14px #57dca315 inset;
+}
