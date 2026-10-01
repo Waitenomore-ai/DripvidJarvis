@@ -78,7 +78,10 @@ test('campaign workflow advances research to JARVIS planning to copy to social',
   assert.equal(state.status, 'awaiting_approval');
   assert.equal(state.stage, 'approval');
   assert.equal(state.approval.status, 'pending');
+  assert.equal(tasks.get(state.taskId).employeeId, 'jarvis');
+  assert.equal(tasks.get(state.taskId).stage, 'approval');
   assert.equal(registry.get('jarvis').state, 'waiting');
+  assert.equal(registry.get('sosh').state, 'complete');
 });
 
 test('campaign workflow approval changes workflow state without publishing', () => {

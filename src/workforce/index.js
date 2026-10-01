@@ -44,11 +44,17 @@ function createWorkforceRuntime({
     activity.splice(0, activity.length, ...(Array.isArray(saved.activity) ? saved.activity.slice(0, 30) : []));
 
     for (const workflow of workflows.list()) {
-      if (workflow.status === 'active' && workflow.taskId) {
-        registry.setState('jarvis', 'thinking', workflow.taskId);
-      } else if (workflow.status === 'awaiting_approval' && workflow.taskId) {
+      if (!workflow.taskId) continue;
+      const currentTask = tasks.get(workflow.taskId);
+
+      if (workflow.status === 'active' && currentTask) {
+        if (currentTask.employeeId === 'jarvis') {
+          registry.setState('jarvis', 'waiting', currentTask.id);
+        } else if (currentTask.employeeId) {
+          registry.setState(currentTask.employeeId, 'waiting', currentTask.id);
+        }
+      } else if (workflow.status === 'awaiting_approval') {
         registry.setState('jarvis', 'waiting', workflow.taskId);
-        registry.setState('sosh', 'waiting', workflow.taskId);
       } else if (workflow.status === 'approved') {
         registry.setState('jarvis', 'complete', null);
       }

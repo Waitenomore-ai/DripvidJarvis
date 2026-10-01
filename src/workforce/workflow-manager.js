@@ -129,7 +129,7 @@ function createWorkflowManager({
       workflow.taskIds.push(next.id);
       workflow.history.push({ stage: 'copy', taskId: next.id, employeeId: 'penny', at: now() });
       workflow.updatedAt = now();
-      registry.setState('jarvis', 'waiting', next.id);
+      registry.setState('jarvis', 'complete', null);
       return clone(workflow);
     }
 
@@ -148,14 +148,25 @@ function createWorkflowManager({
       workflow.taskIds.push(next.id);
       workflow.history.push({ stage: 'social', taskId: next.id, employeeId: 'sosh', at: now() });
       workflow.updatedAt = now();
-      registry.setState('jarvis', 'thinking', next.id);
+      registry.setState('jarvis', 'idle', null);
       return clone(workflow);
     }
 
     if (task.stage === 'social') {
+      const approvalTask = tasks.create({
+        title: `Approval: ${workflow.title}`,
+        description:
+          `Review the completed campaign package and prepare it for operator approval. Nothing should be published without explicit operator approval.\n\nBRIEF:\n${workflow.brief}\n\nJARVIS PLAN:\n${workflow.outputs.planning || '(none)'}\n\nSOCIAL DRAFT:\n${completedTask.result || '(none)'}`,
+        employeeId: 'jarvis',
+        workflowId: workflow.id,
+        stage: 'approval',
+        priority: 'high'
+      });
+
       workflow.stage = 'approval';
       workflow.status = 'awaiting_approval';
-      workflow.taskId = task.id;
+      workflow.taskId = approvalTask.id;
+      workflow.taskIds.push(approvalTask.id);
       workflow.approval = {
         status: 'pending',
         requestedAt: now(),
@@ -163,10 +174,9 @@ function createWorkflowManager({
         rejectedAt: null,
         reason: null
       };
-      workflow.history.push({ stage: 'approval', taskId: task.id, employeeId: 'jarvis', at: now() });
+      workflow.history.push({ stage: 'approval', taskId: approvalTask.id, employeeId: 'jarvis', at: now() });
       workflow.updatedAt = now();
-      registry.setState('jarvis', 'waiting', task.id);
-      registry.setState('sosh', 'waiting', task.id);
+      registry.setState('sosh', 'complete', null);
       return clone(workflow);
     }
 
@@ -198,6 +208,14 @@ function createWorkflowManager({
       workflow.socialCampaignId = socialCampaign.id;
     }
 
+    if (workflow.taskId) {
+      tasks.update(workflow.taskId, {
+        status:'complete',
+        progress:100,
+        result:'Workflow approved by operator.'
+      });
+    }
+
     workflow.status = 'approved';
     workflow.approval = {
       ...workflow.approval,
@@ -215,6 +233,14 @@ function createWorkflowManager({
     const workflow = workflows.get(id);
     if (!workflow) throw new Error('Unknown workflow');
     if (workflow.status !== 'awaiting_approval') throw new Error('Workflow is not awaiting approval');
+    if (workflow.taskId) {
+      tasks.update(workflow.taskId, {
+        status:'complete',
+        progress:100,
+        result:`Workflow rejected by operator.${reason ? ` Reason: ${String(reason)}` : ''}`
+      });
+    }
+
     workflow.status = 'rejected';
     workflow.approval = {
       ...workflow.approval,

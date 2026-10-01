@@ -94,7 +94,7 @@ test('Workforce autopilot runs Scout, JARVIS, Penny and Sosh through approval', 
   assert.equal(completed.stage, 'approval');
   assert.ok(completed.outputs.planning.includes('Plan complete.'));
   assert.equal(completed.approval.status, 'pending');
-  assert.equal(runtime.tasks.list().filter((task) => task.workflowId === workflow.id).length, 4);
+  assert.equal(runtime.tasks.list().filter((task) => task.workflowId === workflow.id).length, 5);
   assert.equal(runtime.snapshot().automation.workflowAutopilot, true);
 
   const eventTypes = runtime.snapshot().activity.map((event) => event.type);
