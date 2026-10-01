@@ -1,6 +1,6 @@
 'use strict';
 
-const icons = { jarvis: '🧠', sosh: '📱', scout: '🔎', dev: '💻', ops: '🖥️' };
+const icons = { jarvis: '🧠', sosh: '📱', scout: '🔎', penny: '✍️', dev: '💻', ops: '🖥️' };
 let lastState = null;
 
 async function loadWorkforceState() {
@@ -35,6 +35,95 @@ function taskCard(t) {
   return `<div class="task" data-task="${esc(t.id)}"><b>${esc(t.title)}</b><small>${esc(t.status)} · ${esc(t.employeeId)}</small><div class="bar"><i style="width:${Math.max(0, Math.min(100, Number(t.progress) || 0))}%"></i></div>${runnable ? `<button class="task-run" data-run-task="${esc(t.id)}">▶ Run</button>` : ''}</div>`;
 }
 
+async function createWorkflow() {
+  const title = document.getElementById('workflowTitle').value.trim();
+  const brief = document.getElementById('workflowBrief').value.trim();
+  if (!title || !brief) {
+    document.getElementById('workflowStatus').textContent = 'Title and brief required';
+    return;
+  }
+  const response = await fetch('/api/workforce/workflows', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ title, brief, type: 'content_campaign' })
+  });
+  if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || 'Workflow creation failed');
+  document.getElementById('workflowTitle').value = '';
+  document.getElementById('workflowBrief').value = '';
+}
+
+async function runWorkflowStage(taskId) {
+  const response = await fetch(`/api/workforce/tasks/${encodeURIComponent(taskId)}/execute`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: '{}'
+  });
+  if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || `HTTP ${response.status}`);
+}
+
+async function approveWorkflow(id) {
+  const response = await fetch(`/api/workforce/workflows/${encodeURIComponent(id)}/approve`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: '{}'
+  });
+  if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || 'Approval failed');
+}
+
+async function rejectWorkflow(id) {
+  const reason = window.prompt('Reason for rejection:', '') || '';
+  const response = await fetch(`/api/workforce/workflows/${encodeURIComponent(id)}/reject`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ reason })
+  });
+  if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || 'Rejection failed');
+}
+
+function renderWorkflows(workflows) {
+  const el = document.getElementById('workflowList');
+  if (!el) return;
+  el.innerHTML = workflows.length
+    ? workflows.slice(0, 4).map((w) => {
+      const pending = w.status === 'awaiting_approval';
+      const runnable = w.status === 'active' && w.taskId;
+      return `<div class="workflow"><b>${esc(w.title)}</b><small>${esc(w.stage)} · ${esc(w.status)}</small><div class="workflow-actions">${runnable ? `<button data-workflow-run="${esc(w.taskId)}">▶ Run stage</button>` : ''}${pending ? `<button class="approve" data-workflow-approve="${esc(w.id)}">✓ Approve</button><button class="reject" data-workflow-reject="${esc(w.id)}">Reject</button>` : ''}</div></div>`;
+    }).join('')
+    : '<div class="state">No workflows yet</div>';
+
+  document.querySelectorAll('[data-workflow-run]').forEach((el) => el.addEventListener('click', async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    button.textContent = 'Working…';
+    try {
+      await runWorkflowStage(button.dataset.workflowRun);
+      await refreshWorkforceState();
+    } catch (error) {
+      document.getElementById('workflowStatus').textContent = error.message;
+      button.disabled = false;
+      button.textContent = '▶ Run stage';
+    }
+  }));
+
+  document.querySelectorAll('[data-workflow-approve]').forEach((el) => el.addEventListener('click', async (event) => {
+    try {
+      await approveWorkflow(event.currentTarget.dataset.workflowApprove);
+      await refreshWorkforceState();
+    } catch (error) {
+      document.getElementById('workflowStatus').textContent = error.message;
+    }
+  }));
+
+  document.querySelectorAll('[data-workflow-reject]').forEach((el) => el.addEventListener('click', async (event) => {
+    try {
+      await rejectWorkflow(event.currentTarget.dataset.workflowReject);
+      await refreshWorkforceState();
+    } catch (error) {
+      document.getElementById('workflowStatus').textContent = error.message;
+    }
+  }));
+}
+
 function renderWorkforceState(state) {
   lastState = state;
   const employees = state.employees || [];
@@ -46,6 +135,9 @@ function renderWorkforceState(state) {
     const members = employees.filter((e) => e.room === room);
     el.innerHTML = members.length ? members.map(employeeCard).join('') : '<span class="state">No employee assigned</span>';
   }
+
+  const workflows = state.workflows || [];
+  renderWorkflows(workflows);
 
   const tasks = state.tasks || [];
   document.getElementById('task-hub').innerHTML = tasks.length
@@ -114,4 +206,18 @@ window.loadWorkforceState = loadWorkforceState;
 window.renderWorkforceState = renderWorkforceState;
 window.startWorkforcePolling = startWorkforcePolling;
 window.executeWorkforceTask = executeWorkforceTask;
+
+document.getElementById('createWorkflow')?.addEventListener('click', async () => {
+  const button = document.getElementById('createWorkflow');
+  button.disabled = true;
+  try {
+    await createWorkflow();
+    await refreshWorkforceState();
+  } catch (error) {
+    document.getElementById('workflowStatus').textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+});
+
 startWorkforcePolling();
