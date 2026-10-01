@@ -1687,3 +1687,8 @@ footer a{color:#55d8ff}
   .support-grid>article:nth-child(3){grid-column:auto}
   .utility-grid{grid-template-columns:1fr}
 }
+
+.detail-kicker{display:flex;align-items:center;gap:5px}
+.detail-avatar{display:inline-flex;width:18px;height:18px;align-items:center;justify-content:center;overflow:hidden}
+.detail-avatar .robot-avatar-svg{width:19px;height:19px}
+.flow-avatar .robot-avatar-svg{width:30px;height:30px}
