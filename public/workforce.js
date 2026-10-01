@@ -227,11 +227,32 @@ function renderNeedsPanel(tasks) {
 
   if (!waiting.length) {
     panel.hidden = true;
-    list.innerHTML = '';
+    list.replaceChildren();
+    panel.dataset.renderKey = '';
     return;
   }
 
   panel.hidden = false;
+
+  const renderKey = waiting
+    .map((task) => [
+      task.id,
+      task.status,
+      task.updatedAt || '',
+      task.needsInput?.title || '',
+      task.needsInput?.prompt || '',
+      Array.isArray(task.operatorMessages)
+        ? task.operatorMessages.length
+        : 0
+    ].join(':'))
+    .join('|');
+
+  // State polling happens every few seconds. Do not rebuild the textarea when
+  // nothing about the actual operator request changed; rebuilding it steals
+  // focus and makes anything being typed disappear.
+  if (panel.dataset.renderKey === renderKey) return;
+
+  panel.dataset.renderKey = renderKey;
 
   const employees = lastState?.employees || [];
 
@@ -282,7 +303,6 @@ function renderNeedsPanel(tasks) {
     });
   });
 }
-
 function renderWorkflows(workflows) {
   const el = document.getElementById('workflowList');
   if (!el) return;
