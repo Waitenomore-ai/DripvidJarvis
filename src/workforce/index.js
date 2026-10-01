@@ -183,6 +183,7 @@ function createWorkforceRuntime({
       return workflows.get(id);
     } finally {
       activeWorkflowRuns.delete(id);
+      persistState();
     }
   }
 
