@@ -315,7 +315,7 @@ function loadConfig(env = process.env) {
     chatTimeoutMs:
       parsePositiveInteger(
         env.JARVIS_CHAT_TIMEOUT_MS,
-        30000
+        120000
       ),
 
     primaryChatTimeoutMs:
