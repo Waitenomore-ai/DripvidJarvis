@@ -710,7 +710,9 @@ function createRuntime({
     model,
     brain,
     vault,
-    tts
+    tts,
+    dripvid,
+    mcp
   };
 }
 
