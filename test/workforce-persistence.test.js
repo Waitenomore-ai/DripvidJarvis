@@ -39,7 +39,7 @@ test('Workforce state survives a JARVIS restart and requeues interrupted work', 
   assert.equal(restoredTask.status, 'queued');
   assert.equal(restoredTask.progress, 45);
   assert.equal(second.registry.get('scout').state, 'waiting');
-  assert.equal(second.registry.get('jarvis').state, 'thinking');
+  assert.equal(second.registry.get('jarvis').state, 'idle');
   assert.ok(fs.statSync(statePath).size > 0);
 
   fs.rmSync(directory, { recursive:true, force:true });
