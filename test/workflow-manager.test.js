@@ -59,7 +59,7 @@ test('campaign workflow advances research to copy to social', () => {
   assert.equal(tasks.get(state.taskId).employeeId, 'penny');
 
   current = tasks.get(state.taskId);
-  current = tasks.update(current.id, { status: 'complete', result: 'Copy result' });
+  current = tasks.update(current.id, { status: 'complete', result: 'Copy result', grounding: { verified: true, responseValidated: true } });
   state = workflows.advanceAfterTask(current, current);
   assert.equal(state.stage, 'social');
   assert.equal(tasks.get(state.taskId).employeeId, 'sosh');
@@ -80,7 +80,7 @@ test('campaign workflow approval changes workflow state without publishing', () 
 
   let task = tasks.get(workflow.taskId);
   for (const result of ['research','copy','social']) {
-    task = tasks.update(task.id, { status: 'complete', result });
+    task = tasks.update(task.id, { status: 'complete', result, grounding: result === 'research' ? { verified: true, responseValidated: true } : null });
     const state = workflows.advanceAfterTask(task, task);
     task = state.taskId ? tasks.get(state.taskId) : task;
   }
@@ -89,4 +89,24 @@ test('campaign workflow approval changes workflow state without publishing', () 
   assert.equal(approved.status, 'approved');
   assert.equal(approved.approval.status, 'approved');
   assert.equal(approved.taskId, task.id);
+});
+
+
+test('campaign workflow blocks when Scout grounding is missing', () => {
+  const { workflows, tasks, registry } = setup();
+  const workflow = workflows.create({
+    title: 'Blocked research',
+    brief: 'Research a campaign.'
+  });
+
+  const task = tasks.get(workflow.taskId);
+  const completed = tasks.update(task.id, {
+    status: 'complete',
+    result: 'Ungrounded result'
+  });
+
+  const state = workflows.advanceAfterTask(completed, completed);
+
+  assert.equal(state.status, 'blocked');
+  assert.equal(registry.get('jarvis').state, 'needs_input');
 });
