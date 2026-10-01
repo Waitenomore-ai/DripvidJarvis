@@ -14,7 +14,7 @@ function createTaskManager({ registry, now = () => new Date().toISOString(), idF
       id: makeId(), title: String(input.title), description: String(input.description || ''),
       priority: input.priority || 'normal', employeeId: input.employeeId, dependencies: [...(input.dependencies || [])],
       workflowId: input.workflowId || null, stage: input.stage || null,
-      status: 'queued', progress: 0, result: null, error: null, createdAt: now(), updatedAt: now(), handoffs: []
+      status: 'queued', progress: 0, result: null, error: null, grounding: null, createdAt: now(), updatedAt: now(), handoffs: []
     };
     tasks.set(task.id, task);
     registry.setState(task.employeeId, 'waiting', task.id);
