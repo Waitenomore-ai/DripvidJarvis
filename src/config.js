@@ -195,6 +195,12 @@ function loadConfig(env = process.env) {
         600000
       ),
 
+    modelTimeoutCooldownMs:
+      parsePositiveInteger(
+        env.JARVIS_MODEL_TIMEOUT_COOLDOWN_MS,
+        60000
+      ),
+
     voiceBaseUrl:
       env.JARVIS_VOICE_BASE_URL ||
       'https://translate.google.com/translate_tts',
@@ -321,7 +327,7 @@ function loadConfig(env = process.env) {
     workforceChatTimeoutMs:
       parsePositiveInteger(
         env.JARVIS_WORKFORCE_CHAT_TIMEOUT_MS,
-        60000
+        180000
       ),
 
     workforceMaxTokens:
