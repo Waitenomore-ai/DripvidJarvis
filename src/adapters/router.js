@@ -6,6 +6,7 @@ function createModelRouter({
   fallbacks = [],
   usageBudget = null,
   cooldownMs = 600000,
+  timeoutCooldownMs = 60000,
   now = Date.now
 }) {
   const cooldownUntil = new Map();
@@ -27,12 +28,34 @@ function createModelRouter({
     primary.routeName ||
     'primary';
 
-  function inCooldown(name) {
-    return (cooldownUntil.get(name) || 0) > now();
+  function cooldownRemaining(name) {
+    return Math.max(
+      0,
+      (cooldownUntil.get(name) || 0) - now()
+    );
   }
 
-  function markDown(name) {
-    cooldownUntil.set(name, now() + cooldownMs);
+  function inCooldown(name) {
+    return cooldownRemaining(name) > 0;
+  }
+
+  function markDown(name, error = null) {
+    const message = String(
+      error &&
+      error.message ||
+      error ||
+      ''
+    ).toLowerCase();
+
+    const effectiveCooldown =
+      /timeout|timed out|aborted/.test(message)
+        ? Math.min(cooldownMs, timeoutCooldownMs)
+        : cooldownMs;
+
+    cooldownUntil.set(
+      name,
+      now() + effectiveCooldown
+    );
   }
 
   function clearCooldown(name) {
@@ -81,6 +104,8 @@ function createModelRouter({
         model: item.model,
         status: item.status,
         error: item.error || null,
+        cooldownMsRemaining:
+          cooldownRemaining(allProviders[index].name),
         usage: usageFor(allProviders[index].name)
       }));
 
@@ -104,6 +129,7 @@ function createModelRouter({
       model: summaries[0].model,
       fallback: firstFallback || null,
       fallbacks: summaries.slice(1),
+      cooldownMsRemaining: cooldownRemaining(primaryName),
       usage: usageBudget
         ? usageBudget.snapshot([
             primaryName,
@@ -130,7 +156,34 @@ function createModelRouter({
       all.filter((provider) => canUse(provider.name));
 
     if (!candidates.length) {
-      throw new Error('All free model providers are unavailable, cooling down, or at their usage threshold');
+      const cooling = all
+        .map((provider) => ({
+          name: provider.name,
+          remaining: cooldownRemaining(provider.name),
+          usage: usageFor(provider.name)
+        }))
+        .filter((item) => item.remaining > 0)
+        .sort((a, b) => a.remaining - b.remaining);
+
+      const thresholded = all
+        .map((provider) => ({
+          name: provider.name,
+          usage: usageFor(provider.name)
+        }))
+        .filter((item) => item.usage && item.usage.atThreshold);
+
+      if (cooling.length && !thresholded.length) {
+        const seconds = Math.ceil(
+          cooling[0].remaining / 1000
+        );
+        throw new Error(
+          `All model providers are cooling down after recent failures; retry in about ${seconds}s`
+        );
+      }
+
+      throw new Error(
+        'All free model providers are unavailable, cooling down, or at their usage threshold'
+      );
     }
 
     const attempt = candidates;
@@ -159,7 +212,7 @@ function createModelRouter({
         return result;
       } catch (error) {
         lastError = error;
-        markDown(provider.name);
+        markDown(provider.name, error);
       }
     }
 

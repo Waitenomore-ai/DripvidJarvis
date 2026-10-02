@@ -100,6 +100,11 @@ test(
 
     assert.equal(
       config.workforceChatTimeoutMs,
+      180000
+    );
+
+    assert.equal(
+      config.modelTimeoutCooldownMs,
       60000
     );
 

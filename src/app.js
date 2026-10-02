@@ -665,6 +665,8 @@ function createRuntime({
       usageBudget,
       cooldownMs:
         config.modelFallbackCooldownMs,
+      timeoutCooldownMs:
+        config.modelTimeoutCooldownMs,
       now
     });
 

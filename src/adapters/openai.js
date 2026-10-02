@@ -271,6 +271,12 @@ function createOpenAiAdapter({
         options.maxTokens;
     }
 
+    if (options.responseFormat === 'json_object') {
+      requestBody.response_format = {
+        type: 'json_object'
+      };
+    }
+
     const chatTimeoutMs =
       Number.isFinite(options.timeoutMs) &&
       options.timeoutMs > 0
@@ -280,7 +286,7 @@ function createOpenAiAdapter({
           config.requestTimeoutMs
         );
 
-    const result = await requestJson(
+    let result = await requestJson(
       fetchImpl,
       `${config.openAiBaseUrl}/chat/completions`,
       {
@@ -296,6 +302,41 @@ function createOpenAiAdapter({
       },
       chatTimeoutMs
     );
+
+    if (
+      result.status === 400 &&
+      requestBody.response_format &&
+      /response.?format|json.?mode|unsupported/i.test(
+        String(
+          result.body &&
+          result.body.error &&
+          result.body.error.message ||
+          ''
+        )
+      )
+    ) {
+      const fallbackBody = {
+        ...requestBody
+      };
+      delete fallbackBody.response_format;
+
+      result = await requestJson(
+        fetchImpl,
+        `${config.openAiBaseUrl}/chat/completions`,
+        {
+          method: 'POST',
+          headers: {
+            authorization:
+              `Bearer ${config.openAiApiKey}`,
+            'content-type':
+              'application/json'
+          },
+          body:
+            JSON.stringify(fallbackBody)
+        },
+        chatTimeoutMs
+      );
+    }
 
     if (
       result.status < 200 ||
