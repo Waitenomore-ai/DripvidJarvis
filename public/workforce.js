@@ -1060,13 +1060,13 @@ const WORLD_AGENT_ROOMS = Object.freeze({
 });
 
 const WORLD_ROOM_SPOTS = Object.freeze({
-  'command-centre': { home:[17,22], work:[18,29], alert:[24,31] },
-  'research-lab': { home:[45,18], work:[45,27], alert:[38,29] },
-  'social-studio': { home:[83,18], work:[82,27], alert:[75,29] },
-  'content-studio': { home:[84,75], work:[83,67], alert:[75,65] },
-  'dev-workshop': { home:[15,77], work:[16,68], alert:[25,66] },
-  'ops-room': { home:[51,78], work:[52,69], alert:[60,68] },
-  'task-hub': { home:[49,56], work:[49,50], alert:[57,56] }
+  'command-centre': { home:[17,22], idle:[22,25], work:[18,29], alert:[24,31] },
+  'research-lab': { home:[45,18], idle:[52,20], work:[45,27], alert:[38,29] },
+  'social-studio': { home:[83,18], idle:[76,21], work:[82,27], alert:[75,29] },
+  'content-studio': { home:[84,75], idle:[77,78], work:[83,67], alert:[75,65] },
+  'dev-workshop': { home:[15,77], idle:[23,73], work:[16,68], alert:[25,66] },
+  'ops-room': { home:[51,78], idle:[58,75], work:[52,69], alert:[60,68] },
+  'task-hub': { home:[49,56], idle:[44,59], work:[49,50], alert:[57,56] }
 });
 
 const WORLD_AGENT_ACCENTS = Object.freeze({
@@ -1080,6 +1080,35 @@ const WORLD_AGENT_ACCENTS = Object.freeze({
 
 const worldAgentPositions = new Map();
 const worldMotion = new Map();
+const worldAmbient = new Map();
+const WORLD_MEMORY_KEY = 'jarvis.workforce.world.positions.v1';
+
+function loadWorldMemory() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(WORLD_MEMORY_KEY) || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveWorldMemory() {
+  try {
+    const value = {};
+    for (const [id, position] of worldAgentPositions) {
+      value[id] = {
+        x:position.x,
+        y:position.y,
+        room:position.room
+      };
+    }
+    localStorage.setItem(WORLD_MEMORY_KEY, JSON.stringify(value));
+  } catch {
+    // Browser storage is optional.
+  }
+}
+
+const worldMemory = loadWorldMemory();
 
 const WORLD_PATH_POINTS = Object.freeze({
   north: [50, 34],
@@ -1147,6 +1176,13 @@ function worldDestination(employee, task) {
 
   if (['working','researching','thinking'].includes(state)) {
     return { x:spots.work[0], y:spots.work[1], room };
+  }
+
+  if (spots.idle) {
+    const ambient = worldAmbient.get(employee.id);
+    const useIdle = ambient?.index % 2 === 1;
+    const point = useIdle ? spots.idle : spots.home;
+    return { x:point[0], y:point[1], room };
   }
 
   return { x:spots.home[0], y:spots.home[1], room };
@@ -1255,6 +1291,102 @@ function renderWorldRooms(employees) {
 
     room.dataset.roomActive = String(active);
     room.dataset.roomAlert = String(alert);
+  }
+}
+
+function setWorldAmbientTimer(employee) {
+  if (!['idle','waiting','complete'].includes(employee.state)) {
+    worldAmbient.delete(employee.id);
+    return;
+  }
+
+  const existing = worldAmbient.get(employee.id);
+  if (existing?.timer) return;
+
+  const index = existing?.index || 0;
+  const delay = 5000 + ((employee.id.length * 937 + index * 1703) % 5000);
+
+  const timer = window.setTimeout(() => {
+    const current = worldAmbient.get(employee.id) || {};
+    worldAmbient.set(employee.id, {
+      index:(current.index || 0) + 1,
+      timer:null
+    });
+    refreshWorkforceState();
+  }, delay);
+
+  worldAmbient.set(employee.id, { index, timer });
+}
+
+function clearWorldAmbientTimer(employeeId) {
+  const entry = worldAmbient.get(employeeId);
+  if (entry?.timer) window.clearTimeout(entry.timer);
+  worldAmbient.delete(employeeId);
+}
+
+function worldEventMessage(previousEmployee, currentEmployee, previousTask, currentTask) {
+  if (!previousEmployee || !currentEmployee) return null;
+
+  if (
+    currentEmployee.state === 'needs_input' &&
+    previousEmployee.state !== 'needs_input'
+  ) {
+    return { type:'alert', text:'Needs your input' };
+  }
+
+  if (
+    currentTask?.status === 'complete' &&
+    previousTask?.status !== 'complete'
+  ) {
+    return { type:'complete', text:'Task complete' };
+  }
+
+  if (
+    ['working','researching','thinking'].includes(currentEmployee.state) &&
+    !['working','researching','thinking'].includes(previousEmployee.state)
+  ) {
+    return { type:'start', text:currentTask?.title || 'Started working' };
+  }
+
+  return null;
+}
+
+function renderWorldEvents(previousState, state) {
+  const layer = document.getElementById('worldEventLayer');
+  if (!layer) return;
+
+  const previousEmployees = previousState?.employees || [];
+  const currentEmployees = state?.employees || [];
+
+  for (const currentEmployee of currentEmployees) {
+    const previousEmployee = previousEmployees.find((item) => item.id === currentEmployee.id);
+    const previousTask = previousEmployee?.currentTaskId
+      ? (previousState?.tasks || []).find((item) => item.id === previousEmployee.currentTaskId)
+      : null;
+    const currentTask = currentEmployee.currentTaskId
+      ? (state?.tasks || []).find((item) => item.id === currentEmployee.currentTaskId)
+      : null;
+
+    const event = worldEventMessage(previousEmployee, currentEmployee, previousTask, currentTask);
+    if (!event) continue;
+
+    const node = document.querySelector(`[data-world-employee="${CSS.escape(currentEmployee.id)}"]`);
+    if (!node) continue;
+
+    const world = document.getElementById('gameWorld');
+    if (!world) continue;
+
+    const worldRect = world.getBoundingClientRect();
+    const nodeRect = node.getBoundingClientRect();
+    const bubble = document.createElement('div');
+
+    bubble.className = `world-event-bubble ${event.type}`;
+    bubble.textContent = event.text;
+    bubble.style.left = (nodeRect.left - worldRect.left + nodeRect.width / 2) + 'px';
+    bubble.style.top = (nodeRect.top - worldRect.top - 14) + 'px';
+
+    layer.appendChild(bubble);
+    window.setTimeout(() => bubble.remove(), 2300);
   }
 }
 
@@ -1383,8 +1515,25 @@ function renderWorldAgents(employees, tasks) {
 
   for (const employee of employees) {
     const task = taskForEmployee(employee, tasks);
+
+    if (['working','researching','thinking','needs_input','error'].includes(employee.state) || task) {
+      clearWorldAmbientTimer(employee.id);
+    } else {
+      setWorldAmbientTimer(employee);
+    }
     const destination = worldDestination(employee, task);
-    const previous = worldAgentPositions.get(employee.id);
+    const previous =
+      worldAgentPositions.get(employee.id) ||
+      (
+        worldMemory[employee.id]
+          ? {
+              x:worldMemory[employee.id].x,
+              y:worldMemory[employee.id].y,
+              room:worldMemory[employee.id].room
+            }
+          : null
+      );
+
     const changed = Boolean(
       previous &&
       (Math.abs(previous.x - destination.x) > 0.5 ||
@@ -1473,10 +1622,16 @@ function renderWorldAgents(employees, tasks) {
       y:destination.y,
       room:destination.room
     });
+    worldMemory[employee.id] = {
+      x:destination.x,
+      y:destination.y,
+      room:destination.room
+    };
   }
 
   renderWorldRooms(employees);
   renderWorldWorkstations(employees, tasks);
+  saveWorldMemory();
 }
 
 function setupWorldMode() {
@@ -1497,6 +1652,33 @@ function setupWorldMode() {
     button.classList.toggle('active', next);
     button.textContent = next ? '🎮 World Mode' : '▦ HQ Cards';
     localStorage.setItem('jarvis.workforce.worldMode', String(next));
+  });
+
+  document.querySelectorAll('.world-room').forEach((room) => {
+    room.addEventListener('click', (event) => {
+      if (event.target.closest('.world-agent')) return;
+      const roomId = room.dataset.worldRoom;
+      const employee = (lastState?.employees || []).find(
+        (item) => (WORLD_AGENT_ROOMS[item.id] || item.room) === roomId
+      );
+      if (employee) {
+        selectEmployee(employee.id);
+        room.classList.add('room-selected');
+        window.setTimeout(() => room.classList.remove('room-selected'), 900);
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-workstation-for]').forEach((workstation) => {
+    workstation.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const employeeId = workstation.dataset.workstationFor;
+      if ((lastState?.employees || []).some((item) => item.id === employeeId)) {
+        selectEmployee(employeeId);
+        workstation.classList.add('workstation-selected');
+        window.setTimeout(() => workstation.classList.remove('workstation-selected'), 900);
+      }
+    });
   });
 }
 
@@ -1524,6 +1706,7 @@ function renderWorkforceState(state) {
   renderWorldAgents(employees, tasks);
   renderWorldMission(state);
   renderWorldTransfer(previousState, state);
+  renderWorldEvents(previousState, state);
   renderHandoffAnimation(state, previousState);
 
   for (const room of ['dev-workshop','ops-room']) {

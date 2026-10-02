@@ -2474,3 +2474,71 @@ footer a{color:#55d8ff}
     animation:none!important;
   }
 }
+
+.world-room{
+  cursor:pointer;
+}
+.world-room:hover,
+.world-room.room-selected{
+  border-color:#45d9ff;
+  transform:translateY(-1px);
+  box-shadow:
+    0 18px 42px #000b,
+    0 0 34px #45d9ff16 inset;
+}
+.world-workstation{
+  cursor:pointer;
+}
+.world-workstation.workstation-selected{
+  border-color:#a877ff;
+  box-shadow:
+    0 12px 24px #0009,
+    0 0 28px #a877ff20,
+    inset 0 0 22px #a877ff10;
+}
+.world-event-layer{
+  position:absolute;
+  inset:0;
+  z-index:34;
+  pointer-events:none;
+  overflow:hidden;
+}
+.world-event-bubble{
+  position:absolute;
+  transform:translate(-50%,-100%);
+  max-width:190px;
+  padding:5px 8px;
+  border:1px solid #315a72;
+  border-radius:999px;
+  background:#06111cf4;
+  color:#d9ebf5;
+  font-size:7px;
+  font-weight:800;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  box-shadow:0 10px 24px #0009;
+  animation:worldBubble 2.3s ease-out forwards;
+}
+.world-event-bubble.start{
+  border-color:#2e7256;
+  color:#8dedbb;
+}
+.world-event-bubble.complete{
+  border-color:#357a91;
+  color:#8cefff;
+}
+.world-event-bubble.alert{
+  border-color:#927532;
+  color:#ffdc72;
+  box-shadow:0 10px 28px #0009,0 0 25px #ffcf4510;
+}
+@keyframes worldBubble{
+  0%{opacity:0;transform:translate(-50%,-70%) scale(.86)}
+  12%{opacity:1}
+  70%{opacity:1}
+  100%{opacity:0;transform:translate(-50%,-150%) scale(1)}
+}
+@media(prefers-reduced-motion:reduce){
+  .world-event-bubble{animation:none!important}
+}
