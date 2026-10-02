@@ -6,7 +6,7 @@ function clone(value) {
 
 const CONTENT_STAGES = Object.freeze(['research', 'planning', 'copy', 'social', 'approval']);
 const ENGINEERING_STAGES = Object.freeze(['diagnosis', 'planning', 'implementation', 'verification', 'approval']);
-const STAGES = Object.freeze([...new Set([...CONTENT_STAGES, ...ENGINEERING_STAGES])]);
+const STAGES = CONTENT_STAGES;
 
 function normalizeWorkflowType(input = {}) {
   const explicit = String(input.type || '').trim().toLowerCase();
@@ -26,10 +26,10 @@ function normalizeWorkflowType(input = {}) {
   ].map((value) => String(value || '').toLowerCase()).join(' ');
 
   if (
-    /\\bmake (?:yourself|jarvis|the system) better\\b/.test(haystack) ||
-    /\\bself[- ]improv/.test(haystack) ||
-    /\\bimprov(?:e|ement) (?:yourself|jarvis|the ai|the system)\\b/.test(haystack) ||
-    /\\bfix (?:yourself|jarvis)\\b/.test(haystack)
+    /\bmake (?:yourself|jarvis|the system) better\b/.test(haystack) ||
+    /\bself[- ]improv/.test(haystack) ||
+    /\bimprov(?:e|ement) (?:yourself|jarvis|the ai|the system)\b/.test(haystack) ||
+    /\bfix (?:yourself|jarvis)\b/.test(haystack)
   ) {
     return 'engineering_improvement';
   }
@@ -87,7 +87,7 @@ function createWorkflowManager({
           '',
           `OBJECTIVE:`,
           workflow.brief
-        ].join('\\n')
+        ].join('\n')
       : workflow.brief;
 
     const task = tasks.create({
@@ -157,7 +157,7 @@ function createWorkflowManager({
           '',
           `OPS DIAGNOSIS:`,
           completedTask.result || '(no diagnosis result)'
-        ].join('\\n'),
+        ].join('\n'),
         employeeId: 'jarvis',
         workflowId: workflow.id,
         stage: 'planning',
@@ -187,7 +187,7 @@ function createWorkflowManager({
           '',
           `JARVIS PLAN:`,
           completedTask.result || '(none)'
-        ].join('\\n'),
+        ].join('\n'),
         employeeId: 'dev',
         workflowId: workflow.id,
         stage: 'implementation',
@@ -217,7 +217,7 @@ function createWorkflowManager({
           '',
           `DEV IMPLEMENTATION CHECKLIST:`,
           completedTask.result || '(none)'
-        ].join('\\n'),
+        ].join('\n'),
         employeeId: 'ops',
         workflowId: workflow.id,
         stage: 'verification',
@@ -254,7 +254,7 @@ function createWorkflowManager({
           '',
           `OPS VERIFICATION:`,
           completedTask.result || '(none)'
-        ].join('\\n'),
+        ].join('\n'),
         employeeId: 'jarvis',
         workflowId: workflow.id,
         stage: 'approval',
