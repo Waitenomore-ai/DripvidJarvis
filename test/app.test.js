@@ -99,6 +99,16 @@ test(
     );
 
     assert.equal(
+      config.workforceChatTimeoutMs,
+      60000
+    );
+
+    assert.equal(
+      config.workforceMaxTokens,
+      600
+    );
+
+    assert.equal(
       config.maxToolResultChars,
       4000
     );
