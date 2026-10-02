@@ -596,3 +596,91 @@ test(
     assert.equal(fallback.chatCalls, 1);
   }
 );
+
+
+test(
+  'router uses the shorter timeout cooldown after an aborted local model call',
+  async () => {
+    let time = 0;
+
+    const primary = adapter({
+      provider: 'p',
+      chatError: 'The operation was aborted due to timeout'
+    });
+
+    const fallback = adapter({
+      provider: 'f',
+      chatResult: {
+        message: 'fallback ok',
+        toolCalls: []
+      }
+    });
+
+    const router =
+      createModelRouter({
+        primary,
+        fallback,
+        cooldownMs: 600000,
+        timeoutCooldownMs: 60000,
+        now: () => time
+      });
+
+    const first = await router.chat({
+      conversation: []
+    });
+
+    assert.equal(first.message, 'fallback ok');
+    assert.equal(primary.chatCalls, 1);
+
+    time = 65000;
+
+    const second = await router.chat({
+      conversation: []
+    });
+
+    assert.equal(second.message, 'fallback ok');
+    assert.equal(primary.chatCalls, 2);
+  }
+);
+
+test(
+  'router health exposes remaining timeout cooldown',
+  async () => {
+    let time = 0;
+
+    const primary = adapter({
+      provider: 'p',
+      chatError: 'timeout'
+    });
+
+    const fallback = adapter({
+      provider: 'f'
+    });
+
+    const router =
+      createModelRouter({
+        primary,
+        fallback,
+        cooldownMs: 1000,
+        timeoutCooldownMs: 100,
+        now: () => time
+      });
+
+    await router.chat({
+      conversation: []
+    });
+
+    const health =
+      await router.health();
+
+    assert.equal(
+      health.cooldownMsRemaining,
+      100
+    );
+
+    assert.equal(
+      health.fallbacks[0].cooldownMsRemaining,
+      0
+    );
+  }
+);
