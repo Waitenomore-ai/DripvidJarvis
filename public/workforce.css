@@ -2326,3 +2326,22 @@ footer a{color:#55d8ff}
     transition:none!important;
   }
 }
+
+.world-agent-progress{
+  width:76px;
+  height:2px;
+  margin-top:4px;
+  overflow:hidden;
+  border-radius:999px;
+  background:#13283a;
+}
+.world-agent-progress i{
+  display:block;
+  height:100%;
+  border-radius:999px;
+  background:linear-gradient(90deg,var(--agent-accent),#ffffffaa);
+  box-shadow:0 0 8px color-mix(in srgb,var(--agent-accent) 42%,transparent);
+}
+.world-view .handoff-layer{
+  display:none;
+}
