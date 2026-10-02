@@ -7,6 +7,7 @@ const { createScoutResearch, validateScoutResponse } = require('./scout-research
 const { validateSocialDraftResponse } = require('./social-draft');
 const { validatePlanningResponse } = require('./planning');
 const { validateEngineeringPlanResponse } = require('./engineering-planning');
+const { validateContentText } = require('./content-quality');
 const { createWorkforcePersistence } = require('./persistence');
 
 function createWorkforceRuntime({
@@ -392,6 +393,13 @@ Produce an implementation checklist for the engineering improvement.
 Do not claim that you changed code, ran tests, opened a pull request, merged code, or deployed anything. Those actions require real tooling and evidence.
 Use only the objective, diagnosis and JARVIS plan supplied to you. Identify likely files/modules to inspect as hypotheses, not verified facts, and specify the tests that should be run after implementation.
 Return concise plain text.`
+        : employee.id === 'penny' && task.stage === 'copy'
+          ? `You are Penny, the Copywriter in DripVid JARVIS.
+Write the requested final campaign copy using only the supplied brief, validated Scout research, and JARVIS plan.
+Do not invent product claims, prices, customers, statistics, features, dates, URLs or support contacts.
+Never use unresolved placeholders, bracketed instructions, TODO/TBD markers, or text such as "insert CTA", "add link", "support email", or similar.
+When a link, email, button label or other detail is not available, omit it rather than inserting a placeholder.
+Return only the finished copy in concise plain text.`
         : employee.id === 'ops' && (task.stage === 'diagnosis' || task.stage === 'verification') && engineeringWorkflow
           ? `You are Ops, the Infrastructure & Operations specialist in DripVid JARVIS.
 Provide an evidence-aware operational assessment.
@@ -434,6 +442,43 @@ Before sending, ensure the entire response parses as JSON.`
       }));
 
       const text = String(result && (result.message || result.content) || '');
+
+      const retryPlainText = async (label, validationError) => {
+        record({
+          type:'task.plaintext_retry',
+          taskId:id,
+          employeeId:task.employeeId,
+          title:task.title,
+          label,
+          error:validationError?.message || 'Plain-text response validation failed'
+        });
+
+        const retryResult = await withModelSlot(() => model.chat({
+          conversation: [
+            { role:'system', content:systemPrompt },
+            { role:'user', content:modelInput },
+            {
+              role:'user',
+              content:[
+                'Your previous copy failed quality validation.',
+                `Validation error: ${validationError?.message || 'Invalid content'}`,
+                'Rewrite the copy now.',
+                'Return only finished plain-text copy.',
+                'Do not use placeholders, bracketed instructions, TODO/TBD markers, or insert/add/replace instructions.',
+                'Omit unavailable links, emails, buttons and contact details instead of inventing them.'
+              ].join(' ')
+            },
+          ],
+          options: {
+            maxTokens: task.stage === 'copy'
+              ? Math.min(450, workforceMaxTokens)
+              : workforceMaxTokens,
+            timeoutMs: workforceChatTimeoutMs
+          }
+        }));
+
+        return String(retryResult && (retryResult.message || retryResult.content) || '');
+      };
 
       const retryStructured = async (label, validationError) => {
         record({
@@ -605,6 +650,65 @@ Before sending, ensure the entire response parses as JSON.`
             requestOperatorInput(id, `JARVIS produced a plan that failed validation twice. Model error: ${retryError.message || validationError.message || 'JARVIS planning validation failed'}. Reply with any clarification for JARVIS to use on its retry.`, { kind:'planning', title:'JARVIS needs clarification' });
             return tasks.update(id, {
               error:retryError.message || validationError.message || 'JARVIS planning validation failed'
+            });
+          }
+        }
+      }
+
+      if (employee.id === 'penny' && task.stage === 'copy') {
+        try {
+          const validatedCopy = validateContentText(text, 'Penny copy');
+          const updated = tasks.update(id, {
+            status:'complete',
+            progress:100,
+            result:validatedCopy
+          });
+          record({ type:'task.completed', taskId:id, employeeId:task.employeeId, title:task.title });
+          if (task.workflowId && task.stage) {
+            const workflow = workflows.advanceAfterTask(task, updated);
+            if (workflow) {
+              record({
+                type: workflow.status === 'awaiting_approval'
+                  ? 'workflow.awaiting_approval'
+                  : 'workflow.handoff',
+                workflowId: workflow.id,
+                title: workflow.title,
+                stage: workflow.stage,
+                taskId: workflow.taskId
+              });
+            }
+          }
+          return updated;
+        } catch (validationError) {
+          try {
+            const retryText = await retryPlainText('copy', validationError);
+            const validatedRetry = validateContentText(retryText, 'Penny copy');
+            const updated = tasks.update(id, {
+              status:'complete',
+              progress:100,
+              result:validatedRetry,
+              error:null
+            });
+            record({ type:'task.completed', taskId:id, employeeId:task.employeeId, title:task.title, automaticRetry:true });
+            if (task.workflowId && task.stage) {
+              const workflow = workflows.advanceAfterTask(task, updated);
+              if (workflow) {
+                record({
+                  type: workflow.status === 'awaiting_approval'
+                    ? 'workflow.awaiting_approval'
+                    : 'workflow.handoff',
+                  workflowId: workflow.id,
+                  title: workflow.title,
+                  stage: workflow.stage,
+                  taskId: workflow.taskId
+                });
+              }
+            }
+            return updated;
+          } catch (retryError) {
+            requestOperatorInput(id, `Penny produced copy with an unresolved placeholder after an automatic retry. Model error: ${retryError.message || validationError.message || 'Copy quality validation failed'}. Reply with clarification if Penny should retry.`, { kind:'copy', title:'Penny needs copy guidance' });
+            return tasks.update(id, {
+              error:retryError.message || validationError.message || 'Copy quality validation failed'
             });
           }
         }
