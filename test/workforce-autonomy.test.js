@@ -32,6 +32,37 @@ async function waitFor(predicate, timeoutMs = 2000) {
   throw new Error('Timed out waiting for Workforce autopilot');
 }
 
+test('Workforce task execution is idempotent under concurrent callers', async () => {
+  let modelCalls = 0;
+
+  const runtime = createWorkforceRuntime({
+    autoRunWorkflows: false,
+    model: {
+      async chat() {
+        modelCalls += 1;
+        await new Promise((resolve) => setTimeout(resolve, 25));
+        return { message: 'Completed once.' };
+      }
+    }
+  });
+
+  const task = runtime.createTask({
+    title: 'Concurrent execution test',
+    description: 'Run exactly once.',
+    employeeId: 'penny'
+  });
+
+  const [first, second] = await Promise.all([
+    runtime.executeTask(task.id),
+    runtime.executeTask(task.id)
+  ]);
+
+  assert.equal(modelCalls, 1);
+  assert.equal(first.status, 'complete');
+  assert.equal(second.status, 'running');
+  assert.equal(runtime.tasks.get(task.id).status, 'complete');
+});
+
 test('Workforce autopilot runs Scout, JARVIS, Penny and Sosh through approval', async () => {
   let modelCalls = 0;
   const runtime = createWorkforceRuntime({
