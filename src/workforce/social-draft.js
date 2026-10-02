@@ -74,8 +74,9 @@ function validateSocialDraftResponse(text) {
     posts[platform] = validateContentText(post.trim(), `Sosh ${platform} post`);
   }
 
-  const cta = typeof payload.cta === 'string'
-    ? validateContentText(payload.cta.trim(), 'Sosh CTA')
+  const ctaText = typeof payload.cta === 'string' ? payload.cta.trim() : '';
+  const cta = ctaText
+    ? validateContentText(ctaText, 'Sosh CTA')
     : '';
   const caveats = Array.isArray(payload.caveats)
     ? payload.caveats.map((item) => String(item).trim()).filter(Boolean)
