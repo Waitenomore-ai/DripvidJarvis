@@ -129,6 +129,7 @@ function createModelRouter({
       model: summaries[0].model,
       fallback: firstFallback || null,
       fallbacks: summaries.slice(1),
+      cooldownMsRemaining: cooldownRemaining(primaryName),
       usage: usageBudget
         ? usageBudget.snapshot([
             primaryName,
