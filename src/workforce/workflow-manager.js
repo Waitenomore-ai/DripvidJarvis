@@ -340,7 +340,24 @@ function createWorkflowManager({
       const approvalTask = tasks.create({
         title: `Approval: ${workflow.title}`,
         description:
-          `Review the completed campaign package and prepare it for operator approval. Nothing should be published without explicit operator approval.\n\nBRIEF:\n${workflow.brief}\n\nJARVIS PLAN:\n${workflow.outputs.planning || '(none)'}\n\nSOCIAL DRAFT:\n${completedTask.result || '(none)'}`,
+          [
+            `Review the completed campaign package and its evidence before operator approval. Nothing should be published without explicit operator approval.`,
+            '',
+            `BRIEF:`,
+            workflow.brief,
+            '',
+            `SCOUT RESEARCH (SOURCE EVIDENCE):`,
+            workflow.outputs.research || '(none)',
+            '',
+            `JARVIS PLAN:`,
+            workflow.outputs.planning || '(none)',
+            '',
+            `PENNY COPY:`,
+            workflow.outputs.copy || '(none)',
+            '',
+            `SOSH SOCIAL DRAFT:`,
+            completedTask.result || '(none)'
+          ].join('\n'),
         employeeId: 'jarvis',
         workflowId: workflow.id,
         stage: 'approval',
