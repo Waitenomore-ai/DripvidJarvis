@@ -271,6 +271,15 @@ function createOpenAiAdapter({
         options.maxTokens;
     }
 
+    const chatTimeoutMs =
+      Number.isFinite(options.timeoutMs) &&
+      options.timeoutMs > 0
+        ? options.timeoutMs
+        : (
+          config.chatTimeoutMs ||
+          config.requestTimeoutMs
+        );
+
     const result = await requestJson(
       fetchImpl,
       `${config.openAiBaseUrl}/chat/completions`,
@@ -285,8 +294,7 @@ function createOpenAiAdapter({
         body:
           JSON.stringify(requestBody)
       },
-      config.chatTimeoutMs ||
-      config.requestTimeoutMs
+      chatTimeoutMs
     );
 
     if (
