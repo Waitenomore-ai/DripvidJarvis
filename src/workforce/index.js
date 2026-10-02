@@ -227,6 +227,17 @@ function createWorkforceRuntime({
     const task = tasks.get(id);
     if (!task) throw new Error('Unknown task');
 
+    // The Workforce UI and autopilot can both attempt to execute the same task.
+    // Treat task execution as idempotent so a second caller cannot start a
+    // concurrent model request or advance the same workflow twice.
+    if (task.status === 'running' || task.status === 'complete') {
+      return task;
+    }
+
+    if (!['queued','waiting'].includes(task.status)) {
+      return task;
+    }
+
     tasks.update(id, { status:'running', progress:5 });
     record({ type:'task.started', taskId:id, employeeId:task.employeeId, title:task.title });
 
