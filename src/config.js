@@ -318,6 +318,18 @@ function loadConfig(env = process.env) {
         120000
       ),
 
+    workforceChatTimeoutMs:
+      parsePositiveInteger(
+        env.JARVIS_WORKFORCE_CHAT_TIMEOUT_MS,
+        60000
+      ),
+
+    workforceMaxTokens:
+      parsePositiveInteger(
+        env.JARVIS_WORKFORCE_MAX_TOKENS,
+        600
+      ),
+
     primaryChatTimeoutMs:
       parsePositiveInteger(
         env.JARVIS_PRIMARY_CHAT_TIMEOUT_MS,
