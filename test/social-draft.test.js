@@ -42,3 +42,19 @@ test('Sosh draft validator rejects unsupported platforms and missing posts', () 
     /missing a post for instagram/
   );
 });
+
+
+test('Sosh draft validator normalizes legacy Twitter output to x', () => {
+  const result = validateSocialDraftResponse(JSON.stringify({
+    summary: 'Ready campaign',
+    platforms: ['twitter'],
+    posts: {
+      twitter: 'Join DripVid today.'
+    },
+    cta: 'Join',
+    caveats: []
+  }));
+
+  assert.deepEqual(result.platforms, ['x']);
+  assert.equal(result.posts.x, 'Join DripVid today.');
+});
