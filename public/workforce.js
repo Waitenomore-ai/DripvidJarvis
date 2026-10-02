@@ -1049,6 +1049,263 @@ function renderHandoffAnimation(state, previousState) {
   lastWorkflowAgentId = currentAgentId;
 }
 
+
+const WORLD_AGENT_ROOMS = Object.freeze({
+  jarvis: 'command-centre',
+  scout: 'research-lab',
+  penny: 'content-studio',
+  sosh: 'social-studio',
+  dev: 'dev-workshop',
+  ops: 'ops-room'
+});
+
+const WORLD_ROOM_SPOTS = Object.freeze({
+  'command-centre': { home:[17,22], work:[18,29], alert:[24,31] },
+  'research-lab': { home:[45,18], work:[45,27], alert:[38,29] },
+  'social-studio': { home:[83,18], work:[82,27], alert:[75,29] },
+  'content-studio': { home:[84,75], work:[83,67], alert:[75,65] },
+  'dev-workshop': { home:[15,77], work:[16,68], alert:[25,66] },
+  'ops-room': { home:[51,78], work:[52,69], alert:[60,68] },
+  'task-hub': { home:[49,56], work:[49,50], alert:[57,56] }
+});
+
+const WORLD_AGENT_ACCENTS = Object.freeze({
+  scout:'#45d9ff',
+  jarvis:'#a877ff',
+  penny:'#ff8d49',
+  sosh:'#57b6ff',
+  dev:'#45d9ff',
+  ops:'#58d8ac'
+});
+
+const worldAgentPositions = new Map();
+
+function worldDestination(employee, task) {
+  const room = WORLD_AGENT_ROOMS[employee.id] || employee.room || 'command-centre';
+
+  if (task && ['queued','waiting'].includes(task.status)) {
+    const spots = WORLD_ROOM_SPOTS['task-hub'];
+    return { x:spots.home[0], y:spots.home[1], room:'task-hub' };
+  }
+
+  const spots = WORLD_ROOM_SPOTS[room] || WORLD_ROOM_SPOTS['command-centre'];
+  const state = String(employee.state || 'idle');
+
+  if (state === 'needs_input' || state === 'error') {
+    return { x:spots.alert[0], y:spots.alert[1], room };
+  }
+
+  if (['working','researching','thinking'].includes(state)) {
+    return { x:spots.work[0], y:spots.work[1], room };
+  }
+
+  return { x:spots.home[0], y:spots.home[1], room };
+}
+
+function worldStatusLabel(employee, task) {
+  if (task?.status === 'needs_input' || employee.state === 'needs_input') return 'Needs your input';
+  if (task?.status === 'queued') return 'Walking to task hub';
+  if (task?.status === 'waiting') return 'Waiting for assignment';
+  if (['working','researching','thinking'].includes(employee.state)) return task?.title || 'Working…';
+  if (employee.state === 'complete') return 'Work complete';
+  return 'Standing by';
+}
+
+function worldTaskIcon(employee, task) {
+  if (task?.status === 'needs_input' || employee.state === 'needs_input') return '!';
+  if (['working','researching','thinking'].includes(employee.state)) return '●';
+  if (task?.status === 'queued' || task?.status === 'waiting') return '→';
+  if (employee.state === 'complete') return '✓';
+  return '•';
+}
+
+function worldAgentMarkup(employee, task, destination, walking) {
+  const accent = WORLD_AGENT_ACCENTS[employee.id] || '#45d9ff';
+  const state = String(employee.state || 'idle');
+  const stateClass =
+    task?.status === 'needs_input' || state === 'needs_input' || state === 'error'
+      ? 'alert'
+      : ['working','researching','thinking'].includes(state)
+        ? 'active'
+        : state === 'complete'
+          ? 'complete'
+          : '';
+  const progress = task
+    ? Math.max(0, Math.min(100, Number(task.progress) || 0))
+    : 0;
+
+  return `
+    <button
+      class="world-agent ${stateClass} ${walking ? 'walking' : ''}"
+      data-world-employee="${esc(employee.id)}"
+      style="--x:${destination.x};--y:${destination.y};--agent-accent:${accent}"
+      aria-label="Open ${esc(employee.name)}"
+      title="${esc(employee.name)} — ${esc(worldStatusLabel(employee, task))}"
+    >
+      <span class="world-agent-body">
+        <span class="world-agent-task" data-kind="${stateClass === 'alert' ? 'alert' : 'normal'}">${worldTaskIcon(employee, task)}</span>
+        <span class="world-agent-avatar">${agentAvatar(employee.id, true)}</span>
+        <span class="world-agent-name">${esc(employee.name)}</span>
+        <span class="world-agent-status">${esc(worldStatusLabel(employee, task))}</span>
+        <span class="world-agent-progress" aria-hidden="true"><i style="width:${progress}%"></i></span>
+      </span>
+    </button>
+  `;
+}
+
+function renderWorldMission(state) {
+  const panel = document.getElementById('worldMission');
+  const title = document.getElementById('worldMissionTitle');
+  const stage = document.getElementById('worldMissionStage');
+  if (!panel || !title || !stage) return;
+
+  const workflow = (state.workflows || []).find((item) =>
+    ['active','awaiting_approval','blocked'].includes(item.status)
+  );
+
+  if (!workflow) {
+    panel.hidden = true;
+    return;
+  }
+
+  const task = workflow.taskId
+    ? (state.tasks || []).find((item) => item.id === workflow.taskId)
+    : null;
+
+  title.textContent = workflow.title || 'Active workforce mission';
+  stage.textContent =
+    `${String(workflow.stage || 'workflow').replaceAll('_',' ')} · ${String(task?.status || workflow.status || 'active').replaceAll('_',' ')}`;
+  panel.hidden = false;
+}
+
+function renderWorldRooms(employees) {
+  const activeStates = new Set(['working','researching','thinking']);
+
+  for (const room of document.querySelectorAll('.world-room')) {
+    const roomId = room.dataset.worldRoom;
+    const members = employees.filter((employee) =>
+      (WORLD_AGENT_ROOMS[employee.id] || employee.room) === roomId
+    );
+    const active = members.some((employee) => activeStates.has(employee.state));
+    const alert = members.some((employee) =>
+      ['needs_input','error'].includes(employee.state)
+    );
+
+    room.dataset.roomActive = String(active);
+    room.dataset.roomAlert = String(alert);
+  }
+}
+
+function renderWorldAgents(employees, tasks) {
+  const layer = document.getElementById('worldAgentLayer');
+  if (!layer) return;
+
+  const employeeIds = new Set(employees.map((employee) => employee.id));
+
+  for (const id of [...worldAgentPositions.keys()]) {
+    if (!employeeIds.has(id)) {
+      worldAgentPositions.delete(id);
+      layer.querySelector(`[data-world-employee="${CSS.escape(id)}"]`)?.remove();
+    }
+  }
+
+  for (const employee of employees) {
+    const task = taskForEmployee(employee, tasks);
+    const destination = worldDestination(employee, task);
+    const previous = worldAgentPositions.get(employee.id);
+    const changed = Boolean(
+      previous &&
+      (Math.abs(previous.x - destination.x) > 0.5 ||
+       Math.abs(previous.y - destination.y) > 0.5)
+    );
+
+    let node = layer.querySelector(
+      `[data-world-employee="${CSS.escape(employee.id)}"]`
+    );
+
+    if (!node) {
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = worldAgentMarkup(employee, task, destination, false).trim();
+      node = wrapper.firstElementChild;
+      layer.appendChild(node);
+
+      node.addEventListener('click', () => selectEmployee(employee.id));
+    } else {
+      node.className =
+        `world-agent ${(
+          task?.status === 'needs_input' ||
+          employee.state === 'needs_input' ||
+          employee.state === 'error'
+            ? 'alert'
+            : ['working','researching','thinking'].includes(employee.state)
+              ? 'active'
+              : employee.state === 'complete'
+                ? 'complete'
+                : ''
+        )} ${changed ? 'walking' : ''}`;
+
+      node.style.setProperty('--x', destination.x);
+      node.style.setProperty('--y', destination.y);
+
+      const avatar = node.querySelector('.world-agent-avatar');
+      const taskIcon = node.querySelector('.world-agent-task');
+      const name = node.querySelector('.world-agent-name');
+      const status = node.querySelector('.world-agent-status');
+      const progress = node.querySelector('.world-agent-progress i');
+
+      node.style.setProperty('--agent-accent', WORLD_AGENT_ACCENTS[employee.id] || '#45d9ff');
+      node.title = `${employee.name} — ${worldStatusLabel(employee, task)}`;
+      if (avatar) avatar.innerHTML = agentAvatar(employee.id, true);
+      if (taskIcon) {
+        const alert = task?.status === 'needs_input' || employee.state === 'needs_input' || employee.state === 'error';
+        taskIcon.textContent = worldTaskIcon(employee, task);
+        taskIcon.dataset.kind = alert ? 'alert' : 'normal';
+      }
+      if (name) name.textContent = employee.name;
+      if (status) status.textContent = worldStatusLabel(employee, task);
+      if (progress) {
+        const value = task
+          ? Math.max(0, Math.min(100, Number(task.progress) || 0))
+          : 0;
+        progress.style.width = `${value}%`;
+      }
+
+      if (changed) {
+        window.setTimeout(() => node?.classList.remove('walking'), 1250);
+      }
+    }
+
+    worldAgentPositions.set(employee.id, {
+      x:destination.x,
+      y:destination.y,
+      room:destination.room
+    });
+  }
+
+  renderWorldRooms(employees);
+}
+
+function setupWorldMode() {
+  const button = document.getElementById('worldModeButton');
+  const floor = document.querySelector('.hero-floor');
+  if (!button || !floor) return;
+
+  const saved = localStorage.getItem('jarvis.workforce.worldMode');
+  const enabled = saved !== 'false';
+
+  floor.classList.toggle('world-view', enabled);
+  button.classList.toggle('active', enabled);
+  button.textContent = enabled ? '🎮 World Mode' : '▦ HQ Cards';
+
+  button.addEventListener('click', () => {
+    const next = !floor.classList.contains('world-view');
+    floor.classList.toggle('world-view', next);
+    button.classList.toggle('active', next);
+    button.textContent = next ? '🎮 World Mode' : '▦ HQ Cards';
+    localStorage.setItem('jarvis.workforce.worldMode', String(next));
+  });
+}
+
 function renderWorkforceState(state) {
   const previousState = lastState;
   lastState = state;
@@ -1070,6 +1327,8 @@ function renderWorkforceState(state) {
   applyRoomTelemetry(employees);
 
   renderHeroAgents(employees, tasks);
+  renderWorldAgents(employees, tasks);
+  renderWorldMission(state);
   renderHandoffAnimation(state, previousState);
 
   for (const room of ['dev-workshop','ops-room']) {
@@ -1241,6 +1500,7 @@ document.getElementById('createWorkflow')?.addEventListener('click', async () =>
 });
 
 setupWorkforceAlerts();
+setupWorldMode();
 document.getElementById('sidebarCollapse')?.addEventListener('click', (event) => {
   document.body.classList.toggle('sidebar-collapsed');
   event.currentTarget.querySelector('span').textContent =
