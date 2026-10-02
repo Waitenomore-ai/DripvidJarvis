@@ -40,7 +40,16 @@ function validateSocialDraftResponse(text) {
     throw new Error('Sosh response is missing platforms');
   }
 
-  const platforms = [...new Set(payload.platforms.map((platform) => String(platform).trim().toLowerCase()))];
+  const platformAliases = {
+    twitter: 'x',
+    'twitter/x': 'x'
+  };
+
+  const platforms = [...new Set(
+    payload.platforms
+      .map((platform) => String(platform).trim().toLowerCase())
+      .map((platform) => platformAliases[platform] || platform)
+  )];
 
   for (const platform of platforms) {
     if (!ALLOWED_PLATFORMS.includes(platform)) {
@@ -54,7 +63,9 @@ function validateSocialDraftResponse(text) {
 
   const posts = {};
   for (const platform of platforms) {
-    const post = payload.posts[platform];
+    const post =
+      payload.posts[platform] ??
+      (platform === 'x' ? payload.posts.twitter : undefined);
     if (typeof post !== 'string' || !post.trim()) {
       throw new Error(`Sosh response is missing a post for ${platform}`);
     }
