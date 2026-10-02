@@ -6,6 +6,7 @@ const { createWorkflowManager } = require('./workflow-manager');
 const { createScoutResearch, validateScoutResponse } = require('./scout-research');
 const { validateSocialDraftResponse } = require('./social-draft');
 const { validatePlanningResponse } = require('./planning');
+const { validateEngineeringPlanResponse } = require('./engineering-planning');
 const { createWorkforcePersistence } = require('./persistence');
 
 function createWorkforceRuntime({
@@ -357,6 +358,9 @@ function createWorkforceRuntime({
         });
       }
 
+      const workflow = task.workflowId ? workflows.get(task.workflowId) : null;
+      const engineeringWorkflow = workflow?.type === 'engineering_improvement';
+
       const systemPrompt = employee.id === 'scout'
         ? `You are Scout, the Research & Trends specialist in DripVid JARVIS.
 Return ONLY valid JSON using this exact shape:
@@ -364,6 +368,15 @@ Return ONLY valid JSON using this exact shape:
 Use strict JSON syntax: double quotes for all keys and string values, no comments, no trailing commas, no Markdown fences, and escape any quotation marks inside strings.
 Every factual finding MUST cite one or more URLs from VERIFIED DRIPVID SOURCES below.
 Do not use general knowledge. Do not use unrelated "Drip" sources. Do not invent facts, customers, prices, features, statistics, dates, or URLs. If a detail is not supported by the verified sources, leave it out.
+Before sending, ensure the entire response parses as JSON.`
+        : employee.id === 'jarvis' && task.stage === 'planning' && engineeringWorkflow
+          ? `You are JARVIS, the Team Leader and engineering planning lead in DripVid JARVIS.
+Create a concrete software/service improvement plan from the supplied objective and Ops diagnosis.
+Return ONLY valid JSON using this exact shape:
+{"summary":"...","objectives":["..."],"implementationSteps":["..."],"acceptanceChecks":["..."],"risks":[]}
+Use strict JSON syntax: double quotes for all keys and string values, no comments, no trailing commas, no Markdown fences, and escape any quotation marks inside strings.
+Do not invent repository files, code changes, incidents, test results, deployments, metrics or runtime observations. Distinguish proposed work from verified facts.
+Keep the plan actionable and concise.
 Before sending, ensure the entire response parses as JSON.`
         : employee.id === 'jarvis' && task.stage === 'planning'
           ? `You are JARVIS, the Team Leader and planning lead in DripVid JARVIS.
@@ -373,6 +386,19 @@ Return ONLY valid JSON using this exact shape:
 Use strict JSON syntax: double quotes for all keys and string values, no comments, no trailing commas, no Markdown fences, and escape any quotation marks inside strings.
 Use only the supplied campaign brief and Scout research. Do not invent product facts, prices, customers, statistics, dates or capabilities. Separate strategic recommendations from factual claims. Keep the plan actionable and concise.
 Before sending, ensure the entire response parses as JSON.`
+        : employee.id === 'dev' && task.stage === 'implementation' && engineeringWorkflow
+          ? `You are Dev, the Developer in DripVid JARVIS.
+Produce an implementation checklist for the engineering improvement.
+Do not claim that you changed code, ran tests, opened a pull request, merged code, or deployed anything. Those actions require real tooling and evidence.
+Use only the objective, diagnosis and JARVIS plan supplied to you. Identify likely files/modules to inspect as hypotheses, not verified facts, and specify the tests that should be run after implementation.
+Return concise plain text.`
+        : employee.id === 'ops' && (task.stage === 'diagnosis' || task.stage === 'verification') && engineeringWorkflow
+          ? `You are Ops, the Infrastructure & Operations specialist in DripVid JARVIS.
+Provide an evidence-aware operational assessment.
+Never claim you ran commands, inspected logs, checked services, changed infrastructure, or verified a deployment unless that evidence is present in the task context.
+For diagnosis, identify likely causes, evidence to collect, risks and acceptance checks.
+For verification, distinguish proposed checks from checks actually evidenced.
+Return concise plain text.`
         : employee.id === 'sosh' && task.stage === 'social'
           ? `You are Sosh, the Social Media Manager in DripVid JARVIS.
 Return ONLY valid JSON using this exact shape:
@@ -527,7 +553,9 @@ Before sending, ensure the entire response parses as JSON.`
 
       if (employee.id === 'jarvis' && task.stage === 'planning') {
         try {
-          const validatedPlan = validatePlanningResponse(text);
+          const validatedPlan = engineeringWorkflow
+            ? validateEngineeringPlanResponse(text)
+            : validatePlanningResponse(text);
           const updated = tasks.update(id, {
             status:'complete',
             progress:100,
@@ -550,7 +578,9 @@ Before sending, ensure the entire response parses as JSON.`
         } catch (validationError) {
           try {
             const retryText = await retryStructured('planning', validationError);
-            const validatedRetry = validatePlanningResponse(retryText);
+            const validatedRetry = engineeringWorkflow
+              ? validateEngineeringPlanResponse(retryText)
+              : validatePlanningResponse(retryText);
             const updated = tasks.update(id, {
               status:'complete',
               progress:100,

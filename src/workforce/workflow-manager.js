@@ -4,7 +4,38 @@ function clone(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
 }
 
-const STAGES = Object.freeze(['research', 'planning', 'copy', 'social', 'approval']);
+const CONTENT_STAGES = Object.freeze(['research', 'planning', 'copy', 'social', 'approval']);
+const ENGINEERING_STAGES = Object.freeze(['diagnosis', 'planning', 'implementation', 'verification', 'approval']);
+const STAGES = CONTENT_STAGES;
+
+function normalizeWorkflowType(input = {}) {
+  const explicit = String(input.type || '').trim().toLowerCase();
+
+  if (
+    explicit === 'engineering_improvement' ||
+    explicit === 'self_improvement' ||
+    explicit === 'product_improvement'
+  ) {
+    return 'engineering_improvement';
+  }
+
+  const haystack = [
+    input.title,
+    input.brief,
+    input.description
+  ].map((value) => String(value || '').toLowerCase()).join(' ');
+
+  if (
+    /\bmake (?:yourself|jarvis|the system) better\b/.test(haystack) ||
+    /\bself[- ]improv/.test(haystack) ||
+    /\bimprov(?:e|ement) (?:yourself|jarvis|the ai|the system)\b/.test(haystack) ||
+    /\bfix (?:yourself|jarvis)\b/.test(haystack)
+  ) {
+    return 'engineering_improvement';
+  }
+
+  return explicit || 'content_campaign';
+}
 
 function createWorkflowManager({
   tasks,
@@ -24,13 +55,15 @@ function createWorkflowManager({
   function create(input = {}) {
     if (!input.title) throw new Error('Workflow title is required');
     const id = makeId();
+    const type = normalizeWorkflowType(input);
+    const engineering = type === 'engineering_improvement';
     const workflow = {
       id,
-      type: input.type || 'content_campaign',
+      type,
       title: String(input.title),
       brief: String(input.brief || input.description || ''),
       status: 'active',
-      stage: 'research',
+      stage: engineering ? 'diagnosis' : 'research',
       taskId: null,
       taskIds: [],
       outputs: {},
@@ -40,21 +73,38 @@ function createWorkflowManager({
       updatedAt: now()
     };
 
+    const initialStage = engineering ? 'diagnosis' : 'research';
+    const initialEmployee = engineering ? 'ops' : 'scout';
+    const initialTitle = engineering
+      ? `Diagnose: ${workflow.title}`
+      : `Research: ${workflow.title}`;
+    const initialDescription = engineering
+      ? [
+          `Inspect the current DripVid JARVIS workforce problem described below.`,
+          `Identify concrete, evidence-based causes, current failure points, risks, and measurable acceptance checks.`,
+          `Do not claim to have inspected files, logs, services, GitHub, or live systems unless that evidence is actually present in the task context.`,
+          `Do not make code changes in this stage.`,
+          '',
+          `OBJECTIVE:`,
+          workflow.brief
+        ].join('\n')
+      : workflow.brief;
+
     const task = tasks.create({
-      title: `Research: ${workflow.title}`,
-      description: workflow.brief,
-      employeeId: 'scout',
+      title: initialTitle,
+      description: initialDescription,
+      employeeId: initialEmployee,
       workflowId: id,
-      stage: 'research',
-      priority: input.priority || 'normal'
+      stage: initialStage,
+      priority: input.priority || (engineering ? 'high' : 'normal')
     });
 
     workflow.taskId = task.id;
     workflow.taskIds.push(task.id);
     workflow.history.push({
-      stage: 'research',
+      stage: initialStage,
       taskId: task.id,
-      employeeId: 'scout',
+      employeeId: initialEmployee,
       at: now()
     });
 
@@ -78,7 +128,7 @@ function createWorkflowManager({
     if (!workflow || workflow.status !== 'active') return workflow ? clone(workflow) : null;
     if (completedTask.status !== 'complete') return clone(workflow);
 
-    if (task.stage === 'research' && (!completedTask.grounding || completedTask.grounding.verified !== true || completedTask.grounding.responseValidated !== true)) {
+    if (workflow.type !== 'engineering_improvement' && task.stage === 'research' && (!completedTask.grounding || completedTask.grounding.verified !== true || completedTask.grounding.responseValidated !== true)) {
       workflow.status = 'blocked';
       workflow.updatedAt = now();
       workflow.history.push({
@@ -94,6 +144,140 @@ function createWorkflowManager({
     }
 
     workflow.outputs[task.stage] = completedTask.result || '';
+
+    if (workflow.type === 'engineering_improvement' && task.stage === 'diagnosis') {
+      const next = tasks.create({
+        title: `Plan improvement: ${workflow.title}`,
+        description: [
+          `Create a concrete engineering improvement plan from Ops' diagnosis.`,
+          `Use only the objective and diagnosis below. Do not invent repository files, test results, incidents, or deployed changes.`,
+          '',
+          `OBJECTIVE:`,
+          workflow.brief,
+          '',
+          `OPS DIAGNOSIS:`,
+          completedTask.result || '(no diagnosis result)'
+        ].join('\n'),
+        employeeId: 'jarvis',
+        workflowId: workflow.id,
+        stage: 'planning',
+        priority: 'high'
+      });
+      workflow.stage = 'planning';
+      workflow.taskId = next.id;
+      workflow.taskIds.push(next.id);
+      workflow.history.push({ stage: 'planning', taskId: next.id, employeeId: 'jarvis', at: now() });
+      workflow.updatedAt = now();
+      registry.setState('jarvis', 'thinking', next.id);
+      return clone(workflow);
+    }
+
+    if (workflow.type === 'engineering_improvement' && task.stage === 'planning') {
+      const next = tasks.create({
+        title: `Implement improvement plan: ${workflow.title}`,
+        description: [
+          `Turn the approved engineering plan into an implementation checklist for Dev.`,
+          `Do not claim that code was changed or tests were run. Produce precise files/modules to inspect, changes to make, and tests to add or run.`,
+          '',
+          `OBJECTIVE:`,
+          workflow.brief,
+          '',
+          `OPS DIAGNOSIS:`,
+          workflow.outputs.diagnosis || '(none)',
+          '',
+          `JARVIS PLAN:`,
+          completedTask.result || '(none)'
+        ].join('\n'),
+        employeeId: 'dev',
+        workflowId: workflow.id,
+        stage: 'implementation',
+        priority: 'high'
+      });
+      workflow.stage = 'implementation';
+      workflow.taskId = next.id;
+      workflow.taskIds.push(next.id);
+      workflow.history.push({ stage: 'implementation', taskId: next.id, employeeId: 'dev', at: now() });
+      workflow.updatedAt = now();
+      registry.setState('jarvis', 'complete', null);
+      return clone(workflow);
+    }
+
+    if (workflow.type === 'engineering_improvement' && task.stage === 'implementation') {
+      const next = tasks.create({
+        title: `Verify improvement: ${workflow.title}`,
+        description: [
+          `Review Dev's proposed implementation and define verification steps.`,
+          `Do not claim tests, commands, deployments, or runtime checks actually happened unless their evidence is present in the task context.`,
+          '',
+          `OBJECTIVE:`,
+          workflow.brief,
+          '',
+          `JARVIS PLAN:`,
+          workflow.outputs.planning || '(none)',
+          '',
+          `DEV IMPLEMENTATION CHECKLIST:`,
+          completedTask.result || '(none)'
+        ].join('\n'),
+        employeeId: 'ops',
+        workflowId: workflow.id,
+        stage: 'verification',
+        priority: 'high'
+      });
+      workflow.stage = 'verification';
+      workflow.taskId = next.id;
+      workflow.taskIds.push(next.id);
+      workflow.history.push({ stage: 'verification', taskId: next.id, employeeId: 'ops', at: now() });
+      workflow.updatedAt = now();
+      registry.setState('dev', 'complete', null);
+      registry.setState('ops', 'thinking', next.id);
+      return clone(workflow);
+    }
+
+    if (workflow.type === 'engineering_improvement' && task.stage === 'verification') {
+      const approvalTask = tasks.create({
+        title: `Review improvement: ${workflow.title}`,
+        description: [
+          `Prepare an operator-facing review of the engineering improvement.`,
+          `Separate what is proposed from what is verified. Nothing should be deployed without explicit operator approval.`,
+          '',
+          `OBJECTIVE:`,
+          workflow.brief,
+          '',
+          `OPS DIAGNOSIS:`,
+          workflow.outputs.diagnosis || '(none)',
+          '',
+          `JARVIS PLAN:`,
+          workflow.outputs.planning || '(none)',
+          '',
+          `DEV IMPLEMENTATION CHECKLIST:`,
+          workflow.outputs.implementation || '(none)',
+          '',
+          `OPS VERIFICATION:`,
+          completedTask.result || '(none)'
+        ].join('\n'),
+        employeeId: 'jarvis',
+        workflowId: workflow.id,
+        stage: 'approval',
+        priority: 'high'
+      });
+
+      workflow.stage = 'approval';
+      workflow.status = 'awaiting_approval';
+      workflow.taskId = approvalTask.id;
+      workflow.taskIds.push(approvalTask.id);
+      workflow.approval = {
+        status: 'pending',
+        requestedAt: now(),
+        approvedAt: null,
+        rejectedAt: null,
+        reason: null
+      };
+      workflow.history.push({ stage: 'approval', taskId: approvalTask.id, employeeId: 'jarvis', at: now() });
+      workflow.updatedAt = now();
+      registry.setState('ops', 'complete', null);
+      registry.setState('jarvis', 'waiting', approvalTask.id);
+      return clone(workflow);
+    }
 
     if (task.stage === 'research') {
       const next = tasks.create({
@@ -275,4 +459,10 @@ function createWorkflowManager({
   return { create, get, list, advanceAfterTask, approve, reject, exportState, restoreState, stages: STAGES };
 }
 
-module.exports = { createWorkflowManager, STAGES };
+module.exports = {
+  createWorkflowManager,
+  STAGES,
+  CONTENT_STAGES,
+  ENGINEERING_STAGES,
+  normalizeWorkflowType
+};
