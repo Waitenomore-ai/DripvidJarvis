@@ -357,7 +357,7 @@ function createWorkflowManager({
             '',
             `SOSH SOCIAL DRAFT:`,
             completedTask.result || '(none)'
-          ].join('\\n'),
+          ].join('\n'),
         employeeId: 'jarvis',
         workflowId: workflow.id,
         stage: 'approval',
