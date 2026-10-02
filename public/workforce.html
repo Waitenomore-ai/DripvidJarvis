@@ -85,13 +85,70 @@
             <span class="eyebrow">LIVE COMMAND FLOOR</span>
             <h2>Watch the team move work through the system</h2>
           </div>
-          <span id="updated" class="updated-stamp">Waiting for state…</span>
+          <div class="section-head-actions">
+            <button id="worldModeButton" class="world-mode-button active" type="button">🎮 World Mode</button>
+            <span id="updated" class="updated-stamp">Waiting for state…</span>
+          </div>
         </div>
 
-        <div class="hero-floor">
+        <div class="hero-floor world-view">
           <div class="floor-glow floor-glow-a"></div>
           <div class="floor-glow floor-glow-b"></div>
           <div class="hero-wall-label">WORKFORCE // LIVE OPERATIONS</div>
+          <div class="world-map" id="gameWorld" aria-label="JARVIS virtual office">
+            <div class="world-grid"></div>
+            <div class="world-room world-room-command" data-world-room="command-centre">
+              <div class="world-room-label"><span>🧠</span> Command Centre</div>
+              <div class="world-workstation"><span class="world-screen">JARVIS</span><span class="world-console">MISSION CONSOLE</span></div>
+              <div class="world-prop world-holo">◈</div>
+            </div>
+            <div class="world-room world-room-research" data-world-room="research-lab">
+              <div class="world-room-label"><span>🔎</span> Research Lab</div>
+              <div class="world-workstation"><span class="world-screen">SCOUT</span><span class="world-console">RESEARCH TERMINALS</span></div>
+              <div class="world-prop world-globe">◎</div>
+            </div>
+            <div class="world-room world-room-social" data-world-room="social-studio">
+              <div class="world-room-label"><span>📱</span> Social Studio</div>
+              <div class="world-workstation"><span class="world-screen">SOSH</span><span class="world-console">SOCIAL DESK</span></div>
+              <div class="world-prop world-posts">▣ ▣ ▣</div>
+            </div>
+            <div class="world-room world-room-content" data-world-room="content-studio">
+              <div class="world-room-label"><span>✍️</span> Content Studio</div>
+              <div class="world-workstation"><span class="world-screen">PENNY</span><span class="world-console">CREATIVE DESK</span></div>
+              <div class="world-prop world-doc">▤</div>
+            </div>
+            <div class="world-room world-room-dev" data-world-room="dev-workshop">
+              <div class="world-room-label"><span>💻</span> Dev Workshop</div>
+              <div class="world-workstation"><span class="world-screen">DEV</span><span class="world-console">BUILD TERMINALS</span></div>
+              <div class="world-prop world-code">{ }</div>
+            </div>
+            <div class="world-room world-room-ops" data-world-room="ops-room">
+              <div class="world-room-label"><span>🖥️</span> Ops Room</div>
+              <div class="world-workstation"><span class="world-screen">OPS</span><span class="world-console">SERVICE MONITORING</span></div>
+              <div class="world-prop world-server">▥</div>
+            </div>
+            <div class="world-room world-room-task" data-world-room="task-hub">
+              <div class="world-room-label"><span>📋</span> Task Hub</div>
+              <div class="world-workstation world-task-board"><span class="world-screen">TASK HUB</span><span class="world-console">INCOMING WORK</span></div>
+              <div class="world-prop world-task-stack">⬡</div>
+            </div>
+            <div class="world-corridor corridor-a"></div>
+            <div class="world-corridor corridor-b"></div>
+            <div class="world-corridor corridor-c"></div>
+            <div class="world-center">
+              <div class="world-center-core">▶</div>
+              <strong>DRIPVID</strong>
+              <span>Your Entertainment Your Way</span>
+              <small>AI WORKFORCE FLOOR</small>
+            </div>
+            <div id="worldAgentLayer" class="world-agent-layer"></div>
+            <div id="worldMission" class="world-mission" hidden>
+              <span class="world-mission-kicker">ACTIVE MISSION</span>
+              <strong id="worldMissionTitle">Waiting for work</strong>
+              <span id="worldMissionStage">Stand by</span>
+            </div>
+          </div>
+
 
           <article class="hero-agent-card scout-card" data-core-agent="scout">
             <div class="hero-slot" id="hero-scout"></div>
