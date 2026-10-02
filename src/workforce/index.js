@@ -25,6 +25,22 @@ function createWorkforceRuntime({
   const record = (event) => { activity.unshift({ ...event, at: clock() }); activity.splice(30); };
   const activeWorkflowRuns = new Set();
   const scheduledWorkflowRuns = new Set();
+  let modelQueue = Promise.resolve();
+
+  async function withModelSlot(fn) {
+    const waitFor = modelQueue;
+    let release;
+    modelQueue = new Promise((resolve) => {
+      release = resolve;
+    });
+
+    await waitFor;
+    try {
+      return await fn();
+    } finally {
+      release();
+    }
+  }
 
   function persistState() {
     if (!persistence) return;
@@ -349,12 +365,12 @@ Before sending, ensure the entire response parses as JSON.`
         : '';
 
       const modelInput = `${task.description || task.title}${operatorContext}${researchContext}`;
-      const result = await model.chat({
+      const result = await withModelSlot(() => model.chat({
         conversation: [
           { role:'system', content:systemPrompt },
           { role:'user', content:modelInput }
         ]
-      });
+      }));
 
       const text = String(result && (result.message || result.content) || '');
 
@@ -368,7 +384,7 @@ Before sending, ensure the entire response parses as JSON.`
           error:validationError?.message || 'Structured response validation failed'
         });
 
-        const retryResult = await model.chat({
+        const retryResult = await withModelSlot(() => model.chat({
           conversation: [
             { role:'system', content:systemPrompt },
             { role:'user', content:modelInput },
@@ -384,7 +400,7 @@ Before sending, ensure the entire response parses as JSON.`
               ].join(' ')
             }
           ]
-        });
+        }));
 
         return String(retryResult && (retryResult.message || retryResult.content) || '');
       };
