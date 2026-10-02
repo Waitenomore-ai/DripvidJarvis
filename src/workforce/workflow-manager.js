@@ -109,7 +109,7 @@ function createWorkflowManager({
     });
 
     workflows.set(id, workflow);
-    registry.setState(initialEmployee, 'thinking', task.id);
+    registry.setState('jarvis', 'thinking', task.id);
     return clone(workflow);
   }
 
