@@ -21,10 +21,35 @@ function createWorkforceRuntime({
   const clock = now || (() => new Date().toISOString());
   const tasks = createTaskManager({ registry, now:clock });
   const activity = [];
+  const subscribers = new Set();
   const workflows = createWorkflowManager({ tasks, registry, now:clock, socialManager });
   const persistence = createWorkforcePersistence({ statePath, now:clock });
   const scout = scoutResearch || (web ? createScoutResearch({ web, allowedDomains: scoutAllowedDomains }) : null);
-  const record = (event) => { activity.unshift({ ...event, at: clock() }); activity.splice(30); };
+
+  const record = (event) => {
+    const enriched = { ...event, at: clock() };
+    activity.unshift(enriched);
+    activity.splice(30);
+
+    for (const subscriber of subscribers) {
+      try {
+        subscriber(enriched);
+      } catch {
+        subscribers.delete(subscriber);
+      }
+    }
+
+    return enriched;
+  };
+
+  function subscribeActivity(listener) {
+    if (typeof listener !== 'function') {
+      throw new TypeError('Workforce activity listener must be a function');
+    }
+
+    subscribers.add(listener);
+    return () => subscribers.delete(listener);
+  }
   const activeWorkflowRuns = new Set();
   const scheduledWorkflowRuns = new Set();
   let modelQueue = Promise.resolve();
@@ -665,6 +690,7 @@ Before sending, ensure the entire response parses as JSON.`
     executeTask,
     runWorkflow,
     persistState,
+    subscribeActivity,
     dependencies:{ model, brain, vault, web, dripvid }
   };
 }
