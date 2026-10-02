@@ -378,7 +378,8 @@ Before sending, ensure the entire response parses as JSON.`
 Return ONLY valid JSON using this exact shape:
 {"summary":"...","platforms":["facebook","instagram"],"posts":{"facebook":"...","instagram":"..."},"cta":"...","caveats":[]}
 Use strict JSON syntax: double quotes for all keys and string values, no comments, no trailing commas, no Markdown fences, and escape any quotation marks inside strings.
-Choose only platforms that are relevant to the brief and write the complete post text for every selected platform. Do not publish anything. Do not invent facts, prices, customers, statistics or product claims; use only the approved brief, Scout research and JARVIS plan provided.
+Choose only platforms that are relevant to the brief and write the complete post text for every selected platform. Use "x" for Twitter/X; never return "twitter" as a platform value. Do not publish anything. Do not invent facts, prices, customers, statistics or product claims; use only the approved brief, Scout research and JARVIS plan provided.
+Keep each post concise enough to fit within the model output budget.
 Before sending, ensure the entire response parses as JSON.`
           : `You are ${employee.name}, the ${employee.role} in DripVid JARVIS. Return a concise, useful result for the assigned task.`;
 
@@ -401,7 +402,8 @@ Before sending, ensure the entire response parses as JSON.`
           maxTokens: task.stage === 'copy'
             ? Math.min(450, workforceMaxTokens)
             : workforceMaxTokens,
-          timeoutMs: workforceChatTimeoutMs
+          timeoutMs: workforceChatTimeoutMs,
+          responseFormat: 'json_object'
         }
       }));
 
@@ -437,7 +439,8 @@ Before sending, ensure the entire response parses as JSON.`
             maxTokens: task.stage === 'copy'
               ? Math.min(450, workforceMaxTokens)
               : workforceMaxTokens,
-            timeoutMs: workforceChatTimeoutMs
+            timeoutMs: workforceChatTimeoutMs,
+            responseFormat: 'json_object'
           }
         }));
 
