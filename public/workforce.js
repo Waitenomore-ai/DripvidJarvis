@@ -1847,6 +1847,61 @@ async function refreshWorkforceState() {
   }
 }
 
+let workforceEventSource = null;
+let realtimeRefreshTimer = null;
+
+function scheduleRealtimeRefresh() {
+  if (realtimeRefreshTimer) return;
+
+  realtimeRefreshTimer = window.setTimeout(async () => {
+    realtimeRefreshTimer = null;
+    await refreshWorkforceState();
+  }, 80);
+}
+
+function startWorkforceRealtime() {
+  if (!('EventSource' in window)) return;
+
+  try {
+    workforceEventSource?.close();
+    workforceEventSource = new EventSource(
+      workforceApi('/api/workforce/events')
+    );
+
+    workforceEventSource.addEventListener('snapshot', (event) => {
+      try {
+        const state = JSON.parse(event.data);
+        renderWorkforceState(state);
+      } catch {
+        scheduleRealtimeRefresh();
+      }
+    });
+
+    workforceEventSource.addEventListener('activity', () => {
+      scheduleRealtimeRefresh();
+    });
+
+    workforceEventSource.onopen = () => {
+      const connection = document.getElementById('connection');
+      if (connection) {
+        connection.textContent = 'Live';
+        connection.className = 'live';
+        connection.title = 'Realtime workforce events connected';
+      }
+    };
+
+    workforceEventSource.onerror = () => {
+      const connection = document.getElementById('connection');
+      if (connection) {
+        connection.textContent = 'Live · reconnecting';
+        connection.className = 'offline';
+      }
+    };
+  } catch {
+    // The existing state polling remains the fallback.
+  }
+}
+
 function renderOffline() {
   document.getElementById('connection').textContent = 'Offline';
   document.getElementById('connection').className = 'offline';
@@ -1854,7 +1909,8 @@ function renderOffline() {
 
 async function startWorkforcePolling() {
   await refreshWorkforceState();
-  setInterval(refreshWorkforceState, 3000);
+  startWorkforceRealtime();
+  setInterval(refreshWorkforceState, 15000);
 }
 
 window.loadWorkforceState = loadWorkforceState;

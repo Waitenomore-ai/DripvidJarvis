@@ -16,7 +16,49 @@ async function handleWorkforce(req,res,workforce){
   const url=new URL(req.url,'http://127.0.0.1'); const pathname=url.pathname;
   if(!pathname.startsWith('/api/workforce')) return false;
   try{
-    if(req.method==='GET'&&pathname==='/api/workforce/state'){sendWorkforceJson(res,200,workforce.snapshot());return true;}
+    if(req.method==='GET'&&pathname==='/api/workforce/events'){
+      res.statusCode=200;
+      res.setHeader('content-type','text/event-stream; charset=utf-8');
+      res.setHeader('cache-control','no-cache, no-transform');
+      res.setHeader('connection','keep-alive');
+      res.setHeader('x-accel-buffering','no');
+      res.flushHeaders?.();
+
+      let closed=false;
+      const sendEvent=(event,data)=>{
+        if(closed || res.destroyed) return;
+        try{
+          res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+        }catch{
+          cleanup();
+        }
+      };
+
+      const heartbeat=setInterval(()=>{
+        if(closed || res.destroyed){
+          cleanup();
+          return;
+        }
+        try{res.write(': heartbeat\n\n');}catch{cleanup();}
+      },20000);
+
+      const unsubscribe=workforce.subscribeActivity((activity)=>{
+        sendEvent('activity',activity);
+      });
+
+      const cleanup=()=>{
+        if(closed) return;
+        closed=true;
+        clearInterval(heartbeat);
+        unsubscribe?.();
+      };
+
+      req.on('close',cleanup);
+      res.on('close',cleanup);
+      sendEvent('snapshot',workforce.snapshot());
+      return true;
+    }
+        if(req.method==='GET'&&pathname==='/api/workforce/state'){sendWorkforceJson(res,200,workforce.snapshot());return true;}
     if(req.method==='GET'&&pathname==='/api/workforce/employees'){sendWorkforceJson(res,200,{employees:workforce.registry.list()});return true;}
     if(req.method==='GET'&&pathname==='/api/workforce/tasks'){sendWorkforceJson(res,200,{tasks:workforce.tasks.list({employeeId:url.searchParams.get('employeeId')||undefined,status:url.searchParams.get('status')||undefined})});return true;}
     if(req.method==='GET'&&pathname==='/api/workforce/workflows'){sendWorkforceJson(res,200,{workflows:workforce.workflows.list()});return true;}
