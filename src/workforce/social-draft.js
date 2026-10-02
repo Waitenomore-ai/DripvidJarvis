@@ -1,5 +1,7 @@
 'use strict';
 
+const { validateContentText } = require('./content-quality');
+
 const ALLOWED_PLATFORMS = Object.freeze([
   'facebook',
   'instagram',
@@ -69,10 +71,12 @@ function validateSocialDraftResponse(text) {
     if (typeof post !== 'string' || !post.trim()) {
       throw new Error(`Sosh response is missing a post for ${platform}`);
     }
-    posts[platform] = post.trim();
+    posts[platform] = validateContentText(post.trim(), `Sosh ${platform} post`);
   }
 
-  const cta = typeof payload.cta === 'string' ? payload.cta.trim() : '';
+  const cta = typeof payload.cta === 'string'
+    ? validateContentText(payload.cta.trim(), 'Sosh CTA')
+    : '';
   const caveats = Array.isArray(payload.caveats)
     ? payload.caveats.map((item) => String(item).trim()).filter(Boolean)
     : [];
