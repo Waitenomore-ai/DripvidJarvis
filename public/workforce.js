@@ -1079,6 +1079,56 @@ const WORLD_AGENT_ACCENTS = Object.freeze({
 });
 
 const worldAgentPositions = new Map();
+const worldMotion = new Map();
+
+const WORLD_PATH_POINTS = Object.freeze({
+  north: [50, 34],
+  centre: [50, 51],
+  south: [50, 66],
+  task: [49, 56]
+});
+
+function worldRoomZone(room) {
+  if (['research-lab','social-studio'].includes(room)) return 'north';
+  if (['command-centre'].includes(room)) return 'north';
+  if (['dev-workshop','ops-room','content-studio'].includes(room)) return 'south';
+  if (room === 'task-hub') return 'task';
+  return 'centre';
+}
+
+function worldRoutePoints(from, destination) {
+  const target = [destination.x, destination.y];
+  const zone = worldRoomZone(destination.room);
+  const points = [];
+
+  if (zone === 'task') {
+    points.push(WORLD_PATH_POINTS.centre, WORLD_PATH_POINTS.task, target);
+  } else if (zone === 'north') {
+    points.push(WORLD_PATH_POINTS.south, WORLD_PATH_POINTS.centre, WORLD_PATH_POINTS.north, target);
+  } else if (zone === 'south') {
+    points.push(WORLD_PATH_POINTS.north, WORLD_PATH_POINTS.centre, WORLD_PATH_POINTS.south, target);
+  } else {
+    points.push(WORLD_PATH_POINTS.centre, target);
+  }
+
+  const deduped = [];
+  for (const point of points) {
+    const previous = deduped[deduped.length - 1];
+    if (!previous || previous[0] !== point[0] || previous[1] !== point[1]) {
+      deduped.push(point);
+    }
+  }
+
+  if (from && deduped.length && from[0] === deduped[0][0] && from[1] === deduped[0][1]) {
+    deduped.shift();
+  }
+
+  return deduped;
+}
+
+function worldMotionKey(destination) {
+  return destination.room + ':' + destination.x + ':' + destination.y;
+}
 
 function worldDestination(employee, task) {
   const room = WORLD_AGENT_ROOMS[employee.id] || employee.room || 'command-centre';
@@ -1119,6 +1169,17 @@ function worldTaskIcon(employee, task) {
   return '•';
 }
 
+function worldTaskKind(task) {
+  const stage = String(task?.stage || '').toLowerCase();
+  if (stage === 'research') return '🔎';
+  if (stage === 'planning' || stage === 'approval') return '🧠';
+  if (stage === 'copy') return '✍️';
+  if (stage === 'social') return '📱';
+  if (stage === 'development') return '💻';
+  if (stage === 'ops') return '🖥️';
+  return '⬡';
+}
+
 function worldAgentMarkup(employee, task, destination, walking) {
   const accent = WORLD_AGENT_ACCENTS[employee.id] || '#45d9ff';
   const state = String(employee.state || 'idle');
@@ -1143,6 +1204,7 @@ function worldAgentMarkup(employee, task, destination, walking) {
       title="${esc(employee.name)} — ${esc(worldStatusLabel(employee, task))}"
     >
       <span class="world-agent-body">
+        ${task ? '<span class="world-task-object" title="' + esc(task.title || 'Task') + '">' + worldTaskKind(task) + '</span>' : ''}
         <span class="world-agent-task" data-kind="${stateClass === 'alert' ? 'alert' : 'normal'}">${worldTaskIcon(employee, task)}</span>
         <span class="world-agent-avatar">${agentAvatar(employee.id, true)}</span>
         <span class="world-agent-name">${esc(employee.name)}</span>
@@ -1196,6 +1258,116 @@ function renderWorldRooms(employees) {
   }
 }
 
+function animateWorldAgentPath(node, employeeId, from, destination) {
+  if (!node) return;
+
+  const key = worldMotionKey(destination);
+  const existing = worldMotion.get(employeeId);
+  if (existing?.key === key) return;
+
+  if (existing?.timers) {
+    existing.timers.forEach((timer) => window.clearTimeout(timer));
+  }
+
+  const points = worldRoutePoints(from, destination);
+  if (!points.length) {
+    node.style.setProperty('--x', destination.x);
+    node.style.setProperty('--y', destination.y);
+    worldMotion.set(employeeId, { key, timers:[] });
+    node.classList.remove('walking');
+    return;
+  }
+
+  const motion = { key, timers:[] };
+  worldMotion.set(employeeId, motion);
+  node.classList.add('walking');
+
+  let delay = 20;
+  points.forEach((point, index) => {
+    const timer = window.setTimeout(() => {
+      node.style.transitionDuration = index === points.length - 1 ? '680ms' : '480ms';
+      node.style.setProperty('--x', point[0]);
+      node.style.setProperty('--y', point[1]);
+
+      if (index === points.length - 1) {
+        const finish = window.setTimeout(() => {
+          if (worldMotion.get(employeeId)?.key === key) {
+            node.classList.remove('walking');
+          }
+        }, 720);
+        motion.timers.push(finish);
+      }
+    }, delay);
+
+    motion.timers.push(timer);
+    delay += index === points.length - 1 ? 700 : 500;
+  });
+}
+
+function renderWorldTransfer(previousState, state) {
+  const layer = document.getElementById('worldTransferLayer');
+  const previousWorkflow = (previousState?.workflows || []).find((item) =>
+    ['active','awaiting_approval','blocked'].includes(item.status)
+  );
+  const currentWorkflow = (state?.workflows || []).find((item) =>
+    ['active','awaiting_approval','blocked'].includes(item.status)
+  );
+
+  const previousTask = previousWorkflow?.taskId
+    ? (previousState?.tasks || []).find((item) => item.id === previousWorkflow.taskId)
+    : null;
+  const currentTask = currentWorkflow?.taskId
+    ? (state?.tasks || []).find((item) => item.id === currentWorkflow.taskId)
+    : null;
+
+  const previousAgent = previousTask?.employeeId || activeWorkflowAgent(previousState || {});
+  const currentAgent = currentTask?.employeeId || activeWorkflowAgent(state || {});
+
+  if (!layer || !previousAgent || !currentAgent || previousAgent === currentAgent) return;
+
+  const sourceNode = document.querySelector(`[data-world-employee="${CSS.escape(previousAgent)}"]`);
+  const targetNode = document.querySelector(`[data-world-employee="${CSS.escape(currentAgent)}"]`);
+  if (!sourceNode || !targetNode) return;
+
+  const world = document.getElementById('gameWorld');
+  if (!world) return;
+
+  const rect = world.getBoundingClientRect();
+  const source = sourceNode.getBoundingClientRect();
+  const target = targetNode.getBoundingClientRect();
+
+  const sx = source.left - rect.left + source.width / 2;
+  const sy = source.top - rect.top + 12;
+  const tx = target.left - rect.left + target.width / 2;
+  const ty = target.top - rect.top + 12;
+
+  const token = document.createElement('div');
+  token.className = 'world-transfer';
+  token.innerHTML = '<span class="world-transfer-core">' + worldTaskKind(currentTask || previousTask) + '</span><span class="world-transfer-label">' + esc(currentTask?.title || previousTask?.title || 'Task handoff') + '</span>';
+  token.style.setProperty('--sx', sx + 'px');
+  token.style.setProperty('--sy', sy + 'px');
+  token.style.setProperty('--tx', tx + 'px');
+  token.style.setProperty('--ty', ty + 'px');
+  layer.appendChild(token);
+
+  window.setTimeout(() => token.remove(), 1200);
+}
+
+function renderWorldWorkstations(employees, tasks) {
+  const active = new Set(
+    employees
+      .filter((employee) => ['working','researching','thinking'].includes(employee.state))
+      .map((employee) => employee.id)
+  );
+
+  for (const workstation of document.querySelectorAll('[data-workstation-for]')) {
+    const employeeId = workstation.dataset.workstationFor;
+    const task = tasks.find((item) => item.employeeId === employeeId && ['queued','waiting','running'].includes(item.status));
+    workstation.classList.toggle('workstation-active', active.has(employeeId));
+    workstation.classList.toggle('workstation-task', Boolean(task));
+  }
+}
+
 function renderWorldAgents(employees, tasks) {
   const layer = document.getElementById('worldAgentLayer');
   if (!layer) return;
@@ -1216,7 +1388,8 @@ function renderWorldAgents(employees, tasks) {
     const changed = Boolean(
       previous &&
       (Math.abs(previous.x - destination.x) > 0.5 ||
-       Math.abs(previous.y - destination.y) > 0.5)
+       Math.abs(previous.y - destination.y) > 0.5 ||
+       previous.room !== destination.room)
     );
 
     let node = layer.querySelector(
@@ -1244,6 +1417,7 @@ function renderWorldAgents(employees, tasks) {
                 : ''
         )} ${changed ? 'walking' : ''}`;
 
+      node.style.transitionDuration = '1.1s';
       node.style.setProperty('--x', destination.x);
       node.style.setProperty('--y', destination.y);
 
@@ -1275,6 +1449,25 @@ function renderWorldAgents(employees, tasks) {
       }
     }
 
+    if (!previous) {
+      node.style.transition = 'none';
+      node.style.setProperty('--x', destination.x);
+      node.style.setProperty('--y', destination.y);
+      window.requestAnimationFrame(() => {
+        node.style.transition = '';
+      });
+    } else if (changed) {
+      animateWorldAgentPath(
+        node,
+        employee.id,
+        [previous.x, previous.y],
+        destination
+      );
+    } else {
+      node.style.setProperty('--x', destination.x);
+      node.style.setProperty('--y', destination.y);
+    }
+
     worldAgentPositions.set(employee.id, {
       x:destination.x,
       y:destination.y,
@@ -1283,6 +1476,7 @@ function renderWorldAgents(employees, tasks) {
   }
 
   renderWorldRooms(employees);
+  renderWorldWorkstations(employees, tasks);
 }
 
 function setupWorldMode() {
@@ -1329,6 +1523,7 @@ function renderWorkforceState(state) {
   renderHeroAgents(employees, tasks);
   renderWorldAgents(employees, tasks);
   renderWorldMission(state);
+  renderWorldTransfer(previousState, state);
   renderHandoffAnimation(state, previousState);
 
   for (const room of ['dev-workshop','ops-room']) {

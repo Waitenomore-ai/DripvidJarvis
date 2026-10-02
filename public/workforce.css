@@ -2345,3 +2345,132 @@ footer a{color:#55d8ff}
 .world-view .handoff-layer{
   display:none;
 }
+
+.world-workstation{
+  transition:
+    border-color .3s ease,
+    box-shadow .3s ease,
+    transform .3s ease;
+}
+.world-workstation.workstation-active{
+  border-color:#49d6ff;
+  transform:translate(-50%,-50%) translateY(-2px);
+  box-shadow:
+    0 12px 24px #0009,
+    0 0 28px #45d9ff1c,
+    inset 0 0 22px #45d9ff10;
+}
+.world-workstation.workstation-task .world-screen{
+  animation:screenPulse 1.8s ease-in-out infinite;
+}
+.world-agent-progress{
+  transition:width .45s ease;
+}
+.world-task-object{
+  position:absolute;
+  right:-9px;
+  top:-17px;
+  width:24px;
+  height:24px;
+  display:grid;
+  place-items:center;
+  border:1px solid #6de8ff;
+  border-radius:8px;
+  background:linear-gradient(145deg,#0b2536,#06121c);
+  color:#c8f7ff;
+  font-size:11px;
+  box-shadow:
+    0 0 16px #45d9ff24,
+    0 9px 20px #0009;
+  animation:taskBob 1.6s ease-in-out infinite;
+}
+.world-task-object::after{
+  content:"";
+  position:absolute;
+  inset:-4px;
+  border:1px solid #45d9ff20;
+  border-radius:10px;
+  animation:taskRing 2.2s ease-out infinite;
+}
+.world-transfer-layer{
+  position:absolute;
+  inset:0;
+  z-index:30;
+  pointer-events:none;
+  overflow:hidden;
+}
+.world-transfer{
+  position:absolute;
+  left:0;
+  top:0;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  transform:translate3d(var(--sx),var(--sy),0);
+  animation:worldTransferFlight 1.05s cubic-bezier(.16,.82,.2,1) forwards;
+  filter:drop-shadow(0 0 14px #45d9ff55);
+}
+.world-transfer-core{
+  width:23px;
+  height:23px;
+  display:grid;
+  place-items:center;
+  border:1px solid #8ff0ff;
+  border-radius:50%;
+  background:radial-gradient(circle,#1e6c8b,#071824 70%);
+  color:#e4fbff;
+  font-size:10px;
+  box-shadow:0 0 16px #45d9ff55;
+  animation:transferPulse .55s ease-in-out infinite alternate;
+}
+.world-transfer-label{
+  max-width:180px;
+  padding:4px 7px;
+  border:1px solid #2f5a75;
+  border-radius:999px;
+  background:#06111cf5;
+  color:#d4e9f4;
+  font-size:7px;
+  font-weight:800;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  box-shadow:0 8px 20px #0009;
+}
+@keyframes worldTransferFlight{
+  0%{
+    opacity:0;
+    transform:translate3d(var(--sx),var(--sy),0) scale(.75);
+  }
+  12%{opacity:1}
+  100%{
+    opacity:1;
+    transform:translate3d(var(--tx),var(--ty),0) scale(1);
+  }
+}
+@keyframes transferPulse{
+  from{transform:scale(.86);box-shadow:0 0 10px #45d9ff44}
+  to{transform:scale(1.12);box-shadow:0 0 22px #45d9ff88}
+}
+@keyframes taskBob{
+  0%,100%{transform:translateY(0) rotate(0)}
+  50%{transform:translateY(-3px) rotate(2deg)}
+}
+@keyframes taskRing{
+  0%{transform:scale(.82);opacity:.55}
+  70%{transform:scale(1.18);opacity:0}
+  100%{opacity:0}
+}
+@keyframes screenPulse{
+  0%,100%{box-shadow:0 0 15px #45d9ff10}
+  50%{box-shadow:0 0 20px #45d9ff28}
+}
+@media(prefers-reduced-motion:reduce){
+  .world-task-object,
+  .world-task-object::after,
+  .world-transfer,
+  .world-transfer-core,
+  .world-workstation.workstation-task .world-screen{
+    animation:none!important;
+  }
+}

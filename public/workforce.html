@@ -99,32 +99,32 @@
             <div class="world-grid"></div>
             <div class="world-room world-room-command" data-world-room="command-centre">
               <div class="world-room-label"><span>🧠</span> Command Centre</div>
-              <div class="world-workstation"><span class="world-screen">JARVIS</span><span class="world-console">MISSION CONSOLE</span></div>
+              <div class="world-workstation" data-workstation-for="jarvis"><span class="world-screen">JARVIS</span><span class="world-console">MISSION CONSOLE</span></div>
               <div class="world-prop world-holo">◈</div>
             </div>
             <div class="world-room world-room-research" data-world-room="research-lab">
               <div class="world-room-label"><span>🔎</span> Research Lab</div>
-              <div class="world-workstation"><span class="world-screen">SCOUT</span><span class="world-console">RESEARCH TERMINALS</span></div>
+              <div class="world-workstation" data-workstation-for="scout"><span class="world-screen">SCOUT</span><span class="world-console">RESEARCH TERMINALS</span></div>
               <div class="world-prop world-globe">◎</div>
             </div>
             <div class="world-room world-room-social" data-world-room="social-studio">
               <div class="world-room-label"><span>📱</span> Social Studio</div>
-              <div class="world-workstation"><span class="world-screen">SOSH</span><span class="world-console">SOCIAL DESK</span></div>
+              <div class="world-workstation" data-workstation-for="sosh"><span class="world-screen">SOSH</span><span class="world-console">SOCIAL DESK</span></div>
               <div class="world-prop world-posts">▣ ▣ ▣</div>
             </div>
             <div class="world-room world-room-content" data-world-room="content-studio">
               <div class="world-room-label"><span>✍️</span> Content Studio</div>
-              <div class="world-workstation"><span class="world-screen">PENNY</span><span class="world-console">CREATIVE DESK</span></div>
+              <div class="world-workstation" data-workstation-for="penny"><span class="world-screen">PENNY</span><span class="world-console">CREATIVE DESK</span></div>
               <div class="world-prop world-doc">▤</div>
             </div>
             <div class="world-room world-room-dev" data-world-room="dev-workshop">
               <div class="world-room-label"><span>💻</span> Dev Workshop</div>
-              <div class="world-workstation"><span class="world-screen">DEV</span><span class="world-console">BUILD TERMINALS</span></div>
+              <div class="world-workstation" data-workstation-for="dev"><span class="world-screen">DEV</span><span class="world-console">BUILD TERMINALS</span></div>
               <div class="world-prop world-code">{ }</div>
             </div>
             <div class="world-room world-room-ops" data-world-room="ops-room">
               <div class="world-room-label"><span>🖥️</span> Ops Room</div>
-              <div class="world-workstation"><span class="world-screen">OPS</span><span class="world-console">SERVICE MONITORING</span></div>
+              <div class="world-workstation" data-workstation-for="ops"><span class="world-screen">OPS</span><span class="world-console">SERVICE MONITORING</span></div>
               <div class="world-prop world-server">▥</div>
             </div>
             <div class="world-room world-room-task" data-world-room="task-hub">
@@ -141,6 +141,7 @@
               <span>Your Entertainment Your Way</span>
               <small>AI WORKFORCE FLOOR</small>
             </div>
+            <div id="worldTransferLayer" class="world-transfer-layer" aria-hidden="true"></div>
             <div id="worldAgentLayer" class="world-agent-layer"></div>
             <div id="worldMission" class="world-mission" hidden>
               <span class="world-mission-kicker">ACTIVE MISSION</span>
