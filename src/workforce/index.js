@@ -13,6 +13,8 @@ function createWorkforceRuntime({
   socialManager = null, scoutResearch = null,
   scoutAllowedDomains = ['dripvid.uk', 'www.dripvid.uk'], now,
   autoRunWorkflows = false, autoRunDelayMs = 25,
+  workforceChatTimeoutMs = 60000,
+  workforceMaxTokens = 600,
   statePath = null
 } = {}) {
   const registry = createWorkforceRegistry();
@@ -369,7 +371,13 @@ Before sending, ensure the entire response parses as JSON.`
         conversation: [
           { role:'system', content:systemPrompt },
           { role:'user', content:modelInput }
-        ]
+        ],
+        options: {
+          maxTokens: task.stage === 'copy'
+            ? Math.min(450, workforceMaxTokens)
+            : workforceMaxTokens,
+          timeoutMs: workforceChatTimeoutMs
+        }
       }));
 
       const text = String(result && (result.message || result.content) || '');
@@ -398,8 +406,14 @@ Before sending, ensure the entire response parses as JSON.`
                 'Do not include Markdown, commentary, code fences, trailing commas, or any text before or after the JSON object.',
                 'Double-check that the full response parses as strict JSON before sending it.'
               ].join(' ')
-            }
-          ]
+            },
+          ],
+          options: {
+            maxTokens: task.stage === 'copy'
+              ? Math.min(450, workforceMaxTokens)
+              : workforceMaxTokens,
+            timeoutMs: workforceChatTimeoutMs
+          }
         }));
 
         return String(retryResult && (retryResult.message || retryResult.content) || '');
