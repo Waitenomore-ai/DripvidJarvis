@@ -2542,3 +2542,50 @@ footer a{color:#55d8ff}
 @media(prefers-reduced-motion:reduce){
   .world-event-bubble{animation:none!important}
 }
+
+.task-create-panel input,
+.task-create-panel textarea,
+.task-create-panel select{
+  width:calc(100% - 24px);
+  margin-left:12px;
+  margin-right:12px;
+}
+.task-create-panel input,
+.task-create-panel textarea,
+.task-create-panel select{
+  border:1px solid #243e55;
+  border-radius:8px;
+  background:#06111b;
+  color:#cfe3ef;
+  font:inherit;
+  font-size:8px;
+  padding:8px;
+  outline:none;
+}
+.task-create-panel textarea{
+  resize:vertical;
+  min-height:64px;
+}
+.task-create-panel input:focus,
+.task-create-panel textarea:focus,
+.task-create-panel select:focus{
+  border-color:#45d9ff;
+  box-shadow:0 0 18px #45d9ff0d;
+}
+.task-create-row{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:7px;
+  margin:7px 12px 12px;
+}
+.task-create-row select{
+  width:100%;
+  margin:0;
+}
+.task-create-row .primary-action{
+  width:100%;
+  margin:0;
+}
+.task-create-panel + .workflow-panel{
+  margin-top:0;
+}

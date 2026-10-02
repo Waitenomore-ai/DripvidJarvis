@@ -407,6 +407,48 @@ function taskCard(task) {
   `;
 }
 
+async function createWorkforceTask() {
+  const employeeId = document.getElementById('taskEmployee')?.value || '';
+  const titleField = document.getElementById('taskTitle');
+  const descriptionField = document.getElementById('taskDescription');
+  const priority = document.getElementById('taskPriority')?.value || 'normal';
+  const status = document.getElementById('taskCreateStatus');
+  const title = titleField?.value.trim() || '';
+  const description = descriptionField?.value.trim() || '';
+
+  if (!employeeId || !title || !description) {
+    if (status) status.textContent = 'Agent, title and task required';
+    return;
+  }
+
+  const response = await fetch(workforceApi('/api/workforce/tasks'), {
+    method:'POST',
+    headers:{'content-type':'application/json'},
+    body:JSON.stringify({
+      employeeId,
+      title,
+      description,
+      priority
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      (await response.json().catch(() => ({}))).error ||
+      'Task creation failed'
+    );
+  }
+
+  titleField.value = '';
+  descriptionField.value = '';
+  if (status) status.textContent = 'TASK CREATED';
+  window.setTimeout(() => {
+    if (status) status.textContent = 'READY';
+  }, 1800);
+
+  await refreshWorkforceState();
+}
+
 async function createWorkflow() {
   const title = document.getElementById('workflowTitle').value.trim();
   const brief = document.getElementById('workflowBrief').value.trim();
@@ -1918,6 +1960,21 @@ window.renderWorkforceState = renderWorkforceState;
 window.startWorkforcePolling = startWorkforcePolling;
 window.executeWorkforceTask = executeWorkforceTask;
 window.respondToTask = respondToTask;
+window.createWorkforceTask = createWorkforceTask;
+
+document.getElementById('createTask')?.addEventListener('click', async () => {
+  const button = document.getElementById('createTask');
+  button.disabled = true;
+
+  try {
+    await createWorkforceTask();
+  } catch (error) {
+    const status = document.getElementById('taskCreateStatus');
+    if (status) status.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+});
 
 document.getElementById('createWorkflow')?.addEventListener('click', async () => {
   const button = document.getElementById('createWorkflow');

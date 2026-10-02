@@ -216,6 +216,28 @@
           <div id="needsList"></div>
         </section>
 
+        <section class="panel task-create-panel">
+          <div class="rail-head"><div><span class="eyebrow">TASK HUB</span><h3>Assign a Task</h3></div><span id="taskCreateStatus" class="rail-state">READY</span></div>
+          <select id="taskEmployee" aria-label="Assign task to agent">
+            <option value="jarvis">JARVIS — Team Leader</option>
+            <option value="scout">Scout — Research & Trends</option>
+            <option value="penny">Penny — Copywriter</option>
+            <option value="sosh">Sosh — Social Media</option>
+            <option value="dev">Dev — Developer</option>
+            <option value="ops">Ops — Operations</option>
+          </select>
+          <input id="taskTitle" placeholder="Task title" autocomplete="off">
+          <textarea id="taskDescription" rows="3" placeholder="What should this agent do?"></textarea>
+          <div class="task-create-row">
+            <select id="taskPriority" aria-label="Task priority">
+              <option value="normal">Normal priority</option>
+              <option value="high">High priority</option>
+              <option value="urgent">Urgent priority</option>
+            </select>
+            <button id="createTask" class="primary-action">Create Task <span>→</span></button>
+          </div>
+        </section>
+
         <section class="panel workflow-panel">
           <div class="rail-head"><div><span class="eyebrow">ORCHESTRATION</span><h3>Campaign Workflows</h3></div><span id="workflowStatus" class="rail-state">READY</span></div>
           <input id="workflowTitle" placeholder="Campaign title" autocomplete="off">
